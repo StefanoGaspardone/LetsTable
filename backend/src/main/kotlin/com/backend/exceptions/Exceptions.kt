@@ -28,6 +28,6 @@ class RefreshTokenNotFoundException: RuntimeException("Refresh token not found")
 
 class RefreshTokenExpiredOrRevokedException: RuntimeException("Refresh token expired or revoked")
 
-class JwtParsingException: RuntimeException("Failed to parse or validate JWT token")
+class BggRequestFailedException(cause: Throwable) : RuntimeException("Failed to reach BoardGameGeek API", cause)
 
-class UnauthenticatedException: RuntimeException("No authenticated user found in security context")
+class GameNotFoundOnBggException(bggId: Long) : RuntimeException("Game not found on BoardGameGeek with id: $bggId")
