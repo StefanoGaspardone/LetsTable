@@ -27,3 +27,9 @@ data class UserDTO(
         )
     }
 }
+
+@Schema(description = "Confirmation that an account deletion was processed")
+data class DeleteAccountDTO(
+    @field:Schema(description = "Human-readable confirmation message")
+    val message: String,
+)
