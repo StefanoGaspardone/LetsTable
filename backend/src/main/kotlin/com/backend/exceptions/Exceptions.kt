@@ -71,3 +71,15 @@ class UserNotWishlistMemberException(userId: UUID): RuntimeException("User is no
 class GameAlreadyInWishlistException(gameId: UUID): RuntimeException("Game already in wishlist: $gameId")
 
 class WishlistItemNotFoundException(itemId: UUID): RuntimeException("Wishlist item not found: $itemId")
+
+class MatchNotFoundException(matchId: UUID): RuntimeException("Match not found: $matchId")
+
+class NotMatchCreatorException: RuntimeException("Only the match creator can perform this action")
+
+class InvalidMatchPlayerIdentityException: RuntimeException("Each player must have exactly one of userId or guestName")
+
+class InvalidMatchTeamsException(message: String): RuntimeException(message)
+
+class InvalidMatchPlayersException(message: String): RuntimeException(message)
+
+class UserNotFoundException(userId: UUID): RuntimeException("User not found: $userId")

@@ -181,4 +181,28 @@ class ExceptionsHandler {
     @ExceptionHandler(WishlistItemNotFoundException::class)
     fun handleWishlistItemNotFound(ex: WishlistItemNotFoundException) =
         buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(MatchNotFoundException::class)
+    fun handleMatchNotFound(ex: MatchNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(NotMatchCreatorException::class)
+    fun handleNotMatchCreator(ex: NotMatchCreatorException) =
+        buildResponse(HttpStatus.FORBIDDEN, ex)
+
+    @ExceptionHandler(InvalidMatchPlayerIdentityException::class)
+    fun handleInvalidMatchPlayerIdentity(ex: InvalidMatchPlayerIdentityException) =
+        buildResponse(HttpStatus.BAD_REQUEST, ex)
+
+    @ExceptionHandler(InvalidMatchTeamsException::class)
+    fun handleInvalidMatchTeams(ex: InvalidMatchTeamsException) =
+        buildResponse(HttpStatus.BAD_REQUEST, ex)
+
+    @ExceptionHandler(InvalidMatchPlayersException::class)
+    fun handleInvalidMatchPlayers(ex: InvalidMatchPlayersException) =
+        buildResponse(HttpStatus.BAD_REQUEST, ex)
+
+    @ExceptionHandler(UserNotFoundException::class)
+    fun handleUserNotFound(ex: UserNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
 }
