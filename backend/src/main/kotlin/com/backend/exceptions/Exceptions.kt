@@ -53,3 +53,21 @@ class CollectionItemNotFoundException(itemId: UUID): RuntimeException("Collectio
 class GameNotFoundException(gameId: UUID): RuntimeException("Game not found: $gameId")
 
 class NotCollectionItemOwnerException: RuntimeException("You do not own this collection item")
+
+class WishlistNotFoundException(wishlistId: UUID): RuntimeException("Wishlist not found: $wishlistId")
+
+class NotWishlistOwnerException: RuntimeException("Only the wishlist owner can perform this action")
+
+class NotWishlistOwnerOrMemberException: RuntimeException("You do not have access to this wishlist")
+
+class WishlistNotSharedException(wishlistId: UUID): RuntimeException("Wishlist is not shared, cannot manage members: $wishlistId")
+
+class CannotAddOwnerAsMemberException: RuntimeException("The wishlist owner is already implicitly a member")
+
+class UserAlreadyWishlistMemberException(userId: UUID): RuntimeException("User is already a member of this wishlist: $userId")
+
+class UserNotWishlistMemberException(userId: UUID): RuntimeException("User is not a member of this wishlist: $userId")
+
+class GameAlreadyInWishlistException(gameId: UUID): RuntimeException("Game already in wishlist: $gameId")
+
+class WishlistItemNotFoundException(itemId: UUID): RuntimeException("Wishlist item not found: $itemId")

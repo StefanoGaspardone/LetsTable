@@ -8,7 +8,6 @@ import java.util.UUID
 
 @Schema(description = "Payload to send a friend request")
 data class SendFriendRequestRequest(
-
     @field:Schema(description = "Id of the user to send the friend request to")
     @field:NotNull
     val receiverId: UUID,
@@ -16,7 +15,6 @@ data class SendFriendRequestRequest(
 
 @Schema(description = "A pending or accepted friend request")
 data class FriendRequestDTO(
-
     @field:Schema(description = "Friend request id")
     val id: UUID,
 

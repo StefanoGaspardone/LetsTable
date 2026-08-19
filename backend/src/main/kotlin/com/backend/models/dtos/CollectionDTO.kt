@@ -8,7 +8,6 @@ import java.util.UUID
 
 @Schema(description = "Payload to add a game to the current user's collection")
 data class AddToCollectionRequest(
-
     @field:Schema(description = "Internal id of the game (obtained via GET /games/{bggId})")
     @field:NotNull
     val gameId: UUID,
@@ -16,7 +15,6 @@ data class AddToCollectionRequest(
 
 @Schema(description = "A game in the current user's collection")
 data class CollectionItemDTO(
-
     @field:Schema(description = "Collection entry id")
     val id: UUID,
 

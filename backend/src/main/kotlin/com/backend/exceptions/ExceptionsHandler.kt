@@ -142,7 +142,43 @@ class ExceptionsHandler {
     fun handleGameNotFound(ex: GameNotFoundException) =
         buildResponse(HttpStatus.NOT_FOUND, ex)
 
+    @ExceptionHandler(WishlistNotFoundException::class)
+    fun handleWishlistNotFound(ex: WishlistNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(NotWishlistOwnerException::class)
+    fun handleNotWishlistOwner(ex: NotWishlistOwnerException) =
+        buildResponse(HttpStatus.FORBIDDEN, ex)
+
+    @ExceptionHandler(NotWishlistOwnerOrMemberException::class)
+    fun handleNotWishlistOwnerOrMember(ex: NotWishlistOwnerOrMemberException) =
+        buildResponse(HttpStatus.FORBIDDEN, ex)
+
+    @ExceptionHandler(WishlistNotSharedException::class)
+    fun handleWishlistNotShared(ex: WishlistNotSharedException) =
+        buildResponse(HttpStatus.BAD_REQUEST, ex)
+
+    @ExceptionHandler(CannotAddOwnerAsMemberException::class)
+    fun handleCannotAddOwnerAsMember(ex: CannotAddOwnerAsMemberException) =
+        buildResponse(HttpStatus.BAD_REQUEST, ex)
+
+    @ExceptionHandler(UserAlreadyWishlistMemberException::class)
+    fun handleUserAlreadyWishlistMember(ex: UserAlreadyWishlistMemberException) =
+        buildResponse(HttpStatus.CONFLICT, ex)
+
     @ExceptionHandler(NotCollectionItemOwnerException::class)
     fun handleNotCollectionItemOwner(ex: NotCollectionItemOwnerException) =
         buildResponse(HttpStatus.FORBIDDEN, ex)
+
+    @ExceptionHandler(UserNotWishlistMemberException::class)
+    fun handleUserNotWishlistMember(ex: UserNotWishlistMemberException) =
+        buildResponse(HttpStatus.FORBIDDEN, ex)
+
+    @ExceptionHandler(GameAlreadyInWishlistException::class)
+    fun handleGameAlreadyInWishlist(ex: GameAlreadyInWishlistException) =
+        buildResponse(HttpStatus.CONFLICT, ex)
+
+    @ExceptionHandler(WishlistItemNotFoundException::class)
+    fun handleWishlistItemNotFound(ex: WishlistItemNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
 }
