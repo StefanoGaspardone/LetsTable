@@ -7,6 +7,8 @@ import com.backend.models.dtos.BggThingResponseXml
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
@@ -15,6 +17,7 @@ import java.time.Duration
 @Component
 class BggClient(
     private val bggWebClient: WebClient,
+    @Value($$"${bgg.api-token}") private val apiToken: String,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -25,6 +28,7 @@ class BggClient(
         try {
             val rawXml = bggWebClient.get()
                 .uri { it.path("/search").queryParam("query", query).queryParam("type", "boardgame").build() }
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $apiToken")
                 .retrieve()
                 .bodyToMono<String>()
                 .timeout(Duration.ofSeconds(10))
@@ -34,7 +38,7 @@ class BggClient(
 
             logger.info("\n\t[INFO] [bgg_client][search_games] Found {} results for query {}", parsed.items.size, query)
             return parsed
-        } catch(e: Exception) {
+        } catch (e: Exception) {
             logger.error("\n\t[ERROR] [bgg_client][search_games] Error searching BGG for query {}: {}", query, e.message)
             throw BggRequestFailedException(e)
         }
@@ -45,6 +49,7 @@ class BggClient(
         try {
             val rawXml = bggWebClient.get()
                 .uri { it.path("/thing").queryParam("id", bggId).queryParam("stats", "0").build() }
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $apiToken")
                 .retrieve()
                 .bodyToMono<String>()
                 .timeout(Duration.ofSeconds(10))
@@ -65,6 +70,7 @@ class BggClient(
         try {
             val rawXml = bggWebClient.get()
                 .uri { it.path("/hot").queryParam("type", "boardgame").build() }
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $apiToken")
                 .retrieve()
                 .bodyToMono<String>()
                 .timeout(Duration.ofSeconds(10))

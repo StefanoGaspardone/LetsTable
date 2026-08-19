@@ -31,3 +31,25 @@ class RefreshTokenExpiredOrRevokedException: RuntimeException("Refresh token exp
 class BggRequestFailedException(cause: Throwable) : RuntimeException("Failed to reach BoardGameGeek API", cause)
 
 class GameNotFoundOnBggException(bggId: Long) : RuntimeException("Game not found on BoardGameGeek with id: $bggId")
+
+class CannotFriendSelfException: RuntimeException("Cannot send a friend request to yourself")
+
+class FriendRequestAlreadyExistsException(receiverId: UUID): RuntimeException("A pending friend request already exists with user: $receiverId")
+
+class AlreadyFriendsException(userId: UUID): RuntimeException("Already friends with user: $userId")
+
+class FriendRequestNotFoundException(requestId: UUID): RuntimeException("Friend request not found: $requestId")
+
+class NotFriendRequestReceiverException: RuntimeException("Only the receiver can respond to this friend request")
+
+class NotFriendRequestSenderException: RuntimeException("Only the sender can cancel this friend request")
+
+class FriendshipNotFoundException(userId: UUID): RuntimeException("No friendship found with user: $userId")
+
+class GameAlreadyInCollectionException(gameId: UUID): RuntimeException("Game already in collection: $gameId")
+
+class CollectionItemNotFoundException(itemId: UUID): RuntimeException("Collection item not found: $itemId")
+
+class GameNotFoundException(gameId: UUID): RuntimeException("Game not found: $gameId")
+
+class NotCollectionItemOwnerException: RuntimeException("You do not own this collection item")

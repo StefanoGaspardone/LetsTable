@@ -25,14 +25,124 @@ data class ErrorResponse(
 @RestControllerAdvice
 class ExceptionsHandler {
 
-    @ExceptionHandler(InvalidCredentialsException::class)
-    fun handleInvalidCredentials(ex: InvalidCredentialsException): ResponseEntity<ErrorResponse> {
-        val errorResponse = ErrorResponse(
-            status = HttpStatus.UNAUTHORIZED.value(),
-            error = HttpStatus.UNAUTHORIZED.reasonPhrase,
-            message = ex.message ?: "Invalid credentials"
-        )
+    private fun buildResponse(status: HttpStatus, e: Exception): ResponseEntity<ErrorResponse> {
+        val fallbackMessage = e::class.simpleName
+            ?.removeSuffix("Exception")
+            ?.replace(Regex("(?<=[a-z])(?=[A-Z])"), " ")
+            ?.replaceFirstChar { it.uppercase() }
+            ?: status.reasonPhrase
 
-        return ResponseEntity(errorResponse, HttpStatus.UNAUTHORIZED)
+        val finalMessage = e.message.takeIf { !it.isNullOrBlank() } ?: fallbackMessage
+
+        val errorResponse = ErrorResponse(
+            status = status.value(),
+            error = status.reasonPhrase,
+            message = finalMessage
+        )
+        return ResponseEntity(errorResponse, status)
     }
+
+    @ExceptionHandler(InvalidCredentialsException::class)
+    fun handleInvalidCredentials(ex: InvalidCredentialsException) =
+        buildResponse(HttpStatus.UNAUTHORIZED, ex)
+
+    @ExceptionHandler(AccountNotActivatedException::class)
+    fun handleAccountNotActivated(ex: AccountNotActivatedException) =
+        buildResponse(HttpStatus.FORBIDDEN, ex)
+
+    @ExceptionHandler(EmailAlreadyTakenException::class)
+    fun handleEmailAlreadyTaken(ex: EmailAlreadyTakenException) =
+        buildResponse(HttpStatus.CONFLICT, ex)
+
+    @ExceptionHandler(UsernameAlreadyTakenException::class)
+    fun handleUsernameAlreadyTaken(ex: UsernameAlreadyTakenException) =
+        buildResponse(HttpStatus.CONFLICT, ex)
+
+    @ExceptionHandler(UserNotFoundByIdentifierException::class)
+    fun handleUserNotFoundByIdentifier(ex: UserNotFoundByIdentifierException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(EmailVerificationNotFoundException::class)
+    fun handleEmailVerificationNotFound(ex: EmailVerificationNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(PasswordResetNotFoundException::class)
+    fun handlePasswordResetNotFound(ex: PasswordResetNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(RefreshTokenNotFoundException::class)
+    fun handleRefreshTokenNotFound(ex: RefreshTokenNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(RefreshTokenExpiredOrRevokedException::class)
+    fun handleRefreshTokenExpiredOrRevoked(ex: RefreshTokenExpiredOrRevokedException) =
+        buildResponse(HttpStatus.UNAUTHORIZED, ex)
+
+    @ExceptionHandler(InvalidOtpException::class)
+    fun handleInvalidOtp(ex: InvalidOtpException) =
+        buildResponse(HttpStatus.BAD_REQUEST, ex)
+
+    @ExceptionHandler(OtpExpiredException::class)
+    fun handleOtpExpired(ex: OtpExpiredException) =
+        buildResponse(HttpStatus.BAD_REQUEST, ex)
+
+    @ExceptionHandler(OtpMaxAttemptsExceededException::class)
+    fun handleOtpMaxAttemptsExceeded(ex: OtpMaxAttemptsExceededException) =
+        buildResponse(HttpStatus.TOO_MANY_REQUESTS, ex)
+
+    @ExceptionHandler(OtpResendCooldownException::class)
+    fun handleOtpResendCooldown(ex: OtpResendCooldownException) =
+        buildResponse(HttpStatus.TOO_MANY_REQUESTS, ex)
+
+    @ExceptionHandler(GameNotFoundOnBggException::class)
+    fun handleGameNotFoundOnBgg(ex: GameNotFoundOnBggException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(BggRequestFailedException::class)
+    fun handleBggRequestFailed(ex: BggRequestFailedException) =
+        buildResponse(HttpStatus.BAD_GATEWAY, ex)
+
+    @ExceptionHandler(CannotFriendSelfException::class)
+    fun handleCannotFriendSelf(ex: CannotFriendSelfException) =
+        buildResponse(HttpStatus.BAD_REQUEST, ex)
+
+    @ExceptionHandler(FriendRequestAlreadyExistsException::class)
+    fun handleFriendRequestAlreadyExists(ex: FriendRequestAlreadyExistsException) =
+        buildResponse(HttpStatus.CONFLICT, ex)
+
+    @ExceptionHandler(AlreadyFriendsException::class)
+    fun handleAlreadyFriends(ex: AlreadyFriendsException) =
+        buildResponse(HttpStatus.CONFLICT, ex)
+
+    @ExceptionHandler(FriendRequestNotFoundException::class)
+    fun handleFriendRequestNotFound(ex: FriendRequestNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(FriendshipNotFoundException::class)
+    fun handleFriendshipNotFound(ex: FriendshipNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(NotFriendRequestReceiverException::class)
+    fun handleNotFriendRequestReceiver(ex: NotFriendRequestReceiverException) =
+        buildResponse(HttpStatus.FORBIDDEN, ex)
+
+    @ExceptionHandler(NotFriendRequestSenderException::class)
+    fun handleNotFriendRequestSender(ex: NotFriendRequestSenderException) =
+        buildResponse(HttpStatus.FORBIDDEN, ex)
+
+    @ExceptionHandler(GameAlreadyInCollectionException::class)
+    fun handleGameAlreadyInCollection(ex: GameAlreadyInCollectionException) =
+        buildResponse(HttpStatus.CONFLICT, ex)
+
+    @ExceptionHandler(CollectionItemNotFoundException::class)
+    fun handleCollectionItemNotFound(ex: CollectionItemNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(GameNotFoundException::class)
+    fun handleGameNotFound(ex: GameNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(NotCollectionItemOwnerException::class)
+    fun handleNotCollectionItemOwner(ex: NotCollectionItemOwnerException) =
+        buildResponse(HttpStatus.FORBIDDEN, ex)
 }

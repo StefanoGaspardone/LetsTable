@@ -73,3 +73,9 @@ otp:
   ttl-minutes: 30
   max-attempts: 3
   resend-cooldown-seconds: 60
+
+# ============================================================
+# BGG CONFIGURATION
+# ============================================================
+bgg:
+  api-token: ${BGG_API_TOKEN:}

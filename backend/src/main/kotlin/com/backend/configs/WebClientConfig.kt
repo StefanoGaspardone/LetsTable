@@ -17,6 +17,7 @@ class WebClientConfig {
 
         return WebClient.builder()
             .baseUrl("https://boardgamegeek.com/xmlapi2")
+            .defaultHeader("User-Agent", "LetsTable/1.0 (+https://letstable.app)")
             .clientConnector(ReactorClientHttpConnector(httpClient))
             .build()
     }
