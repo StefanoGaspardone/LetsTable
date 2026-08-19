@@ -1,0 +1,54 @@
+services:
+
+  # ============================================
+  # DATABASE
+  # ============================================
+  database:
+    image: postgres:17
+    container_name: letstable_db
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${POSTGRES_DB}"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: "no"
+
+  # ============================================
+  # PGADMIN
+  # ============================================
+  pgadmin:
+    image: dpage/pgadmin4:9.13
+    container_name: letstable_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_EMAIL}"
+      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_PASSWORD}"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - database
+    restart: "no"
+
+  # ============================================
+  # MAIL
+  # ============================================
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: letstable_mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    volumes:
+      - mailpit_data:/data
+    environment:
+      MP_DATABASE: /data/mailpit.db
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  pgadmin_data:
+  mailpit_data:

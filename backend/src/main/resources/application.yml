@@ -1,0 +1,75 @@
+spring:
+  # ============================================================
+  # APPLICATION CONFIGURATION
+  # ============================================================
+  application:
+    name: LetsTable Backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  mvc:
+    problemdetails:
+      enabled: true
+
+  # ============================================================
+  # DATABASE CONFIGURATION
+  # ============================================================
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  flyway:
+    baseline-on-migrate: false
+
+  # ============================================================
+  # MAIL CONFIGURATION
+  # ============================================================
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:false}
+          starttls:
+            enable: ${SMTP_STARTTLS:false}
+
+mail:
+  from-address: ${MAIL_FROM_ADDRESS:noreply@letstable.com}
+  from-name: "Let's Table"
+
+# ============================================================
+# SWAGGER CONFIGURATION
+# ============================================================
+springdoc:
+  api-docs.path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    url: /v3/api-docs
+
+# ============================================================
+# SERVER CONFIGURATION
+# ============================================================
+server:
+  port: 8080
+  address: 0.0.0.0
+
+# ============================================================
+# JWT CONFIGURATION
+# ============================================================
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-ttl-minutes: 15
+  refresh-token-ttl-days: 7
+
+# ============================================================
+# OTP CONFIGURATION
+# ============================================================
+otp:
+  ttl-minutes: 30
+  max-attempts: 3
+  resend-cooldown-seconds: 60

@@ -1,0 +1,83 @@
+# Build output (Gradle/Maven)
+**/build/
+**/out/
+**/target/
+
+# Gradle
+.gradle/
+**/.gradle/
+
+# Maven
+**/.mvn/timing.properties
+
+# Kotlin / Java compiled artifacts
+*.class
+*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+*.war
+*.ear
+
+# Logs
+*.log
+logs/
+**/logs/
+
+# Spring Boot generated files
+*.pid
+*.seed
+*.pid.lock
+
+# Environment and secrets (keep templates tracked)
+.env
+.env.*
+*.properties
+!**/gradle/wrapper/gradle-wrapper.properties
+!.env.example
+*.pem
+*.p12
+*.jks
+*.keystore
+
+# Local config overrides
+application-local.yml
+application-local.yaml
+application-local.properties
+application-*.local.yml
+application-*.local.yaml
+application-*.local.properties
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Docker / Compose local overrides
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Test/coverage reports
+**/reports/
+**/coverage/
+**/jacoco/
+
+# Frontend (React / TypeScript)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+frontend/.eslintcache
+frontend/*.tsbuildinfo
+
+# JS package managers / tooling (workspace-wide)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
