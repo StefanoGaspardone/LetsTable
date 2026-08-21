@@ -50,6 +50,9 @@ data class WishlistDTO(
     @field:Schema(description = "Whether the wishlist is shared with other members")
     val isShared: Boolean,
 
+    @field:Schema(description = "Whether this is the user's fixed default wishlist (cannot be deleted or shared)")
+    val isDefault: Boolean,
+
     @field:Schema(description = "When the wishlist was created")
     val createdAt: Instant,
 ) {
@@ -59,6 +62,7 @@ data class WishlistDTO(
             name = wishlist.name,
             owner = UserDTO.from(wishlist.owner),
             isShared = wishlist.isShared,
+            isDefault = wishlist.isDefault,
             createdAt = wishlist.createdAt,
         )
     }

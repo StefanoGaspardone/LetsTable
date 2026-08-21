@@ -28,6 +28,9 @@ class Match(
     @Column(name = "played_at", nullable = false)
     var playedAt: LocalDate,
 
+    @Column(name = "duration_minutes", nullable = true)
+    var durationMinutes: Int? = null,
+
     @Column(name = "place", nullable = true)
     var place: String? = null,
 

@@ -25,6 +25,7 @@ import java.util.UUID
 class FriendService(
     private val friendRequestRepository: FriendRequestRepository,
     private val userRepository: UserRepository,
+    private val pushNotificationService: PushNotificationService,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -57,12 +58,26 @@ class FriendService(
                 existing.status = FriendRequestStatus.ACCEPTED
                 val saved = friendRequestRepository.save(existing)
 
+                pushNotificationService.sendToUser(
+                    userId = existing.sender.id!!,
+                    title = "Richiesta accettata",
+                    body = "${sender.username} ha accettato la tua richiesta di amicizia",
+                    data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to saved.id.toString()),
+                )
+
                 logger.info("\n\t[INFO] [friend_service][send_request] Reverse request found, auto-accepted friendship between {} and {}", senderId, request.receiverId)
                 return FriendRequestDTO.from(saved)
             }
 
             val newRequest = FriendRequest(sender = sender, receiver = receiver, status = FriendRequestStatus.PENDING)
             val saved = friendRequestRepository.save(newRequest)
+
+            pushNotificationService.sendToUser(
+                userId = receiver.id!!,
+                title = "Nuova richiesta di amicizia",
+                body = "${sender.username} ti ha inviato una richiesta di amicizia",
+                data = mapOf("type" to "FRIEND_REQUEST", "requestId" to saved.id.toString()),
+            )
 
             logger.info("\n\t[INFO] [friend_service][send_request] Friend request sent from {} to {}", senderId, request.receiverId)
             return FriendRequestDTO.from(saved)
@@ -98,6 +113,13 @@ class FriendService(
 
             request.status = FriendRequestStatus.ACCEPTED
             val saved = friendRequestRepository.save(request)
+
+            pushNotificationService.sendToUser(
+                userId = request.sender.id!!,
+                title = "Richiesta accettata",
+                body = "${request.receiver.username} ha accettato la tua richiesta di amicizia",
+                data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to request.id.toString()),
+            )
 
             logger.info("\n\t[INFO] [friend_service][accept_request] Request {} accepted by {}", requestId, currentUserId)
             return FriendRequestDTO.from(saved)

@@ -21,4 +21,13 @@ class WebClientConfig {
             .clientConnector(ReactorClientHttpConnector(httpClient))
             .build()
     }
+
+    @Bean
+    fun expoPushWebClient(): WebClient {
+        return WebClient.builder()
+            .baseUrl("https://exp.host/--/api/v2/push")
+            .defaultHeader("Content-Type", "application/json")
+            .defaultHeader("Accept", "application/json")
+            .build()
+    }
 }

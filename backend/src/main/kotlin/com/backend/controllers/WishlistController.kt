@@ -4,6 +4,7 @@ import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.AddWishlistItemRequest
 import com.backend.models.dtos.AddWishlistMemberRequest
 import com.backend.models.dtos.CreateWishlistRequest
+import com.backend.models.dtos.PageDTO
 import com.backend.models.dtos.WishlistDTO
 import com.backend.models.dtos.WishlistItemDTO
 import com.backend.models.dtos.WishlistMemberDTO
@@ -363,8 +364,8 @@ class WishlistController(
         ]
     )
     @GetMapping("/{wishlistId}/items")
-    fun listItems(@PathVariable wishlistId: UUID): List<WishlistItemDTO> =
-        wishlistService.listItems(wishlistId)
+    fun listItems(@PathVariable wishlistId: UUID, @RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int, @RequestParam(required = false) gameName: String?, @RequestParam(required = false) sort: String?): PageDTO<WishlistItemDTO> =
+        wishlistService.listItems(wishlistId, page, size, gameName, sort)
 
     @Operation(summary = "Get wishlist", description = "Get details of any wishlist by id. Wishlists are publicly viewable by any authenticated user.")
     @ApiResponses(

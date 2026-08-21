@@ -23,6 +23,9 @@ class Wishlist(
     @Column(name = "is_shared", nullable = false)
     var isShared: Boolean = false,
 
+    @Column(name = "is_default", nullable = false)
+    var isDefault: Boolean = false,
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),

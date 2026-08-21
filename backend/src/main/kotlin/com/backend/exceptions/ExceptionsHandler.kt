@@ -205,4 +205,16 @@ class ExceptionsHandler {
     @ExceptionHandler(UserNotFoundException::class)
     fun handleUserNotFound(ex: UserNotFoundException) =
         buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(CannotModifyDefaultWishlistException::class)
+    fun handleCannotModifyDefaultWishlist(ex: CannotModifyDefaultWishlistException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(PushNotificationSendException::class)
+    fun handlePushNotificationSend(ex: PushNotificationSendException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(InvalidSortException::class)
+    fun handleInvalidSort(ex: InvalidSortException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
 }

@@ -5,12 +5,17 @@ import com.backend.exceptions.GameNotFoundOnBggException
 import com.backend.models.dtos.GameDTO
 import com.backend.models.dtos.GameSearchResultResponse
 import com.backend.models.dtos.HotGameResponse
+import com.backend.models.dtos.PageDTO
 import com.backend.models.entities.Game
 import com.backend.models.entities.HotGame
+import com.backend.models.mappers.toPageDTO
 import com.backend.repositories.GameRepository
 import com.backend.repositories.HotGameRepository
 import org.jsoup.Jsoup
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.PageImpl
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -27,26 +32,6 @@ class GameService(
 
     companion object {
         private const val STALE_AFTER_DAYS = 7L
-    }
-
-    fun search(query: String): List<GameSearchResultResponse> {
-        logger.debug("\n\t[DEBUG] [game_service][search] Searching games with query {}", query)
-
-        try {
-            val results = bggClient.searchGames(query).items.map {
-                GameSearchResultResponse(
-                    bggId = it.id,
-                    name = it.name?.value ?: "Unknown",
-                    yearPublished = it.yearPublished?.value?.toIntOrNull(),
-                )
-            }
-
-            logger.info("\n\t[INFO] [game_service][search] Returning {} results for query {}", results.size, query)
-            return results
-        } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [game_service][search] Error searching games with query {}: {}", query, e.message)
-            throw e
-        }
     }
 
     @Transactional
@@ -75,11 +60,18 @@ class GameService(
         }
     }
 
-    fun getHotGames(): List<HotGameResponse> {
-        logger.debug("\n\t[DEBUG] [game_service][get_hot_games] Retrieving cached hot games")
+    fun getHotGames(page: Int, size: Int): PageDTO<HotGameResponse> {
+        logger.debug("\n\t[DEBUG] [game_service][get_hot_games] Retrieving hot games\n\tpage={}\n\tsize={}", page, size)
 
         try {
-            val hotGames = hotGameRepository.findAllByOrderByRankAsc().map {
+            val pageSafe = if(page < 0) 0 else page
+            val sizeSafe = size.coerceIn(1, 100)
+            val pageable = PageRequest.of(pageSafe, sizeSafe, Sort.by("rank").ascending())
+
+            val result = hotGameRepository.findAll(pageable)
+
+            logger.info("\n\t[INFO] [game_service][get_hot_games] Retrieved {} hot games", result.numberOfElements)
+            return result.toPageDTO {
                 HotGameResponse(
                     bggId = it.bggId,
                     rank = it.rank,
@@ -88,11 +80,37 @@ class GameService(
                     yearPublished = it.yearPublished,
                 )
             }
-
-            logger.info("\n\t[INFO] [game_service][get_hot_games] Returning {} hot games", hotGames.size)
-            return hotGames
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [game_service][get_hot_games] Error retrieving cached hot games: {}", e.message)
+            logger.error("\n\t[ERROR] [game_service][get_hot_games] Error retrieving hot games: {}", e.message)
+            throw e
+        }
+    }
+
+    fun search(query: String, page: Int, size: Int): PageDTO<GameSearchResultResponse> {
+        logger.debug("\n\t[DEBUG] [game_service][search] Searching games\n\tquery={}\n\tpage={}\n\tsize={}", query, page, size)
+
+        try {
+            val allResults = bggClient.searchGames(query).items.map {
+                GameSearchResultResponse(
+                    bggId = it.id,
+                    name = it.name?.value ?: "Unknown",
+                    yearPublished = it.yearPublished?.value?.toIntOrNull(),
+                )
+            }
+
+            val pageSafe = if(page < 0) 0 else page
+            val sizeSafe = size.coerceIn(1, 100)
+            val pageable = PageRequest.of(pageSafe, sizeSafe)
+
+            val start = pageSafe * sizeSafe
+            val content = if(start >= allResults.size) emptyList() else allResults.subList(start, minOf(start + sizeSafe, allResults.size))
+
+            val pageResult = PageImpl(content, pageable, allResults.size.toLong())
+
+            logger.info("\n\t[INFO] [game_service][search] Returning {} results for query {}", content.size, query)
+            return pageResult.toPageDTO { it }
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [game_service][search] Error searching games with query {}: {}", query, e.message)
             throw e
         }
     }

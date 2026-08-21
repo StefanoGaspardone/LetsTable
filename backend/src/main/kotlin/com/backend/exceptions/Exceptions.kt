@@ -83,3 +83,9 @@ class InvalidMatchTeamsException(message: String): RuntimeException(message)
 class InvalidMatchPlayersException(message: String): RuntimeException(message)
 
 class UserNotFoundException(userId: UUID): RuntimeException("User not found: $userId")
+
+class CannotModifyDefaultWishlistException: RuntimeException("The default wishlist cannot be deleted or shared")
+
+class PushNotificationSendException(cause: Throwable): RuntimeException("Failed to send push notification", cause)
+
+class InvalidSortException(field: String): RuntimeException("Invalid sort field: $field")

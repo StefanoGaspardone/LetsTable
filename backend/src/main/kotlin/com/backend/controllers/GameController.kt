@@ -4,6 +4,7 @@ import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.GameDTO
 import com.backend.models.dtos.GameSearchResultResponse
 import com.backend.models.dtos.HotGameResponse
+import com.backend.models.dtos.PageDTO
 import com.backend.services.GameService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -31,7 +32,7 @@ class GameController(
         ]
     )
     @GetMapping("/search")
-    fun search(@RequestParam query: String): List<GameSearchResultResponse> = gameService.search(query)
+    fun search(@RequestParam query: String, @RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int): PageDTO<GameSearchResultResponse> = gameService.search(query, page, size)
 
     @Operation(summary = "Hot games", description = "Trending games on BoardGameGeek, cached and refreshed every 6 hours.")
     @ApiResponses(
@@ -43,7 +44,7 @@ class GameController(
         ]
     )
     @GetMapping("/hot")
-    fun hot(): List<HotGameResponse> = gameService.getHotGames()
+    fun hot(@RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int): PageDTO<HotGameResponse> = gameService.getHotGames(page, size)
 
     @Operation(summary = "Get game details", description = "Fetches full details for a game, syncing from BoardGameGeek if not cached or stale (older than 7 days).")
     @ApiResponses(

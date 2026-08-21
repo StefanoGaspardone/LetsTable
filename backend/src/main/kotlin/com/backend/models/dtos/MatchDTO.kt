@@ -39,6 +39,9 @@ data class MatchIndividualPlayerRequest(
 
     @field:Schema(description = "Whether this player won the match")
     val isWinner: Boolean = false,
+
+    @field:Schema(description = "Turn order starting position, decided via the finger picker", example = "1")
+    val startingPosition: Int? = null,
 )
 
 @Schema(description = "A team in a team-based match, with shared color, score and outcome")
@@ -55,6 +58,9 @@ data class CreateMatchTeamRequest(
 
     @field:Schema(description = "Whether this team won the match")
     val isWinner: Boolean = false,
+
+    @field:Schema(description = "Turn order starting position, decided via the finger picker", example = "1")
+    val startingPosition: Int? = null,
 
     @field:Schema(description = "Players belonging to this team")
     @field:NotEmpty
@@ -81,6 +87,9 @@ data class CreateMatchRequest(
     @field:Schema(description = "Whether players are grouped into teams")
     @field:NotNull
     val isTeamBased: Boolean,
+
+    @field:Schema(description = "How long the match actually took, in minutes")
+    val durationMinutes: Int? = null,
 
     @field:Schema(description = "Teams, required and non-empty only if isTeamBased is true")
     @field:Valid
@@ -128,6 +137,9 @@ data class MatchTeamDTO(
     @field:Schema(description = "Whether this team won")
     val isWinner: Boolean,
 
+    @field:Schema(description = "Turn order starting position")
+    val startingPosition: Int?,
+
     @field:Schema(description = "Players belonging to this team")
     val players: List<MatchPlayerRefDTO>,
 ) {
@@ -139,6 +151,7 @@ data class MatchTeamDTO(
             score = team.score,
             isWinner = team.isWinner,
             players = players,
+            startingPosition = team.startingPosition
         )
     }
 }
@@ -162,6 +175,9 @@ data class MatchPlayerDTO(
 
     @field:Schema(description = "Whether this player won")
     val isWinner: Boolean?,
+
+    @field:Schema(description = "Turn order starting position")
+    val startingPosition: Int?,
 ) {
     companion object {
         fun from(player: MatchPlayer) = MatchPlayerDTO(
@@ -171,6 +187,7 @@ data class MatchPlayerDTO(
             color = player.color,
             score = player.score,
             isWinner = player.isWinner,
+            startingPosition = player.startingPosition,
         )
     }
 }
@@ -198,6 +215,9 @@ data class MatchDTO(
     @field:Schema(description = "Free-form notes about the match")
     val notes: String?,
 
+    @field:Schema(description = "How long the match actually took, in minutes")
+    val durationMinutes: Int?,
+
     @field:Schema(description = "When the match entry was created")
     val createdAt: Instant,
 
@@ -223,6 +243,16 @@ data class MatchDTO(
             createdAt = match.createdAt,
             teams = teams,
             players = players,
+            durationMinutes = match.durationMinutes,
         )
     }
 }
+
+@Schema(description = "Number of matches played on a specific day")
+data class MatchDayCountResponse(
+    @field:Schema(description = "The day")
+    val date: LocalDate,
+
+    @field:Schema(description = "Number of matches played that day")
+    val count: Long,
+)

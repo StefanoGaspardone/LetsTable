@@ -3,16 +3,23 @@ package com.backend.services
 import com.backend.exceptions.*
 import com.backend.models.dtos.CreateMatchRequest
 import com.backend.models.dtos.MatchDTO
+import com.backend.models.dtos.MatchDayCountResponse
 import com.backend.models.dtos.MatchIndividualPlayerRequest
 import com.backend.models.dtos.MatchPlayerDTO
 import com.backend.models.dtos.MatchPlayerIdentityRequest
 import com.backend.models.dtos.MatchPlayerRefDTO
 import com.backend.models.dtos.MatchTeamDTO
+import com.backend.models.dtos.PageDTO
 import com.backend.models.entities.*
+import com.backend.models.mappers.toPageDTO
+import com.backend.models.specifications.MatchSpecification
 import com.backend.repositories.*
+import com.backend.utils.resolveSort
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 import java.util.UUID
 
 @Service
@@ -45,6 +52,7 @@ class MatchService(
                 playedAt = request.playedAt,
                 place = request.place,
                 notes = request.notes,
+                durationMinutes = request.durationMinutes,
             )
             val savedMatch = matchRepository.save(match)
 
@@ -92,6 +100,7 @@ class MatchService(
             match.playedAt = request.playedAt
             match.place = request.place
             match.notes = request.notes
+            match.durationMinutes = request.durationMinutes
             val savedMatch = matchRepository.save(match)
 
             matchPlayerRepository.deleteAllByMatchId(matchId)
@@ -172,16 +181,43 @@ class MatchService(
         }
     }
 
-    fun listMyMatches(userId: UUID): List<MatchDTO> {
-        logger.debug("\n\t[DEBUG] [match_service][list_my_matches] Listing matches for user {}", userId)
+    fun listMyMatches(userId: UUID, page: Int, size: Int, gameId: UUID?, fromDate: LocalDate?, toDate: LocalDate?, sort: String?): PageDTO<MatchDTO> {
+        logger.debug("\n\t[DEBUG] [match_service][list_my_matches] Listing matches\n\tuserId={}\n\tpage={}\n\tsize={}\n\tgameId={}\n\tfromDate={}\n\ttoDate={}", userId, page, size, gameId, fromDate, toDate)
 
         try {
-            val matches = matchRepository.findAllForUser(userId).map { mapMatchToResponse(it) }
+            val pageSafe = if(page < 0) 0 else page
+            val sizeSafe = size.coerceIn(1, 100)
+            val sortObj = resolveSort(sort, setOf("playedAt", "createdAt"), "playedAt")
+            val pageable = PageRequest.of(pageSafe, sizeSafe, sortObj)
 
-            logger.info("\n\t[INFO] [match_service][list_my_matches] Found {} matches for user {}", matches.size, userId)
-            return matches
+            val spec = MatchSpecification.withFilters(userId, gameId, fromDate, toDate)
+            val result = matchRepository.findAll(spec, pageable)
+
+            logger.info("\n\t[INFO] [match_service][list_my_matches] Retrieved {} matches for user {}", result.numberOfElements, userId)
+            return result.toPageDTO { mapMatchToResponse(it) }
+        } catch(e: InvalidSortException) {
+            logger.warn("\n\t[WARN] [match_service][list_my_matches] Invalid sort field: {}", sort)
+            throw e
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [match_service][list_my_matches] Error listing matches for user {}: {}", userId, e.message)
+            throw e
+        }
+    }
+
+    fun getMatchCalendar(userId: UUID, year: Int, month: Int): List<MatchDayCountResponse> {
+        logger.debug("\n\t[DEBUG] [match_service][get_match_calendar] Retrieving calendar\n\tuserId={}\n\tyear={}\n\tmonth={}", userId, year, month)
+
+        try {
+            val from = LocalDate.of(year, month, 1)
+            val to = from.withDayOfMonth(from.lengthOfMonth())
+
+            val counts = matchRepository.countMatchesByDay(userId, from, to)
+                .map { MatchDayCountResponse(date = it.playedAt, count = it.matchCount) }
+
+            logger.info("\n\t[INFO] [match_service][get_match_calendar] Retrieved {} days with matches for user {}", counts.size, userId)
+            return counts
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [match_service][get_match_calendar] Error retrieving calendar for user {}: {}", userId, e.message)
             throw e
         }
     }
@@ -231,6 +267,7 @@ class MatchService(
                         color = teamRequest.color,
                         score = teamRequest.score,
                         isWinner = teamRequest.isWinner,
+                        startingPosition = teamRequest.startingPosition,
                     )
                 )
 
@@ -276,10 +313,11 @@ class MatchService(
                 match = match,
                 team = null,
                 user = user,
-                guestName = if (user == null) request.guestName else null,
+                guestName = if(user == null) request.guestName else null,
                 color = request.color,
                 score = request.score,
                 isWinner = request.isWinner,
+                startingPosition = request.startingPosition,
             )
         )
     }

@@ -1,11 +1,14 @@
 package com.backend.controllers
 
-import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.CreateMatchRequest
+import com.backend.models.dtos.MatchDayCountResponse
 import com.backend.models.dtos.MatchDTO
+import com.backend.models.dtos.PageDTO
+import com.backend.exceptions.ErrorResponse
 import com.backend.security.CurrentUser
 import com.backend.services.MatchService
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
@@ -13,10 +16,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
+import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
+import java.time.LocalDate
 import java.util.UUID
 
 @Tag(name = "Matches", description = "Log and manage board game matches, individual or team-based")
@@ -42,11 +47,11 @@ class MatchController(
                     examples = [ExampleObject(
                         name = "InvalidTeamsExample",
                         summary = "Missing teams example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"At least one team is required when isTeamBased is true\"}"
+                        value = "{\"timestamp\":\"2026-08-20T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"At least one team is required when isTeamBased is true\"}"
                     ), ExampleObject(
                         name = "InvalidIdentityExample",
                         summary = "Invalid player identity example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Each player must have exactly one of userId or guestName\"}"
+                        value = "{\"timestamp\":\"2026-08-20T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Each player must have exactly one of userId or guestName\"}"
                     )]
                 )]
             ),
@@ -58,7 +63,7 @@ class MatchController(
                     examples = [ExampleObject(
                         name = "GameNotFoundExample",
                         summary = "Game not found example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Game not found: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
+                        value = "{\"timestamp\":\"2026-08-20T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Game not found: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
                     )]
                 )]
             ),
@@ -83,7 +88,7 @@ class MatchController(
                     examples = [ExampleObject(
                         name = "InvalidTeamsExample",
                         summary = "Missing teams example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"At least one team is required when isTeamBased is true\"}"
+                        value = "{\"timestamp\":\"2026-08-20T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"At least one team is required when isTeamBased is true\"}"
                     )]
                 )]
             ),
@@ -95,7 +100,7 @@ class MatchController(
                     examples = [ExampleObject(
                         name = "NotCreatorExample",
                         summary = "Not the creator example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Only the match creator can perform this action\"}"
+                        value = "{\"timestamp\":\"2026-08-20T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Only the match creator can perform this action\"}"
                     )]
                 )]
             ),
@@ -107,7 +112,7 @@ class MatchController(
                     examples = [ExampleObject(
                         name = "MatchNotFoundExample",
                         summary = "Match not found example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Match not found: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
+                        value = "{\"timestamp\":\"2026-08-20T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Match not found: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
                     )]
                 )]
             ),
@@ -135,7 +140,7 @@ class MatchController(
                     examples = [ExampleObject(
                         name = "NotCreatorExample",
                         summary = "Not the creator example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Only the match creator can perform this action\"}"
+                        value = "{\"timestamp\":\"2026-08-20T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Only the match creator can perform this action\"}"
                     )]
                 )]
             ),
@@ -147,7 +152,7 @@ class MatchController(
                     examples = [ExampleObject(
                         name = "NotFoundExample",
                         summary = "Match not found example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Match not found: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
+                        value = "{\"timestamp\":\"2026-08-20T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Match not found: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
                     )]
                 )]
             ),
@@ -174,7 +179,7 @@ class MatchController(
                     examples = [ExampleObject(
                         name = "NotFoundExample",
                         summary = "Match not found example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Match not found: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
+                        value = "{\"timestamp\":\"2026-08-20T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Match not found: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
                     )]
                 )]
             ),
@@ -183,15 +188,58 @@ class MatchController(
     @GetMapping("/{matchId}")
     fun getMatch(@PathVariable matchId: UUID): MatchDTO = matchService.getMatch(matchId)
 
-    @Operation(summary = "List my matches", description = "List all matches created by, or involving as a player, the current user.")
+    @Operation(
+        summary = "List my matches",
+        description = "Paginated list of matches created by, or involving as a player, the current user. Supports filtering by game and date range, e.g. to power a calendar day view."
+    )
     @ApiResponses(
         value = [
             ApiResponse(
-                responseCode = "200", description = "Ok - List of matches",
+                responseCode = "200", description = "Ok - Page of matches",
                 content = [Content(schema = Schema(implementation = MatchDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Invalid sort field",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "InvalidSortExample",
+                        summary = "Invalid sort field example",
+                        value = "{\"timestamp\":\"2026-08-20T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid sort field: unknownField\"}"
+                    )]
+                )]
             ),
         ]
     )
     @GetMapping
-    fun listMyMatches(): List<MatchDTO> = matchService.listMyMatches(CurrentUser.id())
+    fun listMyMatches(
+        @Parameter(description = "Zero-based page index") @RequestParam(defaultValue = "0") page: Int,
+        @Parameter(description = "Number of items per page") @RequestParam(defaultValue = "20") size: Int,
+        @Parameter(description = "Filter by a specific game") @RequestParam(required = false) gameId: UUID?,
+        @Parameter(description = "Only matches played on or after this date")
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) fromDate: LocalDate?,
+        @Parameter(description = "Only matches played on or before this date")
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) toDate: LocalDate?,
+        @Parameter(description = "Sort field and direction, e.g. 'playedAt-desc'") @RequestParam(required = false) sort: String?,
+    ): PageDTO<MatchDTO> =
+        matchService.listMyMatches(CurrentUser.id(), page, size, gameId, fromDate, toDate, sort)
+
+    @Operation(
+        summary = "Match calendar",
+        description = "Number of matches played per day in a given month, for the current user (created or played). Use this to render a calendar view, then call GET /matches with matching fromDate/toDate to list the matches of a specific day."
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Match counts per day",
+                content = [Content(schema = Schema(implementation = MatchDayCountResponse::class))]
+            ),
+        ]
+    )
+    @GetMapping("/calendar")
+    fun getMatchCalendar(
+        @Parameter(description = "Calendar year", example = "2026") @RequestParam year: Int,
+        @Parameter(description = "Calendar month, 1-12", example = "8") @RequestParam month: Int,
+    ): List<MatchDayCountResponse> = matchService.getMatchCalendar(CurrentUser.id(), year, month)
 }

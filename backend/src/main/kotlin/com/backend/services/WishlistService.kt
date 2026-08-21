@@ -2,11 +2,17 @@ package com.backend.services
 
 import com.backend.exceptions.*
 import com.backend.models.dtos.*
+import com.backend.models.entities.User
 import com.backend.models.entities.Wishlist
 import com.backend.models.entities.WishlistItem
 import com.backend.models.entities.WishlistMember
+import com.backend.models.mappers.toPageDTO
+import com.backend.models.specifications.WishlistItemSpecification
 import com.backend.repositories.*
+import com.backend.utils.resolveSort
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.PageRequest.of
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
@@ -18,6 +24,7 @@ class WishlistService(
     private val wishlistItemRepository: WishlistItemRepository,
     private val userRepository: UserRepository,
     private val gameRepository: GameRepository,
+    private val pushNotificationService: PushNotificationService,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -48,6 +55,10 @@ class WishlistService(
         try {
             val wishlist = wishlistRepository.findById(wishlistId)
                 .orElseThrow { WishlistNotFoundException(wishlistId) }
+
+            if(wishlist.isDefault) {
+                throw CannotModifyDefaultWishlistException()
+            }
 
             if(wishlist.owner.id != userId) {
                 throw NotWishlistOwnerException()
@@ -111,6 +122,13 @@ class WishlistService(
 
             val member = WishlistMember(wishlist = wishlist, user = newMemberUser)
             val saved = wishlistMemberRepository.save(member)
+
+            pushNotificationService.sendToUser(
+                userId = newMemberUser.id!!,
+                title = "Aggiunto a una wishlist",
+                body = "Sei stato aggiunto alla wishlist \"${wishlist.name}\"",
+                data = mapOf("type" to "WISHLIST_MEMBER_ADDED", "wishlistId" to wishlist.id.toString()),
+            )
 
             logger.info("\n\t[INFO] [wishlist_service][add_member] User {} added as member to wishlist {} by {}", request.userId, wishlistId, userId)
             return WishlistMemberDTO.from(saved)
@@ -281,19 +299,28 @@ class WishlistService(
         }
     }
 
-    fun listItems(wishlistId: UUID): List<WishlistItemDTO> {
-        logger.debug("\n\t[DEBUG] [wishlist_service][list_items] Listing items of wishlist {}", wishlistId)
+    fun listItems(wishlistId: UUID, page: Int, size: Int, gameName: String?, sort: String?): PageDTO<WishlistItemDTO> {
+        logger.debug("\n\t[DEBUG] [wishlist_service][list_items] Listing items\n\twishlistId={}\n\tpage={}\n\tsize={}\n\tgameName={}", wishlistId, page, size, gameName)
 
         try {
             wishlistRepository.findById(wishlistId)
                 .orElseThrow { WishlistNotFoundException(wishlistId) }
 
-            val items = wishlistItemRepository.findAllByWishlistId(wishlistId).map { WishlistItemDTO.from(it) }
+            val pageSafe = if(page < 0) 0 else page
+            val sizeSafe = size.coerceIn(1, 100)
+            val sortObj = resolveSort(sort, setOf("game.name", "createdAt"), "createdAt")
+            val pageable = of(pageSafe, sizeSafe, sortObj)
 
-            logger.info("\n\t[INFO] [wishlist_service][list_items] Found {} items in wishlist {}", items.size, wishlistId)
-            return items
+            val spec = WishlistItemSpecification.withFilters(wishlistId, gameName)
+            val result = wishlistItemRepository.findAll(spec, pageable)
+
+            logger.info("\n\t[INFO] [wishlist_service][list_items] Retrieved {} items for wishlist {}", result.numberOfElements, wishlistId)
+            return result.toPageDTO { WishlistItemDTO.from(it) }
         } catch(e: WishlistNotFoundException) {
             logger.warn("\n\t[WARN] [wishlist_service][list_items] Wishlist {} not found", wishlistId)
+            throw e
+        } catch(e: InvalidSortException) {
+            logger.warn("\n\t[WARN] [wishlist_service][list_items] Invalid sort field: {}", sort)
             throw e
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [wishlist_service][list_items] Error listing items of wishlist {}: {}", wishlistId, e.message)
@@ -315,6 +342,20 @@ class WishlistService(
             throw e
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [wishlist_service][get_wishlist] Error retrieving wishlist {}: {}", wishlistId, e.message)
+            throw e
+        }
+    }
+
+    @Transactional
+    fun createDefaultWishlistForUser(user: User) {
+        logger.debug("\n\t[DEBUG] [wishlist_service][create_default_wishlist_for_user] Creating default wishlist for user {}", user.id)
+        try {
+            val wishlist = Wishlist(name = "La mia wishlist", owner = user, isShared = false, isDefault = true)
+            wishlistRepository.save(wishlist)
+
+            logger.info("\n\t[INFO] [wishlist_service][create_default_wishlist_for_user] Default wishlist created for user {}", user.id)
+        } catch (e: Exception) {
+            logger.error("\n\t[ERROR] [wishlist_service][create_default_wishlist_for_user] Error creating default wishlist for user {}: {}", user.id, e.message)
             throw e
         }
     }

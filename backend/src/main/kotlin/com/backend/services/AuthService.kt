@@ -33,6 +33,7 @@ class AuthService(
     private val passwordEncoder: PasswordEncoder,
     private val jwtService: JwtService,
     private val mailService: MailService,
+    private val wishlistService: WishlistService,
     @Value($$"${jwt.refresh-token-ttl-days}") private val refreshTokenTtlDays: Long,
     @Value($$"${otp.ttl-minutes}") private val otpTtlMinutes: Long,
     @Value($$"${otp.max-attempts}") private val maxAttempts: Int,
@@ -69,6 +70,7 @@ class AuthService(
                 accountStatus = AccountStatus.INACTIVE,
             )
             val saved = userRepository.saveAndFlush(user)
+            wishlistService.createDefaultWishlistForUser(user)
 
             val rawOtp = generateOtp()
             val now = Instant.now()

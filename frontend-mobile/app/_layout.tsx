@@ -1,25 +1,52 @@
 import '@/global.css';
 
-import { NAV_THEME } from '@/lib/theme';
-import { ThemeProvider } from 'expo-router/react-navigation';
-import { PortalHost } from '@rn-primitives/portal';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from 'nativewind';
+import { useEffect } from 'react';
+import { DarkTheme, DefaultTheme, ThemeProvider, Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { useColorScheme } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from 'expo-router';
+import { AuthProvider, useAuth } from '@/contexts/auth-context';
 
-export default function RootLayout() {
-  const { colorScheme } = useColorScheme();
+SplashScreen.preventAutoHideAsync();
 
-  return (
-    <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <Stack />
-      <PortalHost />
-    </ThemeProvider>
-  );
+const queryClient = new QueryClient();
+
+const RootLayoutNav = () => {
+	const { isLoading } = useAuth();
+
+	useEffect(() => {
+		if(!isLoading) {
+			SplashScreen.hideAsync();
+		}
+	}, [isLoading]);
+
+	if(isLoading) {
+		return null;
+	}
+
+	return (
+		<Stack screenOptions = {{ headerShown: false }}>
+			<Stack.Screen name = "index"/>
+			<Stack.Screen name = "(auth)"/>
+			<Stack.Screen name = "(tabs)"/>
+			<Stack.Screen name = "browse" options = {{ presentation: 'modal' }}/>
+		</Stack>
+	);
 }
+
+const RootLayout = () => {
+	const colorScheme = useColorScheme();
+
+	return (
+		<QueryClientProvider client = { queryClient }>
+			<AuthProvider>
+				<ThemeProvider value = { colorScheme === 'dark' ? DarkTheme : DefaultTheme }>
+					<RootLayoutNav/>
+				</ThemeProvider>
+			</AuthProvider>
+		</QueryClientProvider>
+	)
+}
+
+export default RootLayout;

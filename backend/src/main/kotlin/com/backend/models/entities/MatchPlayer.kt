@@ -37,6 +37,9 @@ class MatchPlayer(
     @Column(name = "is_winner", nullable = true)
     var isWinner: Boolean? = null,
 
+    @Column(name = "starting_position", nullable = true)
+    var startingPosition: Int? = null,
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
