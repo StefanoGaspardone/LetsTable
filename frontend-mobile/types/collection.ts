@@ -6,12 +6,6 @@ export interface CollectionItem {
     addedAt: string;
 }
 
-export interface ListCollectionParams {
-    page: number;
-    size?: number;
-    gameName?: string;
-}
-
 export interface CollectionStatus {
 	inCollection: boolean;
 	itemId: string | null;

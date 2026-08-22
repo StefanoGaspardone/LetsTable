@@ -35,6 +35,10 @@ const RootLayoutNav = () => {
 			<Stack.Screen name = 'playlist-picker' options={{ presentation: 'modal' }}/>
 			<Stack.Screen name = 'my-wishlists' options={{ presentation: 'modal' }}/>
 			<Stack.Screen name = 'wishlist/[id]'/>
+			<Stack.Screen name = 'match/[id]'/>
+			<Stack.Screen name = 'match/new'/>
+			<Stack.Screen name = 'match/[id]/edit'/>
+			<Stack.Screen name = 'match/[id]/finish'/>
 		</Stack>
 	)
 }

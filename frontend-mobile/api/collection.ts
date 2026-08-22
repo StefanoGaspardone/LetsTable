@@ -1,7 +1,13 @@
 import { apiClient } from '@/api/client';
 
-import { CollectionItem, CollectionStatus, ListCollectionParams } from '@/types/collection';
+import { CollectionItem, CollectionStatus } from '@/types/collection';
 import { PageDTO } from '@/types/page';
+
+export interface ListCollectionParams {
+    page: number;
+    size?: number;
+    gameName?: string;
+}
 
 export const listCollection = async (params: ListCollectionParams): Promise<PageDTO<CollectionItem>> => {
     const { data } = await apiClient.get<PageDTO<CollectionItem>>('/collection', {

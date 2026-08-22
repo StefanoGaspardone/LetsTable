@@ -1,19 +1,14 @@
+import { User } from '@/types/user';
+
 export interface WishlistItemStatus {
 	inWishlist: boolean;
 	itemId: string | null;
 }
 
-export interface UserSummary {
-	id: string;
-	username: string;
-	email: string;
-	role: string;
-}
-
 export interface Wishlist {
 	id: string;
 	name: string;
-	owner: UserSummary;
+	owner: User;
 	isShared: boolean;
 	isDefault: boolean;
 	createdAt: string;
@@ -22,12 +17,12 @@ export interface Wishlist {
 export interface WishlistItem {
 	id: string;
 	game: { id: string; bggId: number; name: string; thumbnailUrl: string | null };
-	addedBy: UserSummary;
+	addedBy: User;
 	addedAt: string;
 }
 
 export interface WishlistMember {
 	id: string;
-	user: UserSummary;
+	user: User;
 	addedAt: string;
 }
