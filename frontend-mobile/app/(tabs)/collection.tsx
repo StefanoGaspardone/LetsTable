@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, FlatList, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { List, LayoutGrid, Search, Plus } from 'lucide-react-native';
+import { List, LayoutGrid, Search, Plus, Heart } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
@@ -73,6 +73,9 @@ const CollectionScreen = () => {
 					) : (
 						<List size = { 20 } className = 'text-foreground'/>
 					)}
+				</Button>
+				<Button variant = 'outline' size = 'icon' onPress = { () => router.push('/my-wishlists') }>
+					<Heart size = { 20 } className = 'text-foreground'/>
 				</Button>
 			</View>
 			{isLoading ? (

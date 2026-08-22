@@ -12,7 +12,7 @@ interface WishlistItemRepository: JpaRepository<WishlistItem, UUID>, JpaSpecific
 
     fun existsByWishlistIdAndGameId(wishlistId: UUID, gameId: UUID): Boolean
 
-    fun findAllByWishlistId(wishlistId: UUID): List<WishlistItem>
-
     fun findByIdAndWishlistId(itemId: UUID, wishlistId: UUID): Optional<WishlistItem>
+
+    fun findByWishlistIdAndGameId(wishlistId: UUID, gameId: UUID): Optional<WishlistItem>
 }

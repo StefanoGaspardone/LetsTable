@@ -3,6 +3,7 @@ package com.backend.controllers
 import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.AddToCollectionRequest
 import com.backend.models.dtos.CollectionItemDTO
+import com.backend.models.dtos.CollectionStatusDTO
 import com.backend.models.dtos.PageDTO
 import com.backend.security.CurrentUser
 import com.backend.services.CollectionService
@@ -116,4 +117,17 @@ class CollectionController(
     @GetMapping
     fun listCollection(@RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int, @RequestParam(required = false) gameName: String?, @RequestParam(required = false) sort: String?): PageDTO<CollectionItemDTO> =
         collectionService.listCollection(CurrentUser.id(), page, size, gameName, sort)
+
+    @Operation(summary = "Check collection status", description = "Check whether a game is in the current user's collection.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Collection status",
+                content = [Content(schema = Schema(implementation = CollectionStatusDTO::class))]
+            ),
+        ]
+    )
+    @GetMapping("/status")
+    fun getStatus(@RequestParam gameId: UUID): CollectionStatusDTO =
+        collectionService.getStatus(CurrentUser.id(), gameId)
 }

@@ -10,3 +10,17 @@ export interface Game {
 	playingTimeMinutes: number | null;
 	description: string | null;
 }
+
+export interface GameSearchResult {
+	bggId: number;
+	name: string;
+	yearPublished: number | null;
+}
+
+export interface HotGame {
+	bggId: number;
+	rank: number;
+	name: string;
+	thumbnailUrl: string | null;
+	yearPublished: number | null;
+}

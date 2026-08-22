@@ -79,6 +79,7 @@ class WishlistService(
         }
     }
 
+    @Transactional
     fun listAccessibleWishlists(userId: UUID): List<WishlistDTO> {
         logger.debug("\n\t[DEBUG] [wishlist_service][list_accessible_wishlists] Listing wishlists for user {}", userId)
 
@@ -206,6 +207,7 @@ class WishlistService(
         }
     }
 
+    @Transactional
     fun listMembers(wishlistId: UUID): List<WishlistMemberDTO> {
         logger.debug("\n\t[DEBUG] [wishlist_service][list_members] Listing members of wishlist {}", wishlistId)
 
@@ -299,6 +301,7 @@ class WishlistService(
         }
     }
 
+    @Transactional
     fun listItems(wishlistId: UUID, page: Int, size: Int, gameName: String?, sort: String?): PageDTO<WishlistItemDTO> {
         logger.debug("\n\t[DEBUG] [wishlist_service][list_items] Listing items\n\twishlistId={}\n\tpage={}\n\tsize={}\n\tgameName={}", wishlistId, page, size, gameName)
 
@@ -328,6 +331,7 @@ class WishlistService(
         }
     }
 
+    @Transactional
     fun getWishlist(wishlistId: UUID): WishlistDTO {
         logger.debug("\n\t[DEBUG] [wishlist_service][get_wishlist] Retrieving wishlist {}", wishlistId)
 
@@ -356,6 +360,27 @@ class WishlistService(
             logger.info("\n\t[INFO] [wishlist_service][create_default_wishlist_for_user] Default wishlist created for user {}", user.id)
         } catch (e: Exception) {
             logger.error("\n\t[ERROR] [wishlist_service][create_default_wishlist_for_user] Error creating default wishlist for user {}: {}", user.id, e.message)
+            throw e
+        }
+    }
+
+    @Transactional
+    fun getItemStatus(wishlistId: UUID, gameId: UUID): WishlistItemStatusDTO {
+        logger.debug("\n\t[DEBUG] [wishlist_service][get_item_status] Checking status for wishlist {} game {}", wishlistId, gameId)
+
+        try {
+            wishlistRepository.findById(wishlistId).orElseThrow { WishlistNotFoundException(wishlistId) }
+
+            val item = wishlistItemRepository.findByWishlistIdAndGameId(wishlistId, gameId)
+            val response = WishlistItemStatusDTO(inWishlist = item.isPresent, itemId = item.map { it.id }.orElse(null))
+
+            logger.info("\n\t[INFO] [wishlist_service][get_item_status] Status for wishlist {} game {}: {}", wishlistId, gameId, response.inWishlist)
+            return response
+        } catch(e: WishlistNotFoundException) {
+            logger.warn("\n\t[WARN] [wishlist_service][get_item_status] Wishlist {} not found", wishlistId)
+            throw e
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [wishlist_service][get_item_status] Error checking status for wishlist {} game {}: {}", wishlistId, gameId, e.message)
             throw e
         }
     }

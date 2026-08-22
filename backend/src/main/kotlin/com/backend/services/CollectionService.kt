@@ -3,6 +3,7 @@ package com.backend.services
 import com.backend.exceptions.*
 import com.backend.models.dtos.AddToCollectionRequest
 import com.backend.models.dtos.CollectionItemDTO
+import com.backend.models.dtos.CollectionStatusDTO
 import com.backend.models.dtos.PageDTO
 import com.backend.models.entities.CollectionItem
 import com.backend.models.mappers.toPageDTO
@@ -79,6 +80,7 @@ class CollectionService(
         }
     }
 
+    @Transactional
     fun listCollection(userId: UUID, page: Int, size: Int, gameName: String?, sort: String?): PageDTO<CollectionItemDTO> {
         logger.debug("\n\t[DEBUG] [collection_service][list_collection] Listing collection\n\tuserId={}\n\tpage={}\n\tsize={}\n\tgameName={}\n\tsort={}", userId, page, size, gameName, sort)
 
@@ -98,6 +100,22 @@ class CollectionService(
             throw e
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [collection_service][list_collection] Error listing collection for user {}: {}", userId, e.message)
+            throw e
+        }
+    }
+
+    @Transactional
+    fun getStatus(userId: UUID, gameId: UUID): CollectionStatusDTO {
+        logger.debug("\n\t[DEBUG] [collection_service][get_status] Checking status for user {} game {}", userId, gameId)
+
+        try {
+            val item = collectionItemRepository.findByUserIdAndGameId(userId, gameId)
+            val response = CollectionStatusDTO(inCollection = item.isPresent, itemId = item.map { it.id }.orElse(null))
+
+            logger.info("\n\t[INFO] [collection_service][get_status] Status for user {} game {}: {}", userId, gameId, response.inCollection)
+            return response
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [collection_service][get_status] Error checking status for user {} game {}: {}", userId, gameId, e.message)
             throw e
         }
     }

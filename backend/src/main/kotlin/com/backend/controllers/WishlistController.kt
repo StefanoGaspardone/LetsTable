@@ -7,6 +7,7 @@ import com.backend.models.dtos.CreateWishlistRequest
 import com.backend.models.dtos.PageDTO
 import com.backend.models.dtos.WishlistDTO
 import com.backend.models.dtos.WishlistItemDTO
+import com.backend.models.dtos.WishlistItemStatusDTO
 import com.backend.models.dtos.WishlistMemberDTO
 import com.backend.security.CurrentUser
 import com.backend.services.WishlistService
@@ -390,4 +391,29 @@ class WishlistController(
     )
     @GetMapping("/{wishlistId}")
     fun getWishlist(@PathVariable wishlistId: UUID): WishlistDTO = wishlistService.getWishlist(wishlistId)
+
+    @Operation(summary = "Check wishlist item status", description = "Check whether a game is already in a specific wishlist.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Wishlist item status",
+                content = [Content(schema = Schema(implementation = WishlistItemStatusDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "404", description = "Not Found - Wishlist does not exist",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "NotFoundExample",
+                        summary = "Wishlist not found example",
+                        value = "{\"timestamp\":\"2026-08-20T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Wishlist not found: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
+                    )]
+                )]
+            ),
+        ]
+    )
+    @GetMapping("/{wishlistId}/items/status")
+    fun getItemStatus(@PathVariable wishlistId: UUID, @RequestParam gameId: UUID): WishlistItemStatusDTO =
+        wishlistService.getItemStatus(wishlistId, gameId)
 }

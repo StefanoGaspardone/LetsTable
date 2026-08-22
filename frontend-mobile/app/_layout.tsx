@@ -26,13 +26,17 @@ const RootLayoutNav = () => {
 	}
 
 	return (
-		<Stack screenOptions = {{ headerShown: false }}>
-			<Stack.Screen name = "index"/>
-			<Stack.Screen name = "(auth)"/>
-			<Stack.Screen name = "(tabs)"/>
-			<Stack.Screen name = "browse" options = {{ presentation: 'modal' }}/>
+		<Stack screenOptions={{ headerShown: false }}>
+			<Stack.Screen name = 'index'/>
+			<Stack.Screen name = '(auth)'/>
+			<Stack.Screen name = '(tabs)'/>
+			<Stack.Screen name = 'browse' options={{ presentation: 'modal' }}/>
+			<Stack.Screen name = 'game/[bggId]'/>
+			<Stack.Screen name = 'playlist-picker' options={{ presentation: 'modal' }}/>
+			<Stack.Screen name = 'my-wishlists' options={{ presentation: 'modal' }}/>
+			<Stack.Screen name = 'wishlist/[id]'/>
 		</Stack>
-	);
+	)
 }
 
 const RootLayout = () => {

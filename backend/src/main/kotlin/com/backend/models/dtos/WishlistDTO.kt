@@ -111,3 +111,12 @@ data class WishlistItemDTO(
         )
     }
 }
+
+@Schema(description = "Whether a game is in a specific wishlist")
+data class WishlistItemStatusDTO(
+    @field:Schema(description = "Whether the game is in the wishlist")
+    val inWishlist: Boolean,
+
+    @field:Schema(description = "Id of the wishlist item, if present")
+    val itemId: UUID?,
+)

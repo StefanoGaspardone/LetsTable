@@ -1,6 +1,6 @@
 import { apiClient } from '@/api/client';
 
-import { CollectionItem, ListCollectionParams } from '@/types/collection';
+import { CollectionItem, CollectionStatus, ListCollectionParams } from '@/types/collection';
 import { PageDTO } from '@/types/page';
 
 export const listCollection = async (params: ListCollectionParams): Promise<PageDTO<CollectionItem>> => {
@@ -10,6 +10,22 @@ export const listCollection = async (params: ListCollectionParams): Promise<Page
             size: params.size ?? 20,
             gameName: params.gameName || undefined,
         },
+    });
+    return data;
+}
+
+export const addToCollection = async (gameId: string): Promise<CollectionItem> => {
+    const { data } = await apiClient.post<CollectionItem>('/collection', { gameId });
+    return data;
+}
+
+export const removeFromCollection = async (itemId: string): Promise<void> => {
+    await apiClient.delete(`/collection/${itemId}`);
+}
+
+export const getGameStatusInCollection = async (gameId: string): Promise<CollectionStatus> => {
+    const { data } = await apiClient.get<CollectionStatus>('/collection/status', {
+        params: { gameId },
     });
     return data;
 }

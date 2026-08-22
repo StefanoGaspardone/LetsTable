@@ -32,3 +32,12 @@ data class CollectionItemDTO(
         )
     }
 }
+
+@Schema(description = "Whether a game is in the current user's collection")
+data class CollectionStatusDTO(
+    @field:Schema(description = "Whether the game is in the collection")
+    val inCollection: Boolean,
+
+    @field:Schema(description = "Id of the collection entry, if present")
+    val itemId: UUID?,
+)

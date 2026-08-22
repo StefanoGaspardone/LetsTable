@@ -11,3 +11,8 @@ export interface ListCollectionParams {
     size?: number;
     gameName?: string;
 }
+
+export interface CollectionStatus {
+	inCollection: boolean;
+	itemId: string | null;
+}
