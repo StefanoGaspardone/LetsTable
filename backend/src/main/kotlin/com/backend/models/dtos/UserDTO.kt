@@ -17,6 +17,9 @@ data class UserDTO(
 
     @field:Schema(description = "Role assigned to the user", example = "USER")
     val role: String,
+
+    @field:Schema(description = "Avatar URL for the user profile picture", example = "https://example.com/avatar.png")
+    val avatarUrl: String,
 ) {
     companion object {
         fun from(user: User) = UserDTO(
@@ -24,6 +27,7 @@ data class UserDTO(
             username = user.username,
             email = user.email,
             role = user.role.name,
+            avatarUrl = "https://api.dicebear.com/9.x/initials/svg?seed=${user.username}"
         )
     }
 }

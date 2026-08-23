@@ -3,28 +3,20 @@ package com.backend.seeders
 import com.backend.models.entities.Game
 import com.backend.repositories.GameRepository
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
-import org.springframework.boot.CommandLineRunner
 import org.springframework.stereotype.Component
 import java.time.Instant
 
 @Component
 class GameSeeder(
     private val gameRepository: GameRepository,
-    @Value($$"${seeding.enabled}") private val seedingEnabled: Boolean,
-): CommandLineRunner {
+) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    override fun run(vararg args: String) {
-        if(!seedingEnabled) {
-            logger.debug("\n\t[DEBUG] [game_seeder][run] Seeder disabled, skipping")
-            return
-        }
-
-        logger.debug("\n\t[DEBUG] [game_seeder][run] Seeding test games")
+    fun seed(): List<Game> {
+        logger.debug("\n\t[DEBUG] [game_seeder][seed] Seeding demo games")
         try {
-            val games = listOf(
+            val specs = listOf(
                 Game(
                     bggId = 342942,
                     name = "Ark Nova",
@@ -75,17 +67,14 @@ class GameSeeder(
                 ),
             )
 
-            var insertedCount = 0
-            games.forEach { game ->
-                if(gameRepository.findByBggId(game.bggId).isEmpty) {
-                    gameRepository.save(game)
-                    insertedCount++
-                }
+            val games = specs.map { spec ->
+                gameRepository.findByBggId(spec.bggId).orElseGet { gameRepository.save(spec) }
             }
 
-            logger.info("\n\t[INFO] [game_seeder][run] Seeded {} new games ({} already present)", insertedCount, games.size - insertedCount)
+            logger.info("\n\t[INFO] [game_seeder][seed] {} demo games ready", games.size)
+            return games
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [game_seeder][run] Error seeding games: {}", e.message)
+            logger.error("\n\t[ERROR] [game_seeder][seed] Error seeding games: {}", e.message)
             throw e
         }
     }

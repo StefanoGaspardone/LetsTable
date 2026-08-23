@@ -10,7 +10,7 @@
     "clean": "rm -rf .expo node_modules"
   },
   "dependencies": {
-    "@expo-google-fonts/dm-serif-display": "^0.4.2",
+    "@expo-google-fonts/playfair-display": "^0.4.2",
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@hookform/resolvers": "^5.9.1",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -43,6 +43,7 @@
     "axios": "^1.19.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
     "expo": "^57.0.9",
     "expo-constants": "~57.0.12",
     "expo-device": "~57.0.1",

@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { apiClient } from '@/api/client';
 
 import { tokenStorage } from '@/lib/token-storage';
+import axios from 'axios';
 
 interface User {
 	id: string;
@@ -39,7 +40,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 			const { data } = await apiClient.get<User>('/users/me');
 			setUser(data);
-		} catch {
+		} catch(error) {
+			console.log('RESTORE SESSION FAILED:', error);
+			if (axios.isAxiosError(error)) {
+				console.log('RESTORE SESSION ERROR STATUS:', error.response?.status);
+				console.log('RESTORE SESSION ERROR MESSAGE:', error.message);
+			}
+
 			await tokenStorage.clearTokens();
 			setUser(null);
 		} finally {

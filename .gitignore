@@ -74,6 +74,7 @@ frontend/.vite/
 frontend/coverage/
 frontend/.eslintcache
 frontend/*.tsbuildinfo
+.expo/
 
 # JS package managers / tooling (workspace-wide)
 node_modules/

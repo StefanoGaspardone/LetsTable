@@ -8,7 +8,7 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        display: ['DMSerifDisplay_400Regular'],
+        display: ['PlayfairDisplay_700Bold'],
         sans: ['PlusJakartaSans_400Regular'],
       },
       colors: {

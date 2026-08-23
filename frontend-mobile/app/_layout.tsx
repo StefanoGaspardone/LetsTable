@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { Stack, DefaultTheme, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useFonts, DMSerifDisplay_400Regular } from '@expo-google-fonts/dm-serif-display';
+import { useFonts, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans';
 
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
@@ -18,7 +18,7 @@ const queryClient = new QueryClient();
 const RootLayoutNav = () => {
 	const { isLoading } = useAuth();
 	const [fontsLoaded] = useFonts({
-		DMSerifDisplay_400Regular,
+		PlayfairDisplay_700Bold,
 		PlusJakartaSans_400Regular,
 		PlusJakartaSans_500Medium,
 		PlusJakartaSans_600SemiBold,
