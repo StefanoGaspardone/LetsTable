@@ -161,6 +161,7 @@ class MatchService(
         }
     }
 
+    @Transactional
     fun getMatch(matchId: UUID): MatchDTO {
         logger.debug("\n\t[DEBUG] [match_service][get_match] Retrieving match {}", matchId)
 
@@ -181,6 +182,7 @@ class MatchService(
         }
     }
 
+    @Transactional
     fun listMyMatches(userId: UUID, page: Int, size: Int, gameId: UUID?, fromDate: LocalDate?, toDate: LocalDate?, sort: String?): PageDTO<MatchDTO> {
         logger.debug("\n\t[DEBUG] [match_service][list_my_matches] Listing matches\n\tuserId={}\n\tpage={}\n\tsize={}\n\tgameId={}\n\tfromDate={}\n\ttoDate={}", userId, page, size, gameId, fromDate, toDate)
 
@@ -204,6 +206,7 @@ class MatchService(
         }
     }
 
+    @Transactional
     fun getMatchCalendar(userId: UUID, year: Int, month: Int): List<MatchDayCountResponse> {
         logger.debug("\n\t[DEBUG] [match_service][get_match_calendar] Retrieving calendar\n\tuserId={}\n\tyear={}\n\tmonth={}", userId, year, month)
 

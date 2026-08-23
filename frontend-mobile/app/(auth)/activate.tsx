@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { View, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-import { OtpInput } from '@/components/ui/otp-input';
+import AuthScreenLayout from '@/components/auth-screen-layout';
+import OtpInput from '@/components/ui/otp-input';
 
 import { activate, resendActivationOtp } from '@/api/auth';
 
-export default function ActivateScreen() {
+import { useToast } from '@/contexts/toast-context';
+
+const ActivateScreen = () => {
 	const { identifier } = useLocalSearchParams<{ identifier: string }>();
+	const { showToast } = useToast();
 
 	const [otpCode, setOtpCode] = useState('');
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,12 +25,12 @@ export default function ActivateScreen() {
 		
 		try {
 			await activate(identifier, otpCode);
-			Alert.alert('Account attivato', 'Ora puoi accedere', [
-				{ text: 'OK', onPress: () => router.replace('/(auth)/login') },
-			]);
+			showToast('Account attivato con successo', 'success');
+			
+			router.replace('/(auth)/login');
 		} catch(error: any) {
 			const message = error?.response?.data?.message ?? 'Codice non valido o scaduto';
-			Alert.alert('Errore', message);
+			showToast(message, 'error');
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -38,32 +41,35 @@ export default function ActivateScreen() {
 		
 		try {
 			await resendActivationOtp(identifier);
-			Alert.alert('Codice inviato', 'Controlla la tua email');
+			showToast('Codice inviato, controlla la tua email', 'success');
 		} catch(error: any) {
 			const message = error?.response?.data?.message ?? 'Impossibile inviare un nuovo codice';
-			Alert.alert('Errore', message);
+			showToast(message, 'error');
 		} finally {
 			setIsResending(false);
 		}
 	}
 
 	return (
-		<View className = 'flex-1 justify-center bg-background px-6'>
-			<Text className = 'mb-2 text-center font-display text-3xl text-foreground'>
-				Verifica email
-			</Text>
-			<Text className = 'mb-8 text-center text-base text-muted-foreground'>
-				Abbiamo inviato un codice a {identifier}
-			</Text>
-			<View className = 'mb-6'>
-				<OtpInput value = { otpCode } onChange = { setOtpCode }/>
-			</View>
-			<Button onPress = { onSubmit } disabled = { !isComplete || isSubmitting }>
-				<Text>{isSubmitting ? 'Verifica...' : 'Attiva account'}</Text>
+		<AuthScreenLayout title = 'Verifica il tuo account' subtitle = { `Abbiamo inviato un codice a ${identifier}` }
+			footer = {
+				<Button variant = 'ghost' className = 'mt-4' onPress = { onResend } disabled = { isResending }>
+					<Text className = 'text-sm text-white/70'>
+						{isResending ? 'Invio...' : (
+							<>Non hai ricevuto il codice? <Text className = 'text-[#C1502E]'>Rinvia</Text></>
+						)}
+					</Text>
+				</Button>
+			}
+		>
+			<OtpInput value = { otpCode } onChange = { setOtpCode } boxClassName = 'border-[#4A423C] bg-[#3A332E] text-white' placeholderTextColor = '#8A817A'/> 
+ 			<Button className = 'mt-6 h-14 rounded-full bg-[#C1502E]' onPress = { onSubmit } disabled = { !isComplete || isSubmitting }>
+				<Text className = 'text-base font-semibold text-white'>
+					{isSubmitting ? 'Verifica...' : 'Attiva account'}
+				</Text>
 			</Button>
-			<Button variant = 'ghost' className = 'mt-4' onPress = { onResend } disabled = { isResending }>
-				<Text>{isResending ? 'Invio...' : 'Non hai ricevuto il codice? Rinvia'}</Text>
-			</Button>
-		</View>
+		</AuthScreenLayout>
 	)
 }
+
+export default ActivateScreen;

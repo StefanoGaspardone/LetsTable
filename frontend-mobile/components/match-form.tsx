@@ -1,16 +1,21 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, ScrollView, Alert } from 'react-native';
 import { Plus } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import TeamEditor, { TeamFormValue } from '@/components/team-editor';
 import IndividualPlayerEditor, { IndividualPlayerFormValue } from '@/components/individual-player-editor';
+import TeamEditor, { TeamFormValue } from '@/components/team-editor';
 import GamePickerField from '@/components/game-picker-field';
 
-import { CreateMatchPayload } from '@/types/match';
+import { useAuth } from '@/contexts/auth-context';
+
 import { Game } from '@/types/game';
+
+import { CreateMatchPayload } from '@/types/match';
+
+import { identityKey } from '@/lib/identity';
 
 interface MatchFormProps {
 	mode: 'start' | 'full';
@@ -28,42 +33,92 @@ interface MatchFormProps {
 
 const DEFAULT_COLOR = '#B23B3B';
 
-const emptyPlayer = (): IndividualPlayerFormValue => {
-	return { identity: null, color: DEFAULT_COLOR, score: '0', isWinner: false };
-}
-
-const emptyTeam = (): TeamFormValue => {
-	return { name: '', color: DEFAULT_COLOR, score: '0', isWinner: false, players: [] };
-}
-
 const MatchForm = ({ mode, initialGame, initialPlayedAt, initialPlace, initialNotes, initialDuration, initialIsTeamBased = false, initialTeams, initialPlayers, onSubmit, submitLabel }: MatchFormProps) => {
+	const { user } = useAuth();
+
+	const emptyPlayer = (): IndividualPlayerFormValue => {
+		return { identity: null, color: DEFAULT_COLOR, score: '0', isWinner: false };
+	}
+
+	const selfAsPlayer = (): IndividualPlayerFormValue => {
+		return {
+			identity: user ? { userId: user.id, guestName: null, displayName: user.username } : null,
+			color: DEFAULT_COLOR,
+			score: '0',
+			isWinner: false,
+		};
+	}
+
+	const emptyTeam = (): TeamFormValue => {
+		return { name: '', color: DEFAULT_COLOR, score: '0', isWinner: false, players: [] };
+	}
+
 	const [game, setGame] = useState<Game | null>(initialGame ?? null);
-	const [playedAt, setPlayedAt] = useState(initialPlayedAt ?? new Date().toISOString().slice(0, 10));
+	const [playedAt] = useState(initialPlayedAt ?? new Date().toISOString().slice(0, 10));
 	const [place, setPlace] = useState(initialPlace ?? '');
 	const [notes, setNotes] = useState(initialNotes ?? '');
 	const [duration, setDuration] = useState(initialDuration ?? '');
 	const [isTeamBased, setIsTeamBased] = useState(initialIsTeamBased);
 	const [teams, setTeams] = useState<TeamFormValue[]>(initialTeams ?? [emptyTeam(), emptyTeam()]);
-	const [players, setPlayers] = useState<IndividualPlayerFormValue[]>(initialPlayers ?? [emptyPlayer()]);
+	const [players, setPlayers] = useState<IndividualPlayerFormValue[]>(
+		initialPlayers ?? (mode === 'start' ? [selfAsPlayer()] : [emptyPlayer()])
+	);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
-	const showScoring = mode === 'full';
+	const existingPlayerKeys = useMemo(
+		() =>
+			players
+				.map(p => p.identity)
+				.filter((i): i is NonNullable<typeof i> => i != null)
+				.map(element => identityKey(element)),
+		[players]
+	);
 
-	function validate(): string | null {
+	const existingTeamPlayerKeys = useMemo(
+		() => teams.flatMap(team => team.players.map(identityKey)),
+		[teams]
+	);
+
+	const isSelfInTeam = (teamIndex: number): boolean => {
+		if(!user) return false;
+		return teams[teamIndex].players.some(p => p.userId === user.id);
+	}
+
+	const toggleSelfInTeam = (teamIndex: number) => {
+		if(!user) return;
+		const selfIdentity = { userId: user.id, guestName: null, displayName: user.username };
+
+		setTeams(prev =>
+			prev.map((team, i) => {
+				if(i === teamIndex) {
+					const alreadyIn = team.players.some(p => p.userId === user.id);
+					return {
+						...team,
+						players: alreadyIn
+							? team.players.filter(p => p.userId !== user.id)
+							: [...team.players, selfIdentity],
+					}
+				}
+
+				return { ...team, players: team.players.filter(p => p.userId !== user.id) };
+			})
+		);
+	}
+
+	const validate = (): string | null => {
 		if(!game) return 'Seleziona un gioco';
-		if(!playedAt) return 'Inserisci la data della partita';
 
 		if(isTeamBased) {
 			if(teams.length < 1) return 'Aggiungi almeno una squadra';
 			
-            for (const team of teams) {
+			for(const team of teams) {
 				if(!team.color) return 'Ogni squadra deve avere un colore';
 				if(team.players.length === 0) return `La squadra '${team.name || 'senza nome'}' non ha giocatori`;
 			}
 		} else {
 			if(players.length < 1) return 'Aggiungi almeno un giocatore';
 			
-            for(const player of players) if(!player.identity) return 'Ogni giocatore deve essere selezionato';
+			for(const player of players)  if(!player.identity) return 'Ogni giocatore deve essere selezionato';
 		}
 
 		return null;
@@ -71,15 +126,14 @@ const MatchForm = ({ mode, initialGame, initialPlayedAt, initialPlace, initialNo
 
 	const handleSubmit = async () => {
 		const error = validate();
-		
-        if(error) {
+		if(error) {
 			Alert.alert('Dati mancanti', error);
 			return;
 		}
 
 		setIsSubmitting(true);
 		
-        try {
+		try {
 			const payload: CreateMatchPayload = {
 				gameId: game!.id,
 				playedAt,
@@ -120,8 +174,6 @@ const MatchForm = ({ mode, initialGame, initialPlayedAt, initialPlace, initialNo
 		<ScrollView className = 'flex-1 bg-background px-4' contentContainerStyle = {{ paddingBottom: 40 }}>
 			<Text className = 'mb-1 mt-4 text-sm text-muted-foreground'>Gioco</Text>
 			<GamePickerField value = { game } onChange = { setGame }/>
-			<Text className = 'mb-1 mt-4 text-sm text-muted-foreground'>Data</Text>
-			<Input placeholder = 'AAAA-MM-GG' value = { playedAt } onChangeText = { setPlayedAt }/>
 			<Text className = 'mb-1 mt-4 text-sm text-muted-foreground'>Luogo (opzionale)</Text>
 			<Input placeholder = 'Es. Casa di Marco' value = { place } onChangeText = { setPlace }/>
 			{mode === 'full' && (
@@ -144,7 +196,7 @@ const MatchForm = ({ mode, initialGame, initialPlayedAt, initialPlace, initialNo
 				{isTeamBased ? (
 					<>
 						{teams.map((team, index) => (
-							<TeamEditor key = { index } value = { team } showScoring = { showScoring } onChange = { updated => setTeams(teams.map((t, i) => (i === index ? updated : t))) } onRemove = { () => setTeams(teams.filter((_, i) => i !== index)) }/>
+							<TeamEditor key = { index } value = { team } showScoring = { mode === 'full' } existingKeys = { existingTeamPlayerKeys } isSelfInTeam = { isSelfInTeam(index) } onToggleSelf = { () => toggleSelfInTeam(index) } onChange = { updated => setTeams(teams.map((t, i) => (i === index ? updated : t))) } onRemove = { () => setTeams(teams.filter((_, i) => i !== index)) }/>
 						))}
 						<Button variant = 'outline' className = 'flex-row items-center gap-2' onPress = { () => setTeams([...teams, emptyTeam()]) }>
 							<Plus size = { 16 } className = 'text-foreground'/>
@@ -154,7 +206,7 @@ const MatchForm = ({ mode, initialGame, initialPlayedAt, initialPlace, initialNo
 				) : (
 					<>
 						{players.map((player, index) => (
-							<IndividualPlayerEditor key = { index } value = { player } showScoring = { showScoring } onChange = { updated => setPlayers(players.map((p, i) => (i === index ? updated : p))) } onRemove = { () => setPlayers(players.filter((_, i) => i !== index)) }/>
+							<IndividualPlayerEditor key = { index } value = { player } showScoring = { mode === 'full' } existingKeys = { existingPlayerKeys.filter((k, i) => i !== index) } onChange = { updated => setPlayers(players.map((p, i) => (i === index ? updated : p))) } onRemove = { () => setPlayers(players.filter((_, i) => i !== index)) }/>
 						))}
 						<Button variant = 'outline' className = 'flex-row items-center gap-2' onPress = { () => setPlayers([...players, emptyPlayer()]) }>
 							<Plus size = { 16 } className = 'text-foreground'/>

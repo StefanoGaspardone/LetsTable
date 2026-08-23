@@ -1,10 +1,12 @@
-import { View, Pressable } from 'react-native';
-import { Trash2, Crown, X } from 'lucide-react-native';
+import { View, Pressable, Alert } from 'react-native';
+import { Trash2, Crown, X, UserCheck } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
 import PlayerIdentityPicker, { PlayerIdentity } from '@/components/player-identity-picker';
-import ColorSwatchPicker from '@/components/color-switch-picker';
+import ColorSwatchPicker from '@/components/color-swatch-picker';
+
+import { identityKey } from '@/lib/identity';
 
 export interface TeamFormValue {
 	name: string;
@@ -19,10 +21,20 @@ interface TeamEditorProps {
 	onChange: (value: TeamFormValue) => void;
 	onRemove: () => void;
 	showScoring?: boolean;
+	existingKeys: string[];
+	isSelfInTeam: boolean;
+	onToggleSelf: () => void;
 }
 
-const TeamEditor = ({ value, onChange, onRemove, showScoring = true }: TeamEditorProps) => {
-	const addPlayer = (identity: PlayerIdentity) => {
+const TeamEditor = ({ value, onChange, onRemove, showScoring = true, existingKeys, isSelfInTeam, onToggleSelf }: TeamEditorProps) => {
+	function addPlayer(identity: PlayerIdentity) {
+		const key = identityKey(identity);
+		
+		if(existingKeys.includes(key)) {
+			Alert.alert('Giocatore già presente', 'Questo giocatore è già in una squadra.');
+			return;
+		}
+		
 		onChange({ ...value, players: [...value.players, identity] });
 	}
 
@@ -42,12 +54,20 @@ const TeamEditor = ({ value, onChange, onRemove, showScoring = true }: TeamEdito
 			{showScoring && (
 				<View className = 'mt-3 flex-row items-center gap-3'>
 					<Input placeholder = 'Punteggio' keyboardType = 'number-pad' value = { value.score } onChangeText = { score => onChange({ ...value, score }) } className = 'flex-1'/>
-					<Pressable onPress = { () => onChange({ ...value, isWinner: !value.isWinner })} className = 'flex-row items-center gap-1.5 rounded-lg border border-border px-3 py-2'>
+					<Pressable onPress = { () => onChange({ ...value, isWinner: !value.isWinner }) } className = 'flex-row items-center gap-1.5 rounded-lg border border-border px-3 py-2'>
 						<Crown size = { 16 } className = { value.isWinner ? 'text-accent' : 'text-muted-foreground' }/>
 						<Text className = 'text-sm text-foreground'>Vincitrice</Text>
 					</Pressable>
 				</View>
 			)}
+			<Pressable
+				onPress = { onToggleSelf }
+				className = { `mt-3 flex-row items-center gap-2 self-start rounded-full border px-3 py-1.5 ${isSelfInTeam ? 'border-primary bg-primary' : 'border-border'}` }>
+				<UserCheck size = { 14 } className = { isSelfInTeam ? 'text-primary-foreground' : 'text-muted-foreground' }/>
+				<Text className = { `text-xs ${isSelfInTeam ? 'text-primary-foreground' : 'text-muted-foreground'}` }>
+					Appartengo a questa squadra
+				</Text>
+			</Pressable>
 			<View className = 'mt-3'>
 				{value.players.map((player, index) => (
 					<View key = { index } className = 'mb-1.5 flex-row items-center justify-between rounded-md bg-secondary px-3 py-2'>
@@ -61,6 +81,6 @@ const TeamEditor = ({ value, onChange, onRemove, showScoring = true }: TeamEdito
 			</View>
 		</View>
 	)
-}
+} 
 
 export default TeamEditor;

@@ -1,10 +1,12 @@
-import { View, Pressable } from 'react-native';
+import { View, Pressable, Alert } from 'react-native';
 import { Trash2, Crown } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
 import PlayerIdentityPicker, { PlayerIdentity } from '@/components/player-identity-picker';
-import ColorSwatchPicker from '@/components/color-switch-picker';
+
+import { identityKey } from '@/lib/identity';
+import ColorSwatchPicker from '@/components/color-swatch-picker';
 
 export interface IndividualPlayerFormValue {
 	identity: PlayerIdentity | null;
@@ -18,13 +20,25 @@ interface IndividualPlayerEditorProps {
 	onChange: (value: IndividualPlayerFormValue) => void;
 	onRemove: () => void;
 	showScoring?: boolean;
+	existingKeys: string[];
 }
 
-const IndividualPlayerEditor = ({ value, onChange, onRemove, showScoring = true }: IndividualPlayerEditorProps) => {
+const IndividualPlayerEditor = ({ value, onChange, onRemove, showScoring = true, existingKeys }: IndividualPlayerEditorProps) => {
+	function handleIdentityChange(identity: PlayerIdentity) {
+		const key = identityKey(identity);
+		
+		if(existingKeys.includes(key)) {
+			Alert.alert('Giocatore già presente', 'Questo giocatore è già stato aggiunto alla partita.');
+			return;
+		}
+		
+		onChange({ ...value, identity });
+	}
+
 	return (
 		<View className = 'mb-3 rounded-lg border border-border p-3'>
 			<View className = 'mb-2 flex-row items-center justify-between'>
-				<PlayerIdentityPicker value = { value.identity } onChange = { identity => onChange({ ...value, identity }) }/>
+				<PlayerIdentityPicker value = { value.identity } onChange = { handleIdentityChange }/>
 				<Pressable onPress = { onRemove } hitSlop = { 8 }>
 					<Trash2 size = { 18 } className = 'text-destructive'/>
 				</Pressable>

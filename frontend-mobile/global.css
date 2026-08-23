@@ -3,53 +3,53 @@
 @tailwind utilities;
 
 @layer base {
-	:root {
-		--background: 42 45% 93%;
-		--foreground: 30 20% 11%;
-		--card: 42 40% 97%;
-		--card-foreground: 30 20% 11%;
-		--popover: 42 40% 97%;
-		--popover-foreground: 30 20% 11%;
-		--primary: 165 48% 24%;
-		--primary-foreground: 42 45% 96%;
-		--secondary: 40 20% 88%;
-		--secondary-foreground: 30 20% 11%;
-		--muted: 40 20% 88%;
-		--muted-foreground: 30 10% 40%;
-		--accent: 38 62% 55%;
-		--accent-foreground: 30 20% 11%;
-		--destructive: 0 48% 47%;
-		--destructive-foreground: 42 45% 96%;
-		--border: 40 20% 82%;
-		--input: 40 20% 82%;
-		--ring: 165 48% 24%;
-		--radius: 0.75rem;
+  :root {
+    --background: 36 38% 93%;
+    --foreground: 20 25% 14%;
+    --card: 36 45% 97%;
+    --card-foreground: 20 25% 14%;
+    --popover: 36 45% 97%;
+    --popover-foreground: 20 25% 14%;
+    --primary: 14 62% 47%;
+    --primary-foreground: 36 45% 97%;
+    --secondary: 32 30% 88%;
+    --secondary-foreground: 20 25% 14%;
+    --muted: 32 25% 88%;
+    --muted-foreground: 20 12% 42%;
+    --accent: 14 62% 47%;
+    --accent-foreground: 36 45% 97%;
+    --destructive: 0 55% 45%;
+    --destructive-foreground: 36 45% 97%;
+    --border: 32 20% 82%;
+    --input: 32 20% 82%;
+    --ring: 14 62% 47%;
+    --radius: 1rem;
 
-		--font-display: Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
-		--font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
-		--font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
-		--font-serif: Georgia, 'Times New Roman', serif;
-	}
+    --font-display: Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+    --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
+    --font-serif: Georgia, 'Times New Roman', serif;
+  }
 
-	.dark:root {
-		--background: 30 22% 8%;
-		--foreground: 42 40% 92%;
-		--card: 30 20% 11%;
-		--card-foreground: 42 40% 92%;
-		--popover: 30 20% 11%;
-		--popover-foreground: 42 40% 92%;
-		--primary: 165 42% 42%;
-		--primary-foreground: 30 22% 8%;
-		--secondary: 30 15% 18%;
-		--secondary-foreground: 42 40% 92%;
-		--muted: 30 15% 18%;
-		--muted-foreground: 40 15% 65%;
-		--accent: 38 65% 60%;
-		--accent-foreground: 30 22% 8%;
-		--destructive: 0 55% 55%;
-		--destructive-foreground: 42 40% 92%;
-		--border: 30 15% 20%;
-		--input: 30 15% 20%;
-		--ring: 165 42% 42%;
-	}
+  .dark:root {
+    --background: 24 15% 10%;
+    --foreground: 36 30% 92%;
+    --card: 24 14% 13%;
+    --card-foreground: 36 30% 92%;
+    --popover: 24 14% 13%;
+    --popover-foreground: 36 30% 92%;
+    --primary: 14 68% 55%;
+    --primary-foreground: 24 15% 10%;
+    --secondary: 24 12% 18%;
+    --secondary-foreground: 36 30% 92%;
+    --muted: 24 12% 18%;
+    --muted-foreground: 32 15% 62%;
+    --accent: 14 68% 55%;
+    --accent-foreground: 24 15% 10%;
+    --destructive: 0 55% 55%;
+    --destructive-foreground: 36 30% 92%;
+    --border: 24 12% 20%;
+    --input: 24 12% 20%;
+    --ring: 14 68% 55%;
+  }
 }

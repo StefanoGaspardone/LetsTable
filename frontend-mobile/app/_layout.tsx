@@ -7,6 +7,8 @@ import { useColorScheme } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
+import { ConfirmDialogProvider } from '@/contexts/confirm-dialog-context';
+import { ToastProvider } from '@/contexts/toast-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -49,9 +51,13 @@ const RootLayout = () => {
 	return (
 		<QueryClientProvider client = { queryClient }>
 			<AuthProvider>
-				<ThemeProvider value = { colorScheme === 'dark' ? DarkTheme : DefaultTheme }>
-					<RootLayoutNav/>
-				</ThemeProvider>
+				<ToastProvider>
+					<ConfirmDialogProvider>
+						<ThemeProvider value = { colorScheme === 'dark' ? DarkTheme : DefaultTheme }>
+							<RootLayoutNav/>
+						</ThemeProvider>
+					</ConfirmDialogProvider>
+				</ToastProvider>
 			</AuthProvider>
 		</QueryClientProvider>
 	)

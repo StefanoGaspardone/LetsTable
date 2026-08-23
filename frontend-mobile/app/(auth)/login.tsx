@@ -1,20 +1,27 @@
 import { useState } from 'react';
-import { View, Alert } from 'react-native';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
+
 import { zodResolver } from '@hookform/resolvers/zod';
+
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import AuthScreenLayout from '@/components/auth-screen-layout';
+import AuthField from '@/components/auth-field';
 import { PasswordInput } from '@/components/ui/password-input';
+
 import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/contexts/toast-context';
+
+import { LoginFormValues, loginSchema } from '@/schemas/auth-schema';
 
 import { login as log_in } from '@/api/auth';
 
-import { loginSchema, LoginFormValues } from '@/schemas/auth-schema';
-
 const LoginScreen = () => {
 	const { login } = useAuth();
+	const { showToast } = useToast();
+
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const { control, handleSubmit, formState: { errors, isValid } } = useForm<LoginFormValues>({
@@ -33,42 +40,41 @@ const LoginScreen = () => {
 			router.replace('/(tabs)/collection');
 		} catch(error: any) {
 			const message = error?.response?.data?.message ?? 'Credenziali non valide';
-			Alert.alert('Errore', message);
+			showToast(message, 'error');
 		} finally {
 			setIsSubmitting(false);
 		}
 	}
 
 	return (
-		<View className = 'flex-1 justify-center bg-background px-6'>
-			<Text className = 'mb-8 text-center font-display text-4xl text-primary'>
-				Let&apos;s Table
-			</Text>
-			<Controller control = { control } name = 'identifier' render = { ({ field: { onChange, onBlur, value } }) => (
-				<View className = 'mb-4'>
-					<Input placeholder = 'Email o username' autoCapitalize = 'none' onBlur = { onBlur } onChangeText = { onChange } value = { value }/>
-					{errors.identifier && (
-						<Text className = 'mt-1 text-sm text-destructive'>{errors.identifier.message}</Text>
-					)}
-				</View>
-			) }/>
-			<Controller control = { control }
-			name = 'password'
-			render = { ({ field: { onChange, onBlur, value } }) => (
-				<View className = 'mb-6'>
-					<PasswordInput placeholder = 'Password' onBlur = { onBlur } onChangeText = { onChange } value = { value }/>
-					{errors.password && (
-						<Text className = 'mt-1 text-sm text-destructive'>{errors.password.message}</Text>
-					)}
-				</View>
-			) }/>
-			<Button onPress = { handleSubmit(onSubmit) } disabled = { !isValid || isSubmitting }>
-				<Text>{isSubmitting ? 'Accesso in corso...' : 'Accedi'}</Text>
+		<AuthScreenLayout title = 'Bentornato!' subtitle = 'Accedi per tracciare le tue partite.'
+			footer = {
+				<Text className = 'text-sm text-white/70 text-center mt-3'>
+					Non hai un account? <Text className = 'text-[#C1502E] hover:underline text-sm font-bold' onPress = { () => router.push('/(auth)/signup') }>Registrati</Text>
+				</Text>
+			}
+		>
+			<Controller control = { control } name = 'identifier'
+				render = { ({ field: { onChange, onBlur, value } }) => (
+					<AuthField label = 'Email o username' placeholder = 'boardgamer@example.com' autoCapitalize = 'none' value = { value } onChangeText = { onChange } onBlur = { onBlur } error = { errors.identifier?.message }/>
+				)}
+			/>
+			<Controller control = { control } name = 'password' render = { ({ field: { onChange, onBlur, value } }) => (
+					<View className = 'mb-2'>
+						<Text className = 'mb-1.5 text-sm text-white/70'>Password</Text>
+						<PasswordInput placeholder = '••••••••' placeholderTextColor = '#8A817A' value = { value } onChangeText = { onChange } onBlur = { onBlur } className = 'border-[#4A423C] bg-[#3A332E] text-white' iconColor = '#8A817A'/>
+						{errors.password && (
+							<Text className = 'mt-1 text-xs text-red-400'>{errors.password.message}</Text>
+						)}
+					</View>
+				)}
+			/>
+			<Button className = 'mt-5 h-14 rounded-full bg-[#C1502E]' onPress = { handleSubmit(onSubmit) } disabled = { !isValid || isSubmitting }>
+				<Text className = 'text-base font-semibold text-white'>
+					{isSubmitting ? 'Accesso in corso...' : 'Accedi'}
+				</Text>
 			</Button>
-			<Button variant = 'ghost' className = 'mt-4' onPress = { () => router.push('/(auth)/signup') }>
-				<Text>Non hai un account? Registrati</Text>
-			</Button>
-		</View>
+		</AuthScreenLayout>
 	)
 }
 
