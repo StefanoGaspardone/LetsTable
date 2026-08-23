@@ -2,14 +2,11 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
-
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-import AuthScreenLayout from '@/components/auth-screen-layout';
-import AuthField from '@/components/auth-field';
-import { PasswordInput } from '@/components/ui/password-input';
+import AuthScreenLayout from '@/components/auth/auth-screen-layout';
 
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
@@ -17,6 +14,8 @@ import { useToast } from '@/contexts/toast-context';
 import { LoginFormValues, loginSchema } from '@/schemas/auth-schema';
 
 import { login as log_in } from '@/api/auth';
+import AuthField from '@/components/auth/auth-field';
+import PasswordInput from '@/components/common/password-input';
 
 const LoginScreen = () => {
 	const { login } = useAuth();
@@ -37,7 +36,7 @@ const LoginScreen = () => {
 			const response = await log_in(values);
 			await login(response.accessToken, response.refreshToken, response.user);
 			
-			router.replace('/(tabs)/collection');
+			router.replace('/(tabs)/home');
 		} catch(error: any) {
 			const message = error?.response?.data?.message ?? 'Credenziali non valide';
 			showToast(message, 'error');
@@ -47,10 +46,10 @@ const LoginScreen = () => {
 	}
 
 	return (
-		<AuthScreenLayout title = 'Bentornato!' subtitle = 'Accedi per tracciare le tue partite.'
+		<AuthScreenLayout title = 'Bentornato!' subtitle = 'Il tuo tavolo ti sta aspettando.'
 			footer = {
-				<Text className = 'text-sm text-white/70 text-center mt-3'>
-					Non hai un account? <Text className = 'text-[#C1502E] hover:underline text-sm font-bold' onPress = { () => router.push('/(auth)/signup') }>Registrati</Text>
+				<Text className = 'text-sm text-muted-foreground mt-3 text-center'>
+					Non hai un account? <Text className = 'text-sm font-semibold text-primary active:underline' onPress = { () => router.push('/(auth)/signup') }>Registrati</Text>
 				</Text>
 			}
 		>
@@ -59,18 +58,19 @@ const LoginScreen = () => {
 					<AuthField label = 'Email o username' placeholder = 'boardgamer@example.com' autoCapitalize = 'none' value = { value } onChangeText = { onChange } onBlur = { onBlur } error = { errors.identifier?.message }/>
 				)}
 			/>
-			<Controller control = { control } name = 'password' render = { ({ field: { onChange, onBlur, value } }) => (
+			<Controller control = { control } name = 'password'
+				render = { ({ field: { onChange, onBlur, value } }) => (
 					<View className = 'mb-2'>
-						<Text className = 'mb-1.5 text-sm text-white/70'>Password</Text>
-						<PasswordInput placeholder = '••••••••' placeholderTextColor = '#8A817A' value = { value } onChangeText = { onChange } onBlur = { onBlur } className = 'border-[#4A423C] bg-[#3A332E] text-white' iconColor = '#8A817A'/>
+						<Text className = 'mb-1.5 text-sm font-medium text-foreground'>Password</Text>
+						<PasswordInput placeholder = '••••••••' value = { value } onChangeText = { onChange } onBlur = { onBlur }/>
 						{errors.password && (
-							<Text className = 'mt-1 text-xs text-red-400'>{errors.password.message}</Text>
+							<Text className = 'mt-1 text-xs text-destructive'>{errors.password.message}</Text>
 						)}
 					</View>
 				)}
 			/>
-			<Button className = 'mt-5 h-14 rounded-full bg-[#C1502E]' onPress = { handleSubmit(onSubmit) } disabled = { !isValid || isSubmitting }>
-				<Text className = 'text-base font-semibold text-white'>
+			<Button className = 'mt-4 h-14 rounded-full' onPress = { handleSubmit(onSubmit) } disabled = { !isValid || isSubmitting }>
+				<Text className='text-base font-semibold text-primary-foreground'>
 					{isSubmitting ? 'Accesso in corso...' : 'Accedi'}
 				</Text>
 			</Button>

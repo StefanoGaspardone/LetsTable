@@ -3,12 +3,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
-import AuthScreenLayout from '@/components/auth-screen-layout';
-import OtpInput from '@/components/ui/otp-input';
-
-import { activate, resendActivationOtp } from '@/api/auth';
+import AuthScreenLayout from '@/components/auth/auth-screen-layout';
+import OtpInput from '@/components/common/otp-input';
 
 import { useToast } from '@/contexts/toast-context';
+
+import { activate, resendActivationOtp } from '@/api/auth';
 
 const ActivateScreen = () => {
 	const { identifier } = useLocalSearchParams<{ identifier: string }>();
@@ -53,18 +53,22 @@ const ActivateScreen = () => {
 	return (
 		<AuthScreenLayout title = 'Verifica il tuo account' subtitle = { `Abbiamo inviato un codice a ${identifier}` }
 			footer = {
-				<Button variant = 'ghost' className = 'mt-4' onPress = { onResend } disabled = { isResending }>
-					<Text className = 'text-sm text-white/70'>
-						{isResending ? 'Invio...' : (
-							<>Non hai ricevuto il codice? <Text className = 'text-[#C1502E]'>Rinvia</Text></>
+				<Button variant = 'ghost' className = 'mt-6' onPress = { onResend } disabled = { isResending }>
+					<Text className = 'text-sm text-muted-foreground'>
+						{isResending ? (
+							'Invio...'
+						) : (
+							<>
+								Non hai ricevuto il codice? <Text className = 'font-semibold text-primary'>Rinvia</Text>
+							</>
 						)}
 					</Text>
 				</Button>
 			}
 		>
-			<OtpInput value = { otpCode } onChange = { setOtpCode } boxClassName = 'border-[#4A423C] bg-[#3A332E] text-white' placeholderTextColor = '#8A817A'/> 
- 			<Button className = 'mt-6 h-14 rounded-full bg-[#C1502E]' onPress = { onSubmit } disabled = { !isComplete || isSubmitting }>
-				<Text className = 'text-base font-semibold text-white'>
+			<OtpInput value = { otpCode } onChange = { setOtpCode }/>
+			<Button className = 'mt-6 h-14 rounded-full' onPress = { onSubmit } disabled = { !isComplete || isSubmitting }>
+				<Text className = 'text-base font-semibold text-primary-foreground'>
 					{isSubmitting ? 'Verifica...' : 'Attiva account'}
 				</Text>
 			</Button>

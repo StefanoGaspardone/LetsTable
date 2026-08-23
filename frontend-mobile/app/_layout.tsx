@@ -1,14 +1,15 @@
 import '@/global.css';
 
 import { useEffect } from 'react';
-import { DarkTheme, DefaultTheme, ThemeProvider, Stack } from 'expo-router';
+import { Stack, DefaultTheme, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useFonts, DMSerifDisplay_400Regular } from '@expo-google-fonts/dm-serif-display';
+import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans';
 
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
-import { ConfirmDialogProvider } from '@/contexts/confirm-dialog-context';
 import { ToastProvider } from '@/contexts/toast-context';
+import { ConfirmDialogProvider } from '@/contexts/confirm-dialog-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -16,26 +17,33 @@ const queryClient = new QueryClient();
 
 const RootLayoutNav = () => {
 	const { isLoading } = useAuth();
+	const [fontsLoaded] = useFonts({
+		DMSerifDisplay_400Regular,
+		PlusJakartaSans_400Regular,
+		PlusJakartaSans_500Medium,
+		PlusJakartaSans_600SemiBold,
+		PlusJakartaSans_700Bold,
+	});
+
+	const isReady = !isLoading && fontsLoaded;
 
 	useEffect(() => {
-		if(!isLoading) {
-			SplashScreen.hideAsync();
-		}
-	}, [isLoading]);
+		if(isReady) SplashScreen.hideAsync();
+	}, [isReady]);
 
-	if(isLoading) {
+	if(!isReady) {
 		return null;
 	}
 
 	return (
-		<Stack screenOptions={{ headerShown: false }}>
+		<Stack screenOptions = {{ headerShown: false }}>
 			<Stack.Screen name = 'index'/>
 			<Stack.Screen name = '(auth)'/>
 			<Stack.Screen name = '(tabs)'/>
-			<Stack.Screen name = 'browse' options={{ presentation: 'modal' }}/>
+			<Stack.Screen name = 'browse' options = {{ presentation: 'modal' }}/>
 			<Stack.Screen name = 'game/[bggId]'/>
-			<Stack.Screen name = 'playlist-picker' options={{ presentation: 'modal' }}/>
-			<Stack.Screen name = 'my-wishlists' options={{ presentation: 'modal' }}/>
+			<Stack.Screen name = 'playlist-picker' options = {{ presentation: 'modal' }}/>
+			<Stack.Screen name = 'my-wishlists' options = {{ presentation: 'modal' }}/>
 			<Stack.Screen name = 'wishlist/[id]'/>
 			<Stack.Screen name = 'match/[id]'/>
 			<Stack.Screen name = 'match/new'/>
@@ -46,14 +54,12 @@ const RootLayoutNav = () => {
 }
 
 const RootLayout = () => {
-	const colorScheme = useColorScheme();
-
 	return (
 		<QueryClientProvider client = { queryClient }>
 			<AuthProvider>
 				<ToastProvider>
 					<ConfirmDialogProvider>
-						<ThemeProvider value = { colorScheme === 'dark' ? DarkTheme : DefaultTheme }>
+						<ThemeProvider value = { DefaultTheme }>
 							<RootLayoutNav/>
 						</ThemeProvider>
 					</ConfirmDialogProvider>

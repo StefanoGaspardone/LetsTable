@@ -15,7 +15,7 @@ const Index = () => {
 	}
 
 	if(isAuthenticated) {
-		return <Redirect href = '/(tabs)/collection'/>;
+		return <Redirect href = '/(tabs)/home'/>;
 	}
 
 	return <Redirect href = '/(auth)/welcome'/>;

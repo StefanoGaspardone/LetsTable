@@ -1,11 +1,10 @@
 import { View } from 'react-native';
 
-const PlaylistPickerScreen = () => {
+const HomeScreen = () => {	
 	return (
 		<View className = 'flex-1 bg-background'>
-			
 		</View>
 	)
 }
 
-export default PlaylistPickerScreen;
+export default HomeScreen;
