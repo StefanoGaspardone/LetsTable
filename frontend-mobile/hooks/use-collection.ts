@@ -2,14 +2,14 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 
 import { addToCollection, listCollection } from '@/api/collection';
 
-export const useCollection = (gameName: string) => {
+export const useCollection = (gameName: string, played?: boolean) => {
 	return useInfiniteQuery({
-		queryKey: ['collection', gameName],
-		queryFn: ({ pageParam }) => listCollection({ page: pageParam, gameName }),
+		queryKey: ['collection', gameName, played],
+		queryFn: ({ pageParam }) => listCollection({ page: pageParam, gameName, played }),
 		initialPageParam: 0,
 		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
 	});
-}
+};
 
 export const useAddToCollection = () => {
 	const queryClient = useQueryClient();

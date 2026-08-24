@@ -115,8 +115,8 @@ class CollectionController(
         ]
     )
     @GetMapping
-    fun listCollection(@RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int, @RequestParam(required = false) gameName: String?, @RequestParam(required = false) sort: String?): PageDTO<CollectionItemDTO> =
-        collectionService.listCollection(CurrentUser.id(), page, size, gameName, sort)
+    fun listCollection(@RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int, @RequestParam(required = false) gameName: String?, @RequestParam(required = false) played: Boolean?, @RequestParam(required = false) sort: String?): PageDTO<CollectionItemDTO> =
+        collectionService.listCollection(CurrentUser.id(), page, size, gameName, played, sort)
 
     @Operation(summary = "Check collection status", description = "Check whether a game is in the current user's collection.")
     @ApiResponses(

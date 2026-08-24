@@ -7,17 +7,19 @@ export interface ListCollectionParams {
     page: number;
     size?: number;
     gameName?: string;
+    played?: boolean;
 }
 
 export const listCollection = async (params: ListCollectionParams): Promise<PageDTO<CollectionItem>> => {
     const { data } = await apiClient.get<PageDTO<CollectionItem>>('/collection', {
-        params: {
-            page: params.page,
-            size: params.size ?? 20,
-            gameName: params.gameName || undefined,
-        },
-    });
-    return data;
+		params: {
+			page: params.page,
+			size: params.size ?? 20,
+			gameName: params.gameName || undefined,
+			played: params.played,
+		},
+	});
+	return data;
 }
 
 export const addToCollection = async (gameId: string): Promise<CollectionItem> => {

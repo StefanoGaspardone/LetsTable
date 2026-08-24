@@ -28,9 +28,11 @@ const CollectionScreen = () => {
 	const [selectedFilter, setSelectedFilter] = useState('all');
 	const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 	const [search, setSearch] = useState('');
+	
 	const debouncedSearch = useDebounce(search);
 
-	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useCollection(debouncedSearch);
+	const playedFilter = selectedFilter === 'played' ? true : selectedFilter === 'new' ? false : undefined;
+	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useCollection(debouncedSearch, playedFilter);
 	const items = data?.pages.flatMap((page) => page.content) ?? [];
 
 	const currentIndex = FILTER_OPTIONS.findIndex((option) => option.value === selectedFilter);

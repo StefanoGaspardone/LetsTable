@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
@@ -16,6 +17,7 @@ interface WishlistMiniCardProps {
 const THUMB_SIZE = 64;
 
 const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
+	const [isPressed, setIsPressed] = useState<boolean>(false);
 	const { data } = useQuery({
 		queryKey: ['wishlists', 'preview-items', wishlist.id],
 		queryFn: () => listWishlistItems(wishlist.id, 0, 3),
@@ -56,8 +58,8 @@ const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
 						</View>
 					))}
 				</View>
-				<Pressable onPress = { handleOpen } className = 'h-9 w-9 items-center justify-center rounded-full bg-secondary'>
-					<Plus size = { 18 } color = '#C45135'/>
+				<Pressable onPress = { handleOpen } className = 'h-9 w-9 items-center justify-center rounded-full bg-secondary active:bg-primary/90' onPressIn = { () => setIsPressed(true) } onPressOut = { () => setIsPressed(false) }>
+					<Plus size = { 18 } color = { isPressed ? '#FFFFFF' : '#C45135' }/>
 				</Pressable>
 			</View>
 		</Pressable>
