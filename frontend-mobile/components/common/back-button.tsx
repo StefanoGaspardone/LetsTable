@@ -7,10 +7,23 @@ const BackButton = () => {
 	const [isPressed, setIsPressed] = useState(false);
 
 	return (
-		<Pressable onPress = { () => router.back()} onPressIn = { () => setIsPressed(true) } onPressOut = { () => setIsPressed(false) } hitSlop = { 8 } style = {{ height: 36, width: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: isPressed ? '#DDD8CE' : '#E9E4DB' }}>
-			<ChevronLeft size = { 20 } color = '#736E65'/>
+		<Pressable
+			onPress={() => router.back()}
+			onPressIn={() => setIsPressed(true)}
+			onPressOut={() => setIsPressed(false)}
+			hitSlop={8}
+			style={{
+				height: 36,
+				width: 36,
+				alignItems: 'center',
+				justifyContent: 'center',
+				borderRadius: 999,
+				backgroundColor: isPressed ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.06)',
+			}}
+		>
+			<ChevronLeft size={20} color="#736E65" />
 		</Pressable>
-	)
-}
+	);
+};
 
 export default BackButton;

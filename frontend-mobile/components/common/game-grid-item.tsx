@@ -12,10 +12,10 @@ const screenWidth = Dimensions.get('window').width;
 const GRID_PADDING = 16;
 const GRID_GAP = 12;
 const CARD_WIDTH = Math.floor((screenWidth - GRID_PADDING * 2 - GRID_GAP) / 2);
-const CARD_PADDING = 7;
+const CARD_PADDING = 8;
 const BORDER_WIDTH = 1;
 const IMAGE_WIDTH = CARD_WIDTH - CARD_PADDING * 2 - BORDER_WIDTH * 2;
-const IMAGE_HEIGHT = Math.round(IMAGE_WIDTH * 0.9);
+const IMAGE_HEIGHT = Math.round(IMAGE_WIDTH * 0.95);
 
 interface GameGridItemProps {
 	game: GameGridItemGame;
@@ -30,7 +30,7 @@ const GameGridItem = ({ game, onPress }: GameGridItemProps) => {
 	const playingTimeMinutes = 'playingTimeMinutes' in game ? game.playingTimeMinutes : null;
 
 	return (
-		<Pressable onPress = { onPress } style = {{ width: CARD_WIDTH, padding: CARD_PADDING }} className = 'mb-4 rounded-2xl border border-border bg-card active:bg-[#DDD8CE]'>
+		<Pressable onPress = { onPress } style = {{ width: CARD_WIDTH, padding: CARD_PADDING }} className = 'mb-4 rounded-2xl border border-border bg-card active:opacity-75 active:scale-[0.98]'>
 			<View style = {{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }} className = 'overflow-hidden rounded-xl bg-secondary'>
 				{thumbnailUrl ? (
 					<Image source = {{ uri: thumbnailUrl }} style = {{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }} contentFit = 'cover'/>
@@ -52,16 +52,16 @@ const GameGridItem = ({ game, onPress }: GameGridItemProps) => {
 				<View className = 'mt-1.5 flex-row items-center justify-between gap-3'>
 					{minPlayers && maxPlayers && (
 						<View className = 'flex-row items-center gap-1'>
-							<Users size = { 14 } color = '#736E65'/>
-							<Text className = 'text-xs text-muted-foreground'>
-								{minPlayers}-{maxPlayers}
+							<Users size = { 14 } color = '#736E65' strokeWidth = { 2.5 }/>
+							<Text className = 'text-sm text-muted-foreground font-medium'>
+								{minPlayers === maxPlayers ? minPlayers : `${minPlayers}-${maxPlayers}`}
 							</Text>
 						</View>
 					)}
 					{playingTimeMinutes && (
 						<View className = 'flex-row items-center gap-1'>
-							<Clock size = { 14 } color = '#736E65'/>
-							<Text className = 'text-xs text-muted-foreground'>{playingTimeMinutes} min</Text>
+							<Clock size = { 14 } color = '#736E65' strokeWidth = { 2.5 }/>
+							<Text className = 'text-sm text-muted-foreground font-medium'>{playingTimeMinutes} min</Text>
 						</View>
 					)}
 				</View>

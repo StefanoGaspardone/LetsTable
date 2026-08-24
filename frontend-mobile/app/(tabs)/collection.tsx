@@ -26,7 +26,7 @@ const SWIPE_VELOCITY_THRESHOLD = 500;
 
 const CollectionScreen = () => {
 	const [selectedFilter, setSelectedFilter] = useState('all');
-	const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+	const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
 	const [search, setSearch] = useState('');
 	
 	const debouncedSearch = useDebounce(search);

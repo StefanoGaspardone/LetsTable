@@ -15,7 +15,7 @@ import { useGameSearch, useHotGames } from '@/hooks/use-game';
 
 const BrowseScreen = () => {
 	const [search, setSearch] = useState('');
-	const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+	const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
 	const debouncedSearch = useDebounce(search);
 	const isSearching = debouncedSearch.length > 0;
 

@@ -101,11 +101,11 @@ const LatestMatchCard = ({ match }: LatestMatchCardProps) => {
 							<View className = 'flex-row items-center justify-between px-1.5 py-1'>
 								<View className = 'flex-1 flex-row items-center gap-1.5'>
 									<PlayerAvatar avatarUrl = { player.avatarUrl }/>
-									{player.isWinner && <Crown size = { 12 } color = '#C45135'/>}
 									<Text className = { `text-sm ${player.isWinner ? 'font-semibold text-foreground' : 'text-muted-foreground'}`} numberOfLines = { 1 }>
 										{player.name}
                                         {isMe && <Text className = 'text-xs text-primary'> (tu)</Text>}
 									</Text>
+									{player.isWinner && <Crown size = { 14 } color = '#C45135' fill = '#C45135'/>}
 								</View>
 								{player.score != null && (
 									<Text className = { `text-sm font-bold ${player.isWinner ? 'text-primary' : 'text-muted-foreground'}` }>
