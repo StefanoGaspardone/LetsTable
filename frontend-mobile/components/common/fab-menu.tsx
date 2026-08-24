@@ -68,7 +68,7 @@ const FabMenu = ({ actions }: FabMenuProps) => {
                         </Pressable>
                     ))}
 				</Animated.View>
-				<Pressable onPress = { handleToggle } className = 'h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg'>
+				<Pressable onPress = { handleToggle } className = 'h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:bg-primary/90'>
 					<Animated.View style = { iconStyle }>
 						<Plus size = { 26 } color = '#FFFFFF'/>
 					</Animated.View>

@@ -1,6 +1,7 @@
 import '@/global.css';
 
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack, DefaultTheme, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -55,17 +56,19 @@ const RootLayoutNav = () => {
 
 const RootLayout = () => {
 	return (
-		<QueryClientProvider client = { queryClient }>
-			<AuthProvider>
-				<ToastProvider>
-					<ConfirmDialogProvider>
-						<ThemeProvider value = { DefaultTheme }>
-							<RootLayoutNav/>
-						</ThemeProvider>
-					</ConfirmDialogProvider>
-				</ToastProvider>
-			</AuthProvider>
-		</QueryClientProvider>
+		<GestureHandlerRootView style = {{ flex: 1 }}>
+			<QueryClientProvider client = { queryClient }>
+				<AuthProvider>
+					<ToastProvider>
+						<ConfirmDialogProvider>
+							<ThemeProvider value = { DefaultTheme }>
+								<RootLayoutNav/>
+							</ThemeProvider>
+						</ConfirmDialogProvider>
+					</ToastProvider>
+				</AuthProvider>
+			</QueryClientProvider>
+		</GestureHandlerRootView>
 	)
 }
 

@@ -14,11 +14,14 @@ import { useHomeStats } from '@/hooks/use-stat';
 import { useMatches } from '@/hooks/use-match';
 import { useMyWishlists } from '@/hooks/use-wishlist';
 import WishlistMiniCard from '@/components/home/wishlist-mini-card';
+import { useState } from 'react';
 
 const HomeScreen = () => {
 	const { totalMatches, totalGames } = useHomeStats();
 	const { data: matchesData } = useMatches({ sort: 'playedAt-desc', size: 1 } as any);
 	const { data: wishlists } = useMyWishlists();
+
+	const [isSettingsPressed, setIsSettingsPressed] = useState(false);
 
 	const latestMatch = matchesData?.pages?.[0]?.content?.[0];
 
@@ -26,7 +29,7 @@ const HomeScreen = () => {
 		<View className = 'flex-1 bg-background'>
 			<ScreenHeader title = 'Bentornato'
 				rightElement = {
-					<Pressable onPress = { () => router.push('/(tabs)/profile') } hitSlop = { 8 }>
+					<Pressable onPress = { () => router.push('/(tabs)/profile') } onPressIn = { () => setIsSettingsPressed(true) } onPressOut = { () => setIsSettingsPressed(false) } hitSlop = { 8 } style = {{ height: 36, width: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: isSettingsPressed ? '#DDD8CE' : '#E9E4DB' }}>
 						<Settings size = { 22 } className = 'text-muted-foreground'/>
 					</Pressable>
 				}
@@ -46,9 +49,11 @@ const HomeScreen = () => {
 				<Text className = 'mt-3 mb-1 font-display text-xl text-foreground'>Le Mie Wishlist</Text>
 				{wishlists && wishlists.length > 0 ? (
 					<ScrollView horizontal showsHorizontalScrollIndicator = { false } contentContainerStyle = {{ paddingRight: 16 }}>
-						{wishlists.map(wishlist => (
-							<WishlistMiniCard key = { wishlist.id } wishlist = { wishlist }/>
-						))}
+						{[...wishlists]
+							.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0))
+							.map(wishlist => (
+								<WishlistMiniCard key = { wishlist.id } wishlist = { wishlist }/>
+							))}
 					</ScrollView>
 				) : (
 					<Text className = 'text-sm text-muted-foreground'>Nessuna wishlist ancora</Text>

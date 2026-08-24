@@ -16,10 +16,8 @@ const ScreenHeader = ({ title, rightElement }: ScreenHeaderProps) => {
 			<View className = 'flex-row items-center justify-center flex-1'>
 				<Text className = 'font-display text-3xl text-foreground'>{title}</Text>
 				{rightElement && (
-					<View className = 'absolute right-0' style={{ top: 0, bottom: 0, justifyContent: 'center' }}>
-						<View className = 'h-9 w-9 items-center justify-center rounded-full bg-secondary'>
-							{rightElement}
-						</View>
+					<View className = 'absolute right-0' style = {{ top: 0, bottom: 0, justifyContent: 'center' }}>
+						{rightElement}
 					</View>
 				)}
 			</View>
