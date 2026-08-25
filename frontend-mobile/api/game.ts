@@ -23,3 +23,10 @@ export const getGameByBggId = async (bggId: number): Promise<Game> => {
     const { data } = await apiClient.get<Game>(`/games/${bggId}`);
     return data;
 }
+
+export const getGameExpansions = async (bggId: number, page: number, size = 10): Promise<PageDTO<Game>> => {
+	const { data } = await apiClient.get<PageDTO<Game>>(`/games/${bggId}/expansions`, {
+		params: { page, size },
+	});
+	return data;
+}

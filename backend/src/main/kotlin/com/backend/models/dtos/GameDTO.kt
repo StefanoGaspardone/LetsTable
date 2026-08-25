@@ -65,6 +65,15 @@ data class GameDTO(
 
     @field:Schema(description = "Game description")
     val description: String?,
+
+    @field:Schema(description = "Best number of players")
+    val bestWith: String?,
+
+    @field:Schema(description = "Recommended number of players")
+    val recommendedWith: String?,
+
+    @field:Schema(description = "Number of expansions available for this game")
+    val expansions: Long,
 ) {
     companion object {
         fun from(game: Game) = GameDTO(
@@ -78,6 +87,9 @@ data class GameDTO(
             maxPlayers = game.maxPlayers,
             playingTimeMinutes = game.playingTimeMinutes,
             description = game.description,
+            bestWith = game.bestWith,
+            recommendedWith = game.recommendedWith,
+            expansions = game.expansionRefs.size.toLong()
         )
     }
 }

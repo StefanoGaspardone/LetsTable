@@ -48,7 +48,24 @@ services:
       MP_DATABASE: /data/mailpit.db
     restart: unless-stopped
 
+  # ============================================
+  # MINIO
+  # ============================================
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: letstable_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD}"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
 volumes:
   db_data:
   pgadmin_data:
   mailpit_data:
+  minio_data:

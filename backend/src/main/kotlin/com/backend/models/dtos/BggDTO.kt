@@ -1,16 +1,20 @@
 package com.backend.models.dtos
 
+import com.backend.models.entities.ExpansionRef
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement
 
 @JacksonXmlRootElement(localName = "items")
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class BggSearchResponseXml(
     @field:JacksonXmlProperty(localName = "item")
     @field:JacksonXmlElementWrapper(useWrapping = false)
     val items: List<BggSearchItemXml> = emptyList(),
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class BggSearchItemXml(
     @field:JacksonXmlProperty(isAttribute = true)
     val id: Long,
@@ -22,23 +26,27 @@ data class BggSearchItemXml(
     val yearPublished: BggValueXml? = null,
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class BggNameXml(
     @field:JacksonXmlProperty(isAttribute = true)
     val value: String,
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class BggValueXml(
     @field:JacksonXmlProperty(isAttribute = true)
     val value: String,
 )
 
 @JacksonXmlRootElement(localName = "items")
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class BggThingResponseXml(
     @field:JacksonXmlProperty(localName = "item")
     @field:JacksonXmlElementWrapper(useWrapping = false)
     val items: List<BggThingItemXml> = emptyList(),
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class BggThingItemXml(
     @field:JacksonXmlProperty(isAttribute = true)
     val id: Long,
@@ -67,10 +75,40 @@ data class BggThingItemXml(
 
     @field:JacksonXmlProperty(localName = "playingtime")
     val playingTime: BggValueXml? = null,
+
+    @field:JacksonXmlProperty(localName = "minage")
+    val minAge: BggValueXml? = null,
+
+    @field:JacksonXmlProperty(localName = "minplaytime")
+    val minPlayTime: BggValueXml? = null,
+
+    @field:JacksonXmlProperty(localName = "maxplaytime")
+    val maxPlayTime: BggValueXml? = null,
+
+    @field:JacksonXmlProperty(localName = "link")
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    val links: List<BggThingLinkXml> = emptyList(),
+
+    @field:JacksonXmlProperty(localName = "poll-summary")
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    val pollSummaries: List<BggThingPollSummaryXml> = emptyList(),
 ) {
     fun primaryName(): String? = names.firstOrNull { it.type == "primary" }?.value ?: names.firstOrNull()?.value
+
+    fun expansionRefs(): List<ExpansionRef> =
+        links.filter { it.type == "boardgameexpansion" }
+            .mapNotNull { link ->
+                link.id.toLongOrNull()?.let { id -> ExpansionRef(id, link.value) }
+            }
+
+    fun pollSummaryValue(name: String): String? =
+        pollSummaries.firstOrNull { it.name == "suggested_numplayers" }
+            ?.results
+            ?.firstOrNull { it.name == name }
+            ?.value
 }
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class BggThingNameXml(
     @field:JacksonXmlProperty(isAttribute = true)
     val type: String,
@@ -79,13 +117,46 @@ data class BggThingNameXml(
     val value: String,
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class BggThingLinkXml(
+    @field:JacksonXmlProperty(isAttribute = true)
+    val type: String,
+
+    @field:JacksonXmlProperty(isAttribute = true)
+    val id: String,
+
+    @field:JacksonXmlProperty(isAttribute = true)
+    val value: String,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class BggThingPollSummaryXml(
+    @field:JacksonXmlProperty(isAttribute = true)
+    val name: String,
+
+    @field:JacksonXmlProperty(localName = "result")
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    val results: List<BggThingPollSummaryResultXml> = emptyList(),
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class BggThingPollSummaryResultXml(
+    @field:JacksonXmlProperty(isAttribute = true)
+    val name: String,
+
+    @field:JacksonXmlProperty(isAttribute = true)
+    val value: String,
+)
+
 @JacksonXmlRootElement(localName = "items")
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class BggHotResponseXml(
     @field:JacksonXmlProperty(localName = "item")
     @field:JacksonXmlElementWrapper(useWrapping = false)
     val items: List<BggHotItemXml> = emptyList(),
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class BggHotItemXml(
     @field:JacksonXmlProperty(isAttribute = true)
     val id: Long,

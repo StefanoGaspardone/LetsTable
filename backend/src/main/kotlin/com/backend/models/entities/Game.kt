@@ -1,5 +1,6 @@
 package com.backend.models.entities
 
+import com.backend.utils.ExpansionRefListConverter
 import jakarta.persistence.*
 import org.hibernate.annotations.CreationTimestamp
 import org.hibernate.annotations.UpdateTimestamp
@@ -42,6 +43,16 @@ class Game(
 
     @Column(name = "last_synced_at", nullable = false)
     var lastSyncedAt: Instant = Instant.now(),
+
+    @Column(name = "best_with", nullable = true)
+    var bestWith: String? = null,
+
+    @Column(name = "recommended_with", nullable = true)
+    var recommendedWith: String? = null,
+
+    @Convert(converter = ExpansionRefListConverter::class)
+    @Column(name = "expansion_refs", nullable = true, columnDefinition = "TEXT")
+    var expansionRefs: List<ExpansionRef> = emptyList(),
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

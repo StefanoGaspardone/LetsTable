@@ -140,6 +140,45 @@ class GameService(
         }
     }
 
+    @Transactional
+    fun getExpansions(bggId: Long, page: Int, size: Int): PageDTO<GameDTO> {
+        logger.debug("\n\t[DEBUG] [game_service][get_expansions] Fetching expansions\n\tbggId={}\n\tpage={}\n\tsize={}", bggId, page, size)
+
+        try {
+            val game = gameRepository.findByBggId(bggId)
+                .orElseThrow { GameNotFoundOnBggException(bggId) }
+
+            val allExpansions = game.expansionRefs.mapNotNull { ref ->
+                try {
+                    getOrSyncGame(ref.bggId)
+                } catch(e: Exception) {
+                    logger.warn("\n\t[WARN] [game_service][get_expansions] Could not sync expansion, skipping\n\texpansionBggId={}\n\treason={}", ref.bggId, e.message)
+                    null
+                }
+            }
+
+            val sortedExpansions = allExpansions.sortedWith(compareBy({ it.yearPublished ?: Int.MAX_VALUE }, { it.name }))
+
+            val pageSafe = if(page < 0) 0 else page
+            val sizeSafe = size.coerceIn(1, 50)
+            val pageable = PageRequest.of(pageSafe, sizeSafe)
+
+            val start = pageSafe * sizeSafe
+            val content = if(start >= sortedExpansions.size) emptyList() else sortedExpansions.subList(start, minOf(start + sizeSafe, sortedExpansions.size))
+
+            val pageResult = PageImpl(content, pageable, sortedExpansions.size.toLong())
+
+            logger.info("\n\t[INFO] [game_service][get_expansions] Resolved expansions page\n\tbggId={}\n\tpage={}\n\tresolvedCount={}\n\ttotalCount={}", bggId, pageSafe, content.size, sortedExpansions.size)
+            return pageResult.toPageDTO { it }
+        } catch(e: GameNotFoundOnBggException) {
+            logger.warn("\n\t[WARN] [game_service][get_expansions] Game not found\n\tbggId={}", bggId)
+            throw e
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [game_service][get_expansions] Error fetching expansions\n\tbggId={}\n\treason={}", bggId, e.message)
+            throw e
+        }
+    }
+
     private fun syncFromBgg(bggId: Long, existing: Game?): Game {
         val details = bggClient.getGameDetails(bggId).items.firstOrNull()
             ?: throw GameNotFoundOnBggException(bggId)
@@ -156,8 +195,20 @@ class GameService(
         game.maxPlayers = details.maxPlayers?.value?.toIntOrNull()
         game.playingTimeMinutes = details.playingTime?.value?.toIntOrNull()
         game.description = cleanDescription
+        game.bestWith = parsePlayerCountRecommendation(details.pollSummaryValue("bestwith"))
+        game.recommendedWith = parsePlayerCountRecommendation(details.pollSummaryValue("recommmendedwith"))
+        game.expansionRefs = details.expansionRefs()
         game.lastSyncedAt = Instant.now()
 
         return gameRepository.save(game)
+    }
+
+    private val PLAYER_COUNT_REGEX = Regex("""(\d+(?:[–-]\d+)?)""")
+
+    private fun parsePlayerCountRecommendation(raw: String?): String? {
+        if(raw.isNullOrBlank()) return null
+        if(raw == "(no votes)" || raw == "(Undetermined)") return null
+
+        return PLAYER_COUNT_REGEX.find(raw)?.value
     }
 }

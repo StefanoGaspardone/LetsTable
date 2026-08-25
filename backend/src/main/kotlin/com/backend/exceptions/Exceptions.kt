@@ -89,3 +89,11 @@ class CannotModifyDefaultWishlistException: RuntimeException("The default wishli
 class PushNotificationSendException(cause: Throwable): RuntimeException("Failed to send push notification", cause)
 
 class InvalidSortException(field: String): RuntimeException("Invalid sort field: $field")
+
+class UploadedFileNotFoundException(id: UUID) : RuntimeException("File not found: $id")
+
+class InvalidFileTypeException(message: String) : RuntimeException(message)
+
+class StorageWriteException(objectKey: String) : RuntimeException("Failed to write object to storage: $objectKey")
+
+class StorageNotFoundException(objectKey: String) : RuntimeException("Object not found in storage: $objectKey")

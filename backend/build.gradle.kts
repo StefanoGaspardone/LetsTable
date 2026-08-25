@@ -47,6 +47,8 @@ dependencies {
     implementation("org.jsoup:jsoup:1.18.1")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.18.2")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    implementation("io.minio:minio:8.6.0")
+    implementation("io.minio:minio-admin:8.6.0")
 
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")

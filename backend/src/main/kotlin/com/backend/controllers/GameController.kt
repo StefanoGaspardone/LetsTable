@@ -7,6 +7,7 @@ import com.backend.models.dtos.HotGameResponse
 import com.backend.models.dtos.PageDTO
 import com.backend.services.GameService
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
@@ -69,4 +70,39 @@ class GameController(
     )
     @GetMapping("/{bggId}")
     fun getGame(@PathVariable bggId: Long): GameDTO = gameService.getOrSyncGame(bggId)
+
+    @Operation(
+        summary = "Get game expansions",
+        description = "Retrieves and syncs the expansions of a board game from BoardGameGeek, returning them as full game entries."
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Expansions retrieved successfully"
+            ),
+            ApiResponse(
+                responseCode = "404",
+                description = "Game not found on BoardGameGeek",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "GameNotFoundOnBgg",
+                        value = """
+                        {
+                          "timestamp": "2026-08-25T12:00:00Z",
+                          "status": 404,
+                          "error": "Not Found",
+                          "message": "Game not found on BoardGameGeek: 316554"
+                        }
+                    """
+                    )]
+                )]
+            ),
+        ]
+    )
+    @GetMapping("/{bggId}/expansions")
+    fun getExpansions(@Parameter(description = "BoardGameGeek ID of the game", example = "316554") @PathVariable bggId: Long, @Parameter(description = "Page number (0-indexed)", example = "0") @RequestParam(defaultValue = "0") page: Int, @Parameter(description = "Page size", example = "10") @RequestParam(defaultValue = "10") size: Int): PageDTO<GameDTO> =
+        gameService.getExpansions(bggId, page, size)
 }

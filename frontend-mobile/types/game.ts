@@ -9,6 +9,9 @@ export interface Game {
 	maxPlayers: number | null;
 	playingTimeMinutes: number | null;
 	description: string | null;
+	bestWith: string | null;
+	recommendedWith: string | null;
+	expansions: number;
 }
 
 export interface GameSearchResult {

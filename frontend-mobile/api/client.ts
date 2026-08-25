@@ -2,7 +2,7 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import Constants from 'expo-constants';
 import { tokenStorage } from '@/lib/token-storage';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl as string;
+export const API_URL = Constants.expoConfig?.extra?.apiUrl as string;
 
 export const apiClient = axios.create({
 	baseURL: API_URL,

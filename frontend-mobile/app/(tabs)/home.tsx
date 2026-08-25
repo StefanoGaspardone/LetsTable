@@ -38,7 +38,7 @@ const HomeScreen = () => {
 				<Text className = 'font-display text-xl text-foreground'>Le Mie Statistiche</Text>
 				<View className = 'flex-row gap-3 mt-1'>
 					<QuickStatCard icon = { <MeepleIllustration size = { 48 } color = '#C45135'/> } label = 'Partite totali' value = { totalMatches }/>
-					<QuickStatCard icon = { <Library size = { 48 } color = '#C45135'/> } label = 'Giochi posseduti' value = { totalGames }/>
+					<QuickStatCard icon = { <Library size = { 48 } color = '#C45135'/> } label = 'Collezione' value = { totalGames }/>
 				</View>
 				<Text className = 'mt-3 mb-1 font-display text-xl text-foreground'>Ultime Partite</Text>
 				{latestMatch ? (

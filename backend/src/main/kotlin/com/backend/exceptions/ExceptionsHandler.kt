@@ -217,4 +217,20 @@ class ExceptionsHandler {
     @ExceptionHandler(InvalidSortException::class)
     fun handleInvalidSort(ex: InvalidSortException) =
         buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(UploadedFileNotFoundException::class)
+    fun handleUploadedFileNotFound(ex: UploadedFileNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(InvalidFileTypeException::class)
+    fun handleInvalidFileType(ex: InvalidFileTypeException) =
+        buildResponse(HttpStatus.BAD_REQUEST, ex)
+
+    @ExceptionHandler(StorageWriteException::class)
+    fun handleStorageWrite(ex: StorageWriteException) =
+        buildResponse(HttpStatus.SERVICE_UNAVAILABLE, ex)
+
+    @ExceptionHandler(StorageNotFoundException::class)
+    fun handleStorageNotFound(ex: StorageNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
 }
