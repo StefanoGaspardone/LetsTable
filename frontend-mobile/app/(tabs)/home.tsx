@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { Settings, Library, Trophy, ListPlus, UserPlus } from 'lucide-react-native';
@@ -9,12 +10,12 @@ import MeepleIllustration from '@/components/common/meeple-illustration';
 import EmptyState from '@/components/common/empty-state';
 import FabMenu from '@/components/common/fab-menu';
 import LatestMatchCard from '@/components/home/latest-match-card';
+import WishlistMiniCard from '@/components/home/wishlist-mini-card';
+import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/register-match-sheet';
 
 import { useHomeStats } from '@/hooks/use-stat';
 import { useMatches } from '@/hooks/use-match';
 import { useMyWishlists } from '@/hooks/use-wishlist';
-import WishlistMiniCard from '@/components/home/wishlist-mini-card';
-import { useState } from 'react';
 
 const HomeScreen = () => {
 	const { totalMatches, totalGames } = useHomeStats();
@@ -22,6 +23,8 @@ const HomeScreen = () => {
 	const { data: wishlists } = useMyWishlists();
 
 	const [isSettingsPressed, setIsSettingsPressed] = useState(false);
+
+	const registerMatchSheetRef = useRef<RegisterMatchSheetRef>(null);
 
 	const latestMatch = matchesData?.pages?.[0]?.content?.[0];
 
@@ -62,8 +65,8 @@ const HomeScreen = () => {
 			<FabMenu actions = { [
 				{
 					label: 'Registra partita',
-					icon: <Trophy size = { 18 } color = '#1c1b1a'/>,
-					onPress: () => router.push('/match/new'),
+					icon: <Trophy size = { 18 } className = 'text-foreground'/>,
+					onPress: () => registerMatchSheetRef.current?.present(),
 				},
 				{
 					label: 'Aggiungi gioco',
@@ -76,6 +79,7 @@ const HomeScreen = () => {
 					onPress: () => router.push('/(tabs)/friends'),
 				},
 			] }/>
+			<RegisterMatchSheet ref = { registerMatchSheetRef }/>
 		</View>
 	)
 }

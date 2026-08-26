@@ -81,7 +81,7 @@ class CollectionService(
     }
 
     @Transactional
-    fun listCollection(userId: UUID, page: Int, size: Int, gameName: String?, played: Boolean?, sort: String?): PageDTO<CollectionItemDTO> {
+    fun listCollection(userId: UUID, page: Int, size: Int, gameName: String?, played: Boolean?, isExpansion: Boolean?, sort: String?): PageDTO<CollectionItemDTO> {
         logger.debug("\n\t[DEBUG] [collection_service][list_collection] Listing collection\n\tuserId={}\n\tpage={}\n\tsize={}\n\tgameName={}\n\tplayed={}\n\tsort={}", userId, page, size, gameName, played, sort)
 
         try {
@@ -90,7 +90,7 @@ class CollectionService(
             val sortObj = resolveSort(sort, setOf("game.name", "createdAt"), "createdAt")
             val pageable = PageRequest.of(pageSafe, sizeSafe, sortObj)
 
-            val spec = CollectionItemSpecification.withFilters(userId, gameName, played)
+            val spec = CollectionItemSpecification.withFilters(userId, gameName, played, isExpansion)
             val result = collectionItemRepository.findAll(spec, pageable)
 
             logger.info("\n\t[INFO] [collection_service][list_collection] Retrieved collection\n\tresultSize={}\n\ttotalElements={}", result.numberOfElements, result.totalElements)

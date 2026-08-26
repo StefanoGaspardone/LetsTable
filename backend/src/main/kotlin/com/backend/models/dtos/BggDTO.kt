@@ -89,9 +89,15 @@ data class BggThingItemXml(
     @field:JacksonXmlElementWrapper(useWrapping = false)
     val links: List<BggThingLinkXml> = emptyList(),
 
+    @field:JacksonXmlProperty(isAttribute = true)
+    val type: String? = null,
+
     @field:JacksonXmlProperty(localName = "poll-summary")
     @field:JacksonXmlElementWrapper(useWrapping = false)
     val pollSummaries: List<BggThingPollSummaryXml> = emptyList(),
+
+    @field:JacksonXmlProperty(localName = "statistics")
+    val statistics: BggThingStatisticsXml? = null,
 ) {
     fun primaryName(): String? = names.firstOrNull { it.type == "primary" }?.value ?: names.firstOrNull()?.value
 
@@ -106,6 +112,10 @@ data class BggThingItemXml(
             ?.results
             ?.firstOrNull { it.name == name }
             ?.value
+
+    fun baseGameRef(): ExpansionRef? =
+        links.firstOrNull { it.type == "boardgameexpansion" && it.inbound == true }
+            ?.let { link -> link.id.toLongOrNull()?.let { id -> ExpansionRef(id, link.value) } }
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -127,6 +137,9 @@ data class BggThingLinkXml(
 
     @field:JacksonXmlProperty(isAttribute = true)
     val value: String,
+
+    @field:JacksonXmlProperty(isAttribute = true)
+    val inbound: Boolean? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -172,4 +185,16 @@ data class BggHotItemXml(
 
     @field:JacksonXmlProperty(localName = "yearpublished")
     val yearPublished: BggValueXml? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class BggThingStatisticsXml(
+    @field:JacksonXmlProperty(localName = "ratings")
+    val ratings: BggThingRatingsXml? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class BggThingRatingsXml(
+    @field:JacksonXmlProperty(localName = "averageweight")
+    val averageWeight: BggValueXml? = null,
 )

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
@@ -7,7 +7,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, FileText, Plus, UserCheck } from 'lucide-react-native';
+import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, FileText, Plus, UserCheck, ArrowLeftRight, Puzzle, Gauge, PenTool, Palette, Building2, Trash2, Library, Check, Heart } from 'lucide-react-native';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, interpolate, interpolateColor, Extrapolation, useDerivedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -18,11 +18,14 @@ import MeepleIllustration from '@/components/common/meeple-illustration';
 import BackButton from '@/components/common/back-button';
 import FabMenu from '@/components/common/fab-menu';
 import AccordionItem from '@/components/common/accordion-item';
+import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/register-match-sheet';
 
 import { getGameByBggId, getGameExpansions } from '@/api/game';
 import { downloadRuleFile, listGameRules, uploadGameRule } from '@/api/game-rules';
 
 import { useToast } from '@/contexts/toast-context';
+
+import { useCollectionStatus, useToggleCollection } from '@/hooks/use-game';
 
 const IMAGE_HEIGHT = 280;
 const SHEET_RADIUS = 28;
@@ -36,6 +39,8 @@ const GameDetailScreen = () => {
 
 	const queryClient = useQueryClient();
 	const { showToast } = useToast();
+
+	const registerMatchSheetRef = useRef<RegisterMatchSheetRef>(null);
 
 	const [shouldFetchExpansions, setShouldFetchExpansions] = useState(false);
 	const [shouldFetchRules, setShouldFetchRules] = useState(false);
@@ -64,13 +69,16 @@ const GameDetailScreen = () => {
 
 	const { data: ruleFiles, isLoading: isLoadingRules } = useQuery({
 		queryKey: ['games', 'rules', game?.id],
-		queryFn: () => listGameRules(game!.id),
+		queryFn: () => listGameRules(game!!.id),
 		enabled: shouldFetchRules && !!game?.id,
 	});
 
 	const handleVisitBgg = () => {
 		Linking.openURL(`https://boardgamegeek.com/boardgame/${bggId}`);
 	}
+
+	const { data: collectionStatus } = useCollectionStatus(game?.id);
+	const toggleCollection = useToggleCollection();
 
 	const handleOpenRuleFile = async (fileId: string, fileName: string) => {
 		try {
@@ -122,6 +130,24 @@ const GameDetailScreen = () => {
 		opacity: interpolate(scrollY.value, [0, COLLAPSE_DISTANCE], [1, 0], Extrapolation.CLAMP),
 	}));
 
+	const handleToggleCollection = () => {
+		const wasInCollection = collectionStatus?.inCollection;
+
+		toggleCollection.mutate(
+			{ gameId: game!.id, itemId: collectionStatus?.itemId ?? null },
+			{
+				onSuccess: () => {
+					queryClient.invalidateQueries({ queryKey: ['collection', 'status', game!.id] });
+					showToast(wasInCollection ? 'Rimosso dalla collezione' : 'Aggiunto alla collezione', 'success');
+				},
+				onError: (error: any) => {
+					const message = error?.response?.data?.message ?? 'Errore durante l\'operazione';
+					showToast(message, 'error');
+				},
+			}
+		);
+	}
+
 	if(isLoading || !game) {
 		return <View className = 'flex-1 bg-background'/>;
 	}
@@ -141,56 +167,85 @@ const GameDetailScreen = () => {
 					<View style = {{ position: 'absolute', top: -BADGE_SIZE / 2, right: 24, width: BADGE_SIZE, height: BADGE_SIZE }} className = 'items-center justify-center rounded-full border-2 border-background bg-[#C45135] shadow-lg'>
 						<MeepleIllustration size = { 28 } color = '#FFFFFF'/>
 					</View>
-					<Text className = 'font-display text-2xl text-foreground mt-2'>{game.name}</Text>
+					<View className = 'mt-2 flex-row items-start gap-3'>
+						<Text className = 'flex-1 font-display text-2xl text-foreground'>{game.name}</Text>
+						<View className = 'flow-col'>
+							{collectionStatus?.inCollection && (
+								<View className = 'mt-1.5 flex-row items-center gap-1 rounded-full bg-[#C45135]/10 px-2 py-1'>
+									<Check size = { 13 } color = '#C45135' strokeWidth = { 2.5 }/>
+									<Text className = 'text-xs font-medium text-[#C45135]'>Posseduto</Text>
+								</View>
+							)}
+							{game.isExpansion && (
+								<View className = 'mt-1.5 flex-row items-center gap-1 rounded-full bg-[#C45135]/10 px-2 py-1'>
+									<Puzzle size = { 13 } color = '#C45135' strokeWidth = { 2.5 }/>
+									<Text className = 'text-xs font-medium text-[#C45135]'>Espansione</Text>
+								</View>
+							)}
+						</View>
+					</View>
 					{game.description && (
 						<Text className = 'mt-2 text-sm leading-5 text-muted-foreground'>{game.description}</Text>
 					)}
 					<View className='mt-4 rounded-2xl border border-border bg-white shadow-sm overflow-hidden'>
-						<View className = 'flex-row items-center justify-around p-3'>
-							{game.minPlayers && game.maxPlayers && (
-							<View className = 'flex-1 items-center px-2'>
-								<View className = 'flex-row items-center gap-1.5 mb-1'>
-									<Users size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-									<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
-										Giocatori
-									</Text>
-								</View>
-								<Text className = 'font-display text-lg'>
-								{game.minPlayers === game.maxPlayers ? game.minPlayers : `${game.minPlayers}-${game.maxPlayers}`}
-								</Text>
+						<View className = 'p-3'>
+							<View className = 'flex-row items-center justify-around'>
+								{game.minPlayers && game.maxPlayers && (
+									<View className = 'flex-1 items-center px-2'>
+										<View className = 'mb-1 flex-row items-center gap-1.5'>
+											<Users size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+											<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+												Giocatori
+											</Text>
+										</View>
+										<Text className = 'font-display text-lg'>
+											{game.minPlayers === game.maxPlayers ? game.minPlayers : `${game.minPlayers}-${game.maxPlayers}`}
+										</Text>
+									</View>
+								)}
+								{game.minPlayers && game.playingTimeMinutes && <View className = 'h-8 w-[1px] bg-border'/>}
+								{game.playingTimeMinutes && (
+									<View className = 'flex-1 items-center px-2'>
+										<View className = 'mb-1 flex-row items-center gap-1.5'>
+											<Clock size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+											<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+												Durata
+											</Text>
+										</View>
+										<Text className = 'font-display text-lg'>
+											{game.playingTimeMinutes} <Text className = 'font-sans text-xs text-muted-foreground'>min</Text>
+										</Text>
+									</View>
+								)}
 							</View>
+							{(game.yearPublished || game.difficulty) && (game.minPlayers || game.playingTimeMinutes) && (
+								<View className = 'my-3 h-[0.75px] bg-border'/>
 							)}
-							{game.minPlayers && game.playingTimeMinutes && (
-								<View className = 'h-8 w-[1px] bg-border'/>
-							)}
-							{game.playingTimeMinutes && (
-							<View className = 'flex-1 items-center px-2'>
-								<View className = 'flex-row items-center gap-1.5 mb-1'>
-									<Clock size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-									<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
-										Durata
-									</Text>
-								</View>
-								<Text className = 'font-display text-lg'>
-									{game.playingTimeMinutes}{' '}
-									<Text className = 'font-sans text-xs text-muted-foreground'>min</Text>
-								</Text>
+							<View className = 'flex-row items-center justify-around'>
+								{game.yearPublished && (
+									<View className = 'flex-1 items-center px-2'>
+										<View className = 'mb-1 flex-row items-center gap-1.5'>
+											<Calendar size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+											<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+												Anno
+											</Text>
+										</View>
+										<Text className = 'font-display text-lg'>{game.yearPublished}</Text>
+									</View>
+								)}
+								{game.yearPublished && game.difficulty && <View className = 'h-8 w-[1px] bg-border'/>}
+								{game.difficulty && (
+									<View className = 'flex-1 items-center px-2'>
+										<View className = 'mb-1 flex-row items-center gap-1.5'>
+											<Gauge size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+											<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+												Difficoltà
+											</Text>
+										</View>
+										<Text className = 'font-display text-lg'>{game.difficulty.toFixed(1)} / 5</Text>
+									</View>
+								)}
 							</View>
-							)}
-							{game.playingTimeMinutes && game.yearPublished && (
-								<View className = 'h-8 w-[1px] bg-border'/>
-							)}
-							{game.yearPublished && (
-							<View className = 'flex-1 items-center px-2'>
-								<View className = 'flex-row items-center gap-1.5 mb-1'>
-									<Calendar size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-									<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
-										Anno
-									</Text>
-								</View>
-								<Text className = 'font-display text-lg'>{game.yearPublished}</Text>
-							</View>
-							)}
 						</View>
 						<View className = 'flex-row items-center border-t border-border/50 bg-background py-2.5'>
 							{game.bestWith && (
@@ -209,7 +264,7 @@ const GameDetailScreen = () => {
 									<Users size = { 13 } color = '#736E65' strokeWidth = { 2 }/>
 									<Text className = 'font-sans text-xs text-muted-foreground pb-1 leading-normal' style = {{ includeFontPadding: false }}>
 										Consigliato: <Text className='font-sans-semibold text-foreground'>{game.recommendedWith}</Text>
-									</Text>
+									</Text> 
 								</View>
 							)}
 						</View>
@@ -254,58 +309,133 @@ const GameDetailScreen = () => {
 								</View>
 							)}
 						</AccordionItem>
-						<AccordionItem title = { `Espansioni (${game.expansions ?? 0})` } onFirstOpen = { () => setShouldFetchExpansions(true) }>
-							{isLoadingExpansions ? (
-								<View className = 'items-center py-4'>
-									<ActivityIndicator color = '#C45135'/>
+						{game.isExpansion && game.baseGame ? (
+							<Pressable onPress = { () => router.push(`/game/${game.baseGame!.bggId}`) } className = 'flex-row items-center gap-3 rounded-2xl border border-border bg-card p-3 active:opacity-80 mb-3'>
+								<View style = {{ width: 48, height: 48 }} className = 'overflow-hidden rounded-xl bg-secondary'>
+									{game.baseGame.thumbnailUrl ? (
+										<Image source = {{ uri: game.baseGame.thumbnailUrl }} style = {{ width: 48, height: 48 }} contentFit = 'cover'/>
+									) : (
+										<View className = 'h-full w-full items-center justify-center'>
+											<Dices size = { 18 } color = '#736E65'/>
+										</View>
+									)}
 								</View>
-							) : expansions && expansions.length > 0 ? (
-								<ScrollView horizontal showsHorizontalScrollIndicator = { false } contentContainerStyle = {{ gap: 12, paddingVertical: 4 }}
-									onScroll = { ({ nativeEvent }) => {
-										const isCloseToEnd = nativeEvent.layoutMeasurement.width + nativeEvent.contentOffset.x >= nativeEvent.contentSize.width - 100;
-										if(isCloseToEnd && hasNextPage && !isFetchingNextPage) fetchNextPage();
-									}}
-									scrollEventThrottle = { 200 }
-								>
-									{expansions.map((expansion) => (
-										<Pressable key = { expansion.bggId } onPress = { () => router.push(`/game/${expansion.bggId}`) } className = 'w-32 active:opacity-80'>
-											<View className = 'h-28 w-28 overflow-hidden rounded-xl shadow-sm'>
-												{expansion.thumbnailUrl ? (
-													<Image source = {{ uri: expansion.thumbnailUrl }} style = {{ width: '100%', height: '100%' }} contentFit = 'cover'/>
-												) : (
-													<View className = 'h-full w-full items-center justify-center'>
-														<Dices size = { 20 } color = '#736E65'/>
-													</View>
+								<View className = 'flex-1'>
+									<Text className = 'text-xs text-muted-foreground'>Gioco base</Text>
+									<Text className = 'font-sans-semibold text-sm text-foreground' numberOfLines = { 1 }>
+										{game.baseGame.name}
+									</Text>
+								</View>
+								<ArrowLeftRight size = { 16 } color = '#C45135'/>
+							</Pressable>
+						) : (
+							<AccordionItem title = { `Espansioni (${game.expansions ?? 0})` } onFirstOpen = { () => setShouldFetchExpansions(true) }>
+								{isLoadingExpansions ? (
+									<View className = 'items-center py-4'>
+										<ActivityIndicator color = '#C45135'/>
+									</View>
+								) : expansions && expansions.length > 0 ? (
+									<ScrollView horizontal showsHorizontalScrollIndicator = { false } contentContainerStyle = {{ gap: 12, paddingVertical: 4 }}
+										onScroll = { ({ nativeEvent }) => {
+											const isCloseToEnd = nativeEvent.layoutMeasurement.width + nativeEvent.contentOffset.x >= nativeEvent.contentSize.width - 100;
+											if(isCloseToEnd && hasNextPage && !isFetchingNextPage) fetchNextPage();
+										}}
+										scrollEventThrottle = { 200 }
+									>
+										{expansions.map((expansion) => (
+											<Pressable key = { expansion.bggId } onPress = { () => router.push(`/game/${expansion.bggId}`) } className = 'w-32 active:opacity-80'>
+												<View className = 'h-28 w-28 overflow-hidden rounded-xl shadow-sm'>
+													{expansion.thumbnailUrl ? (
+														<Image source = {{ uri: expansion.thumbnailUrl }} style = {{ width: '100%', height: '100%' }} contentFit = 'cover'/>
+													) : (
+														<View className = 'h-full w-full items-center justify-center'>
+															<Dices size = { 20 } color = '#736E65'/>
+														</View>
+													)}
+												</View>
+												<Text style = {{ width: 114 }} className = 'mt-1.5 font-sans-medium text-sm leading-4'>
+													{expansion.name}
+												</Text>
+												{expansion.yearPublished != null && (
+													<Text className = 'mt-1 text-xs text-muted-foreground'>{expansion.yearPublished}</Text>
 												)}
-											</View>
-											<Text style = {{ width: 114 }} className = 'mt-1.5 font-sans-medium text-sm leading-4'>
-												{expansion.name}
-											</Text>
-											{expansion.yearPublished != null && (
-												<Text className = 'mt-1 text-xs text-muted-foreground'>{expansion.yearPublished}</Text>
+											</Pressable>
+										))}
+										{isFetchingNextPage && (
+											<View className = 'w-28 items-center justify-center'>
+													<ActivityIndicator size = 'small' color = '#C45135'/>
+												</View>
 											)}
-										</Pressable>
-									))}
-									{isFetchingNextPage && (
-										<View className = 'w-28 items-center justify-center'>
-												<ActivityIndicator size = 'small' color = '#C45135'/>
-											</View>
-										)}
-								</ScrollView>
-							) : (
-								<Text className = 'py-2 text-sm text-muted-foreground'>Nessuna espansione trovata.</Text>
-							)}
-						</AccordionItem>
+									</ScrollView>
+								) : (
+									<Text className = 'py-2 text-sm text-muted-foreground'>Nessuna espansione trovata.</Text>
+								)}
+							</AccordionItem>
+						)}
 					</View>
+					{(game.designers.length > 0 || game.artists.length > 0 || game.publishers.length > 0) && (
+						<View className = 'rounded-2xl border border-border bg-card p-4'>
+							<Text className = 'mb-3 font-display text-base text-foreground'>Crediti</Text>
+							{game.designers.length > 0 && (
+								<View className = 'mb-2 flex-row items-start gap-2'>
+									<PenTool size = { 14 } color = '#736E65' style = {{ marginTop: 1 }}/>
+									<View className = 'flex-1'>
+										<Text className = 'text-xs text-muted-foreground'>Design</Text>
+										<Text className = 'text-sm text-foreground'>{game.designers.join(', ')}</Text>
+									</View>
+								</View>
+							)}
+							{game.artists.length > 0 && (
+								<View className = 'mb-2 flex-row items-start gap-2'>
+									<Palette size = { 14 } color = '#736E65' style = {{ marginTop: 1 }}/>
+									<View className = 'flex-1'>
+										<Text className = 'text-xs text-muted-foreground'>Illustrazioni</Text>
+										<Text className = 'text-sm text-foreground'>{game.artists.join(', ')}</Text>
+									</View>
+								</View>
+							)}
+							{game.publishers.length > 0 && (
+								<View className = 'flex-row items-start gap-2'>
+									<Building2 size = { 14 } color = '#736E65' style = {{ marginTop: 1 }}/>
+									<View className = 'flex-1'>
+										<Text className = 'text-xs text-muted-foreground'>Editori</Text>
+										<Text className = 'text-sm text-foreground'>{game.publishers.join(', ')}</Text>
+									</View>
+								</View>
+							)}
+						</View>
+					)}
 				</View>
 			</Animated.ScrollView>
-			<FabMenu actions = { [
-				{
-					label: 'Registra partita',
-					icon: <Trophy size = { 18 } color = '#1c1b1a'/>,
-					onPress: () => {},
-				},
-			] }/>
+			<FabMenu
+				actions = { [
+					...(!game.isExpansion
+						? [
+								{
+									label: 'Registra partita',
+									icon: <Trophy size = { 18 } color = '#736E65'/>,
+									onPress: () =>
+										registerMatchSheetRef.current?.present({
+											id: game.id,
+											name: game.name,
+											thumbnailUrl: game.thumbnailUrl,
+										}),
+								},
+							]
+						: []),
+					{
+						label: collectionStatus?.inCollection ? 'Rimuovi dalla collezione' : 'Aggiungi alla collezione',
+						icon: collectionStatus?.inCollection ? <Trash2 size = { 18 } color = '#736E65'/> : <Library size = { 18 } color = '#736E65'/>,
+						onPress: handleToggleCollection,
+					},
+					{
+						label: 'Aggiungi a una wishlist',
+						icon: <Heart size = { 18 } color = '#736E65'/>,
+						onPress: () => { },
+					}
+				]}
+			/>
+			<RegisterMatchSheet ref = { registerMatchSheetRef }/>
 		</View>
 	)
 }

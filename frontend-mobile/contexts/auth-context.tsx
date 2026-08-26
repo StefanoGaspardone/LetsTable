@@ -5,12 +5,7 @@ import { apiClient } from '@/api/client';
 import { tokenStorage } from '@/lib/token-storage';
 import axios from 'axios';
 
-interface User {
-	id: string;
-	username: string;
-	email: string;
-	role: string;
-}
+import { User } from '@/types/user';
 
 interface AuthContextValue {
 	user: User | null;

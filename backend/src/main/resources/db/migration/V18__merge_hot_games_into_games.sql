@@ -1,0 +1,3 @@
+ALTER TABLE games ADD COLUMN rank INTEGER;
+
+DROP TABLE hot_games;

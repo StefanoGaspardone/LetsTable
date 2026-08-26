@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack, DefaultTheme, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans';
 
@@ -57,17 +58,19 @@ const RootLayoutNav = () => {
 const RootLayout = () => {
 	return (
 		<GestureHandlerRootView style = {{ flex: 1 }}>
-			<QueryClientProvider client = { queryClient }>
-				<AuthProvider>
-					<ToastProvider>
-						<ConfirmDialogProvider>
-							<ThemeProvider value = { DefaultTheme }>
-								<RootLayoutNav/>
-							</ThemeProvider>
-						</ConfirmDialogProvider>
-					</ToastProvider>
-				</AuthProvider>
-			</QueryClientProvider>
+			<BottomSheetModalProvider>
+				<QueryClientProvider client = { queryClient }>
+					<AuthProvider>
+						<ToastProvider>
+							<ConfirmDialogProvider>
+								<ThemeProvider value = { DefaultTheme }>
+									<RootLayoutNav/>
+								</ThemeProvider>
+							</ConfirmDialogProvider>
+						</ToastProvider>
+					</AuthProvider>
+				</QueryClientProvider>
+			</BottomSheetModalProvider>
 		</GestureHandlerRootView>
 	)
 }

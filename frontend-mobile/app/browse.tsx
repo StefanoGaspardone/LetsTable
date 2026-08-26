@@ -91,26 +91,15 @@ const BrowseScreen = () => {
 					<ActivityIndicator/>
 				</View>
 			) : (
-				<FlatList
-					key={viewMode}
-					data={items}
-					keyExtractor={(item) => `${item.bggId}`}
-					numColumns={viewMode === 'grid' ? 2 : 1}
-					columnWrapperStyle={viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined}
-					contentContainerStyle={{ paddingTop: 16, paddingBottom: 40, flexGrow: 1 }}
-					renderItem={({ item }) =>
+				<FlatList key = { viewMode } data = { items } keyExtractor = { item => `${item.bggId}` } numColumns = { viewMode === 'grid' ? 2 : 1 } columnWrapperStyle = { viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined } contentContainerStyle = {{ paddingTop: 16, paddingBottom: 40, flexGrow: 1 }}
+					renderItem = {({ item }) =>
 						viewMode === 'list' ? (
-							<GameListItem game={item} onPress={() => router.push(`/game/${item.bggId}`)} />
+							<GameListItem game = { item } onPress = { () => router.push(`/game/${item.bggId}`) } showRank = { !isSearching }/>
 						) : (
-							<GameGridItem game={item} onPress={() => router.push(`/game/${item.bggId}`)} />
+							<GameGridItem game = { item } onPress = { () => router.push(`/game/${item.bggId}`) } showRank = { !isSearching }/>
 						)
 					}
-					onEndReached={() => {
-						if (activeQuery.hasNextPage && !activeQuery.isFetchingNextPage) activeQuery.fetchNextPage();
-					}}
-					onEndReachedThreshold={0.4}
-					ListFooterComponent={renderFooter}
-					ListEmptyComponent={renderEmpty}
+					onEndReached = { () => { if(activeQuery.hasNextPage && !activeQuery.isFetchingNextPage) activeQuery.fetchNextPage() } } onEndReachedThreshold = { 0.4 } ListFooterComponent = { renderFooter } ListEmptyComponent = { renderEmpty }
 				/>
 			)}
 		</View>

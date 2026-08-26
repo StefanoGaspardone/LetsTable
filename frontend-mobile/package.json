@@ -13,6 +13,7 @@
     "@expo-google-fonts/dm-serif-display": "^0.4.2",
     "@expo-google-fonts/playfair-display": "^0.4.2",
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
+    "@gorhom/bottom-sheet": "^5.2.14",
     "@hookform/resolvers": "^5.9.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.18.17",

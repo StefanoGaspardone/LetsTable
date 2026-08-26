@@ -8,6 +8,7 @@ export interface ListCollectionParams {
     size?: number;
     gameName?: string;
     played?: boolean;
+    isExpansion?: boolean;
 }
 
 export const listCollection = async (params: ListCollectionParams): Promise<PageDTO<CollectionItem>> => {
@@ -17,6 +18,7 @@ export const listCollection = async (params: ListCollectionParams): Promise<Page
 			size: params.size ?? 20,
 			gameName: params.gameName || undefined,
 			played: params.played,
+            isExpansion: params.isExpansion,
 		},
 	});
 	return data;

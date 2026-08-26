@@ -50,14 +50,12 @@ class BggClient(
 
         try {
             val rawXml = bggWebClient.get()
-                .uri { it.path("/thing").queryParam("id", bggId).queryParam("stats", "0").build() }
+                .uri { it.path("/thing").queryParam("id", bggId).queryParam("stats", "1").build() }
                 .header(HttpHeaders.AUTHORIZATION, "Bearer $apiToken")
                 .retrieve()
                 .bodyToMono<String>()
                 .timeout(Duration.ofSeconds(10))
                 .block()!!
-
-            logger.info("\n\t[INFO] [bgg_client][get_game_details] Raw XML response:\n{}", rawXml)
 
             val parsed = xmlMapper.readValue(rawXml, BggThingResponseXml::class.java)
 
@@ -65,6 +63,33 @@ class BggClient(
             return parsed
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [bgg_client][get_game_details] Error fetching BGG details for id {}: {}", bggId, e.message)
+            throw BggRequestFailedException(e)
+        }
+    }
+
+    fun getGameDetailsBatch(bggIds: List<Long>): BggThingResponseXml {
+        logger.debug("\n\t[DEBUG] [bgg_client][get_game_details_batch] Fetching BGG details for {} ids", bggIds.size)
+
+        if(bggIds.isEmpty()) return BggThingResponseXml(items = emptyList())
+
+        try {
+            val allItems = bggIds.chunked(20).flatMap { chunk ->
+                val idsParam = chunk.joinToString(",")
+                val rawXml = bggWebClient.get()
+                    .uri { it.path("/thing").queryParam("id", idsParam).queryParam("stats", "1").build() }
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer $apiToken")
+                    .retrieve()
+                    .bodyToMono<String>()
+                    .timeout(Duration.ofSeconds(15))
+                    .block()!!
+
+                xmlMapper.readValue(rawXml, BggThingResponseXml::class.java).items
+            }
+
+            logger.info("\n\t[INFO] [bgg_client][get_game_details_batch] Fetched details for {} of {} requested ids", allItems.size, bggIds.size)
+            return BggThingResponseXml(items = allItems)
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [bgg_client][get_game_details_batch] Error fetching BGG batch details: {}", e.message)
             throw BggRequestFailedException(e)
         }
     }
@@ -80,8 +105,6 @@ class BggClient(
                 .bodyToMono<String>()
                 .timeout(Duration.ofSeconds(10))
                 .block()!!
-
-            logger.info("\n\t[INFO] [bgg_client][get_hot_games] Raw XML response:\n{}", rawXml)
 
             val parsed = xmlMapper.readValue(rawXml, BggHotResponseXml::class.java)
 

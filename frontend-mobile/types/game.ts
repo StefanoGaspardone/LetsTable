@@ -11,19 +11,13 @@ export interface Game {
 	description: string | null;
 	bestWith: string | null;
 	recommendedWith: string | null;
-	expansions: number;
-}
-
-export interface GameSearchResult {
-	bggId: number;
-	name: string;
-	yearPublished: number | null;
-}
-
-export interface HotGame {
-	bggId: number;
-	rank: number;
-	name: string;
-	thumbnailUrl: string | null;
-	yearPublished: number | null;
+	expansions: number | null;
+	isExpansion: boolean | null;
+	rank: number | null;
+	inCollection: boolean | null;
+	baseGame: Game | null;
+	difficulty: number | null;
+	designers: string[];
+	artists: string[];
+	publishers: string[];
 }

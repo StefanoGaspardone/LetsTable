@@ -1,5 +1,7 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
+
 import { tokenStorage } from '@/lib/token-storage';
 
 export const API_URL = Constants.expoConfig?.extra?.apiUrl as string;
@@ -64,7 +66,8 @@ apiClient.interceptors.response.use(
 		if(!refreshToken) {
 			isRefreshing = false;
 			await tokenStorage.clearTokens();
-			
+			router.replace('/(auth)/welcome');
+
 			throw error;
 		}
 
@@ -79,6 +82,7 @@ apiClient.interceptors.response.use(
 			processQueue(refreshError, null);
 			
 			await tokenStorage.clearTokens();
+			router.replace('/(auth)/welcome');
 			throw refreshError;
 		} finally {
 			isRefreshing = false;

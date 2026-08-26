@@ -2,42 +2,12 @@ package com.backend.models.dtos
 
 import com.backend.models.entities.Game
 import io.swagger.v3.oas.annotations.media.Schema
-import java.util.UUID
+import java.util.*
 
-@Schema(description = "A single game result from a BoardGameGeek search")
-data class GameSearchResultResponse(
-    @field:Schema(description = "BoardGameGeek internal id")
-    val bggId: Long,
-
-    @field:Schema(description = "Game name")
-    val name: String,
-
-    @field:Schema(description = "Year of first publication")
-    val yearPublished: Int?,
-)
-
-@Schema(description = "A game currently trending on BoardGameGeek")
-data class HotGameResponse(
-    @field:Schema(description = "BoardGameGeek internal id")
-    val bggId: Long,
-
-    @field:Schema(description = "Current position in the hotness ranking")
-    val rank: Int,
-
-    @field:Schema(description = "Game name")
-    val name: String,
-
-    @field:Schema(description = "Thumbnail image URL")
-    val thumbnailUrl: String?,
-
-    @field:Schema(description = "Year of first publication")
-    val yearPublished: Int?,
-)
-
-@Schema(description = "Full details of a game, cached locally from BoardGameGeek")
+@Schema(description = "Full or partial details of a game, sourced from BoardGameGeek")
 data class GameDTO(
     @field:Schema(description = "Internal Let's Table id")
-    val id: UUID,
+    val id: UUID?,
 
     @field:Schema(description = "BoardGameGeek internal id")
     val bggId: Long,
@@ -72,12 +42,36 @@ data class GameDTO(
     @field:Schema(description = "Recommended number of players")
     val recommendedWith: String?,
 
-    @field:Schema(description = "Number of expansions available for this game")
-    val expansions: Long,
+    @field:Schema(description = "Number of expansions available, null if not yet fully synced")
+    val expansions: Long?,
+
+    @field:Schema(description = "Whether this game is itself an expansion, null if not yet fully synced")
+    val isExpansion: Boolean?,
+
+    @field:Schema(description = "Current position in the BGG hotness ranking, null if not currently trending")
+    val rank: Int?,
+
+    @field:Schema(description = "Whether this game is in the current user's collection, null if not applicable/not checked")
+    val inCollection: Boolean? = null,
+
+    @field:Schema(description = "Base game if this game is an expansion, null if not applicable/not checked")
+    val baseGame: GameDTO? = null,
+
+    @field:Schema(description = "Average complexity/weight rating from 1 to 5, null if not yet fully synced")
+    val difficulty: Double?,
+
+    @field:Schema(description = "List of game designers")
+    val designers: List<String>,
+
+    @field:Schema(description = "List of game artists")
+    val artists: List<String>,
+
+    @field:Schema(description = "List of publishers")
+    val publishers: List<String>,
 ) {
     companion object {
-        fun from(game: Game) = GameDTO(
-            id = game.id!!,
+        fun from(game: Game, inCollection: Boolean? = null, baseGame: GameDTO? = null) = GameDTO(
+            id = game.id,
             bggId = game.bggId,
             name = game.name,
             yearPublished = game.yearPublished,
@@ -89,7 +83,39 @@ data class GameDTO(
             description = game.description,
             bestWith = game.bestWith,
             recommendedWith = game.recommendedWith,
-            expansions = game.expansionRefs.size.toLong()
+            expansions = if (game.isExpansion == null) null else game.expansionRefs.size.toLong(),
+            isExpansion = game.isExpansion,
+            rank = game.rank,
+            inCollection = inCollection,
+            baseGame = baseGame,
+            difficulty = game.difficulty,
+            designers = game.designers,
+            artists = game.artists,
+            publishers = game.publishers,
+        )
+
+        fun fromSearchResult(item: BggSearchItemXml) = GameDTO(
+            id = null,
+            bggId = item.id,
+            name = item.name?.value ?: "Sconosciuto",
+            yearPublished = item.yearPublished?.value?.toIntOrNull(),
+            thumbnailUrl = null,
+            imageUrl = null,
+            minPlayers = null,
+            maxPlayers = null,
+            playingTimeMinutes = null,
+            description = null,
+            bestWith = null,
+            recommendedWith = null,
+            expansions = null,
+            isExpansion = null,
+            rank = null,
+            inCollection = null,
+            baseGame = null,
+            difficulty = null,
+            designers = emptyList(),
+            artists = emptyList(),
+            publishers = emptyList(),
         )
     }
 }

@@ -103,7 +103,7 @@ const LatestMatchCard = ({ match }: LatestMatchCardProps) => {
 									<PlayerAvatar avatarUrl = { player.avatarUrl }/>
 									<Text className = { `text-sm ${player.isWinner ? 'font-semibold text-foreground' : 'text-muted-foreground'}`} numberOfLines = { 1 }>
 										{player.name}
-                                        {isMe && <Text className = 'text-xs text-primary'> (tu)</Text>}
+                                        {isMe && <Text className = 'text-xs text-primary'> (io)</Text>}
 									</Text>
 									{player.isWinner && <Crown size = { 14 } color = '#C45135' fill = '#C45135'/>}
 								</View>

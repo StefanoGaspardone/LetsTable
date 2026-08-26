@@ -1,6 +1,7 @@
 package com.backend.models.entities
 
 import com.backend.utils.ExpansionRefListConverter
+import com.backend.utils.StringListConverter
 import jakarta.persistence.*
 import org.hibernate.annotations.CreationTimestamp
 import org.hibernate.annotations.UpdateTimestamp
@@ -53,6 +54,30 @@ class Game(
     @Convert(converter = ExpansionRefListConverter::class)
     @Column(name = "expansion_refs", nullable = true, columnDefinition = "TEXT")
     var expansionRefs: List<ExpansionRef> = emptyList(),
+
+    @Column(name = "base_game_bgg_id", nullable = true)
+    var baseGameBggId: Long? = null,
+
+    @Column(name = "is_expansion", nullable = true)
+    var isExpansion: Boolean? = null,
+
+    @Column(name = "rank", nullable = true)
+    var rank: Int? = null,
+
+    @Column(name = "difficulty", nullable = true)
+    var difficulty: Double? = null,
+
+    @Convert(converter = StringListConverter::class)
+    @Column(name = "designers", nullable = true, columnDefinition = "TEXT")
+    var designers: List<String> = emptyList(),
+
+    @Convert(converter = StringListConverter::class)
+    @Column(name = "artists", nullable = true, columnDefinition = "TEXT")
+    var artists: List<String> = emptyList(),
+
+    @Convert(converter = StringListConverter::class)
+    @Column(name = "publishers", nullable = true, columnDefinition = "TEXT")
+    var publishers: List<String> = emptyList(),
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

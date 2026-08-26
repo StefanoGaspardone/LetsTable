@@ -2,8 +2,6 @@ package com.backend.controllers
 
 import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.GameDTO
-import com.backend.models.dtos.GameSearchResultResponse
-import com.backend.models.dtos.HotGameResponse
 import com.backend.models.dtos.PageDTO
 import com.backend.services.GameService
 import io.swagger.v3.oas.annotations.Operation
@@ -28,31 +26,33 @@ class GameController(
         value = [
             ApiResponse(
                 responseCode = "200", description = "Ok - Search results",
-                content = [Content(schema = Schema(implementation = GameSearchResultResponse::class))]
+                content = [Content(schema = Schema(implementation = GameDTO::class))]
             ),
         ]
     )
     @GetMapping("/search")
-    fun search(@RequestParam query: String, @RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int): PageDTO<GameSearchResultResponse> = gameService.search(query, page, size)
+    fun search(@RequestParam query: String, @RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int): PageDTO<GameDTO> =
+        gameService.search(query, page, size)
 
     @Operation(summary = "Hot games", description = "Trending games on BoardGameGeek, cached and refreshed every 6 hours.")
     @ApiResponses(
         value = [
             ApiResponse(
                 responseCode = "200", description = "Ok - Hot games ranking",
-                content = [Content(schema = Schema(implementation = HotGameResponse::class))]
+                content = [Content(schema = Schema(implementation = GameDTO::class))]
             ),
         ]
     )
     @GetMapping("/hot")
-    fun hot(@RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int): PageDTO<HotGameResponse> = gameService.getHotGames(page, size)
+    fun hot(@RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int): PageDTO<GameDTO> =
+        gameService.getHotGames(page, size)
 
     @Operation(summary = "Get game details", description = "Fetches full details for a game, syncing from BoardGameGeek if not cached or stale (older than 7 days).")
     @ApiResponses(
         value = [
             ApiResponse(
                 responseCode = "200", description = "Ok - Game details",
-                content = [Content(schema = Schema(implementation = GameSearchResultResponse::class))]
+                content = [Content(schema = Schema(implementation = GameDTO::class))]
             ),
             ApiResponse(
                 responseCode = "404", description = "Not Found - Game does not exist on BoardGameGeek",

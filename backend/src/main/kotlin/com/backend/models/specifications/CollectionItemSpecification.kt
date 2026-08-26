@@ -9,7 +9,7 @@ import org.springframework.data.jpa.domain.Specification
 import java.util.UUID
 
 object CollectionItemSpecification {
-    fun withFilters(userId: UUID, gameName: String?, played: Boolean?): Specification<CollectionItem> {
+    fun withFilters(userId: UUID, gameName: String?, played: Boolean?, isExpansion: Boolean?): Specification<CollectionItem> {
         return Specification { root, query, cb ->
             val predicates = mutableListOf(
                 cb.equal(root.get<User>("user").get<UUID>("id"), userId)
@@ -18,6 +18,12 @@ object CollectionItemSpecification {
             if(!gameName.isNullOrBlank()) {
                 predicates.add(
                     cb.like(cb.lower(root.get<Game>("game").get("name")), "%${gameName.lowercase()}%")
+                )
+            }
+
+            if(isExpansion != null) {
+                predicates.add(
+                    cb.equal(root.get<Game>("game").get<Boolean>("isExpansion"), isExpansion)
                 )
             }
 
