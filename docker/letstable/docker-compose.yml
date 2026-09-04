@@ -7,9 +7,9 @@ services:
     image: postgres:17
     container_name: letstable_db
     environment:
-      POSTGRES_USER: "${POSTGRES_USER}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-      POSTGRES_DB: "${POSTGRES_DB}"
+      POSTGRES_USER: "${POSTGRES_USER:-letstable_user}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-letstable_pass}"
+      POSTGRES_DB: "${POSTGRES_DB:-letstable_db}"
     volumes:
       - db_data:/var/lib/postgresql/data
     ports:
@@ -23,8 +23,8 @@ services:
     image: dpage/pgadmin4:9.13
     container_name: letstable_pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_EMAIL}"
-      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_PASSWORD}"
+      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_EMAIL:-admin@letstable.com}"
+      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_PASSWORD:-admin_letstable}"
     ports:
       - "5050:80"
     volumes:
@@ -56,8 +56,8 @@ services:
     container_name: letstable_minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: "${MINIO_ROOT_USER}"
-      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD}"
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-minioadmin}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-minioadmin}"
     ports:
       - "9000:9000"
       - "9001:9001"

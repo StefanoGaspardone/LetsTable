@@ -32,6 +32,7 @@ logs/
 .env.*
 *.properties
 !**/gradle/wrapper/gradle-wrapper.properties
+!**/sonar-project.properties
 !.env.example
 *.pem
 *.p12

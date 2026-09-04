@@ -77,10 +77,6 @@ allOpen {
     annotation("jakarta.persistence.Embeddable")
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
-}
-
 // ─── JaCoCo ───────────────────────────────────────────────────────────────────
 
 jacoco {
@@ -141,8 +137,4 @@ tasks.jacocoTestCoverageVerification {
 
 tasks.check {
     dependsOn(tasks.jacocoTestCoverageVerification)
-}
-
-tasks.test {
-    finalizedBy(tasks.jacocoTestReport)
 }

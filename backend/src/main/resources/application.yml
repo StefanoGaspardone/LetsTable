@@ -21,7 +21,7 @@ spring:
         format_sql: true
     open-in-view: false
   flyway:
-    baseline-on-migrate: false
+    baseline-on-migrate: true
 
   # ============================================================
   # MAIL CONFIGURATION
@@ -62,7 +62,7 @@ server:
 # JWT CONFIGURATION
 # ============================================================
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:59e01dfd95914a2922b3e94636b2d4c4f1633f19f2d55a7cde95ec60cf476e0b}
   access-token-ttl-minutes: 15
   refresh-token-ttl-days: 7
 

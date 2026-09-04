@@ -187,88 +187,98 @@ const GameDetailScreen = () => {
 					{game.description && (
 						<Text className = 'mt-2 text-sm leading-5 text-muted-foreground'>{game.description}</Text>
 					)}
-					<View className='mt-4 rounded-2xl border border-border bg-white shadow-sm overflow-hidden'>
-						<View className = 'p-3'>
-							<View className = 'flex-row items-center justify-around'>
-								{game.minPlayers && game.maxPlayers && (
-									<View className = 'flex-1 items-center px-2'>
-										<View className = 'mb-1 flex-row items-center gap-1.5'>
-											<Users size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-											<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
-												Giocatori
-											</Text>
-										</View>
-										<Text className = 'font-display text-lg'>
-											{game.minPlayers === game.maxPlayers ? game.minPlayers : `${game.minPlayers}-${game.maxPlayers}`}
-										</Text>
+					{(() => {
+						const hasRecommendations = Boolean(
+							game.bestWith || (game.recommendedWith && game.recommendedWith !== game.bestWith)
+						);
+
+						return (
+							<View className = 'mt-4 rounded-2xl border border-border bg-white shadow-sm overflow-hidden'>
+								<View className = 'p-3'>
+									<View className = 'flex-row items-center justify-around'>
+										{game.minPlayers && game.maxPlayers && (
+											<View className = 'flex-1 items-center px-2'>
+												<View className = 'mb-1 flex-row items-center gap-1.5'>
+													<Users size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+													<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+														Giocatori
+													</Text>
+												</View>
+												<Text className = 'font-display text-lg'>
+													{game.minPlayers === game.maxPlayers ? game.minPlayers : `${game.minPlayers}-${game.maxPlayers}`}
+												</Text>
+											</View>
+										)}
+										{game.minPlayers && game.playingTimeMinutes && <View className = 'h-8 w-[1px] bg-border'/>}	
+										{game.playingTimeMinutes && (
+											<View className = 'flex-1 items-center px-2'>
+												<View className = 'mb-1 flex-row items-center gap-1.5'>
+													<Clock size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+													<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+														Durata
+													</Text>
+												</View>
+												<Text className = 'font-display text-lg'>
+													{game.playingTimeMinutes} <Text className = 'font-sans text-xs text-muted-foreground'>min</Text>
+												</Text>
+											</View>
+										)}
 									</View>
-								)}
-								{game.minPlayers && game.playingTimeMinutes && <View className = 'h-8 w-[1px] bg-border'/>}
-								{game.playingTimeMinutes && (
-									<View className = 'flex-1 items-center px-2'>
-										<View className = 'mb-1 flex-row items-center gap-1.5'>
-											<Clock size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-											<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
-												Durata
-											</Text>
-										</View>
-										<Text className = 'font-display text-lg'>
-											{game.playingTimeMinutes} <Text className = 'font-sans text-xs text-muted-foreground'>min</Text>
-										</Text>
+									{(game.yearPublished || game.difficulty) && (game.minPlayers || game.playingTimeMinutes) && (
+										<View className = 'my-3 h-[0.75px] bg-border'/>
+									)}
+									<View className = 'flex-row items-center justify-around'>
+										{game.yearPublished && (
+											<View className = 'flex-1 items-center px-2'>
+												<View className = 'mb-1 flex-row items-center gap-1.5'>
+													<Calendar size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+													<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+														Anno
+													</Text>
+												</View>
+												<Text className = 'font-display text-lg'>{game.yearPublished}</Text>
+											</View>
+										)}
+										{game.yearPublished && game.difficulty && <View className = 'h-8 w-[1px] bg-border'/>}
+										{game.difficulty && (
+											<View className = 'flex-1 items-center px-2'>
+												<View className = 'mb-1 flex-row items-center gap-1.5'>
+													<Gauge size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+													<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+														Difficoltà
+													</Text>
+												</View>
+												<Text className = 'font-display text-lg'>{game.difficulty.toFixed(1)} / 5</Text>
+											</View>
+										)}
+									</View>
+								</View>
+								{hasRecommendations && (
+									<View className = 'flex-row items-center border-t border-border/50 bg-background py-2.5'>
+										{game.bestWith && (
+											<View className = 'flex-1 flex-row items-center justify-center gap-1.5 px-1'>
+												<UserCheck size = { 13 } color = '#736E65' strokeWidth = { 2 }/>
+												<Text className = 'font-sans text-xs text-muted-foreground pb-1 leading-normal' style = {{ includeFontPadding: false }}>
+													Ideale: <Text className = 'font-sans-semibold text-foreground'>{game.bestWith}</Text>
+												</Text>
+											</View>
+										)}
+										{game.bestWith && game.recommendedWith && game.recommendedWith !== game.bestWith && (
+											<View className = 'h-4 w-[1px] bg-border'/>
+										)}
+										{game.recommendedWith && game.recommendedWith !== game.bestWith && (
+											<View className = 'flex-1 flex-row items-center justify-center gap-1.5 px-1'>
+												<Users size = { 13 } color = '#736E65' strokeWidth = { 2 }/>
+												<Text className = 'font-sans text-xs text-muted-foreground pb-1 leading-normal' style = {{ includeFontPadding: false }}>
+													Consigliato: <Text className = 'font-sans-semibold text-foreground'>{game.recommendedWith}</Text>
+												</Text>
+											</View>
+										)}
 									</View>
 								)}
 							</View>
-							{(game.yearPublished || game.difficulty) && (game.minPlayers || game.playingTimeMinutes) && (
-								<View className = 'my-3 h-[0.75px] bg-border'/>
-							)}
-							<View className = 'flex-row items-center justify-around'>
-								{game.yearPublished && (
-									<View className = 'flex-1 items-center px-2'>
-										<View className = 'mb-1 flex-row items-center gap-1.5'>
-											<Calendar size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-											<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
-												Anno
-											</Text>
-										</View>
-										<Text className = 'font-display text-lg'>{game.yearPublished}</Text>
-									</View>
-								)}
-								{game.yearPublished && game.difficulty && <View className = 'h-8 w-[1px] bg-border'/>}
-								{game.difficulty && (
-									<View className = 'flex-1 items-center px-2'>
-										<View className = 'mb-1 flex-row items-center gap-1.5'>
-											<Gauge size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-											<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
-												Difficoltà
-											</Text>
-										</View>
-										<Text className = 'font-display text-lg'>{game.difficulty.toFixed(1)} / 5</Text>
-									</View>
-								)}
-							</View>
-						</View>
-						<View className = 'flex-row items-center border-t border-border/50 bg-background py-2.5'>
-							{game.bestWith && (
-								<View className = 'flex-1 flex-row items-center justify-center gap-1.5 px-1'>
-									<UserCheck size = { 13 } color = '#736E65' strokeWidth = { 2 }/>
-									<Text  className = 'font-sans text-xs text-muted-foreground pb-1 leading-normal' style = {{ includeFontPadding: false }}>
-										Ideale: <Text className = 'font-sans-semibold text-foreground'>{game.bestWith}</Text>
-									</Text>
-								</View>
-							)}
-							{game.bestWith && game.recommendedWith && game.recommendedWith !== game.bestWith && (
-								<View className = 'h-4 w-[1px] bg-border'/>
-							)}
-							{game.recommendedWith && game.recommendedWith !== game.bestWith && (
-								<View className = 'flex-1 flex-row items-center justify-center gap-1.5 px-1'>
-									<Users size = { 13 } color = '#736E65' strokeWidth = { 2 }/>
-									<Text className = 'font-sans text-xs text-muted-foreground pb-1 leading-normal' style = {{ includeFontPadding: false }}>
-										Consigliato: <Text className='font-sans-semibold text-foreground'>{game.recommendedWith}</Text>
-									</Text> 
-								</View>
-							)}
-						</View>
-					</View>
+						);
+					})()}
 					<View className = 'mt-4'>
 						<AccordionItem title = 'Regole' onFirstOpen = { () => setShouldFetchRules(true) }>
 							<Pressable onPress = { handleVisitBgg } className = 'flex-row items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2.5'>
@@ -321,8 +331,8 @@ const GameDetailScreen = () => {
 									)}
 								</View>
 								<View className = 'flex-1'>
-									<Text className = 'text-xs text-muted-foreground'>Gioco base</Text>
-									<Text className = 'font-sans-semibold text-sm text-foreground' numberOfLines = { 1 }>
+									<Text className = 'text-xs font-medium text-muted-foreground'>Gioco base</Text>
+									<Text className = 'font-semibold text-sm text-foreground' numberOfLines = { 1 }>
 										{game.baseGame.name}
 									</Text>
 								</View>
