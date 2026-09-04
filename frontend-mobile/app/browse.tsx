@@ -91,7 +91,7 @@ const BrowseScreen = () => {
 					<ActivityIndicator/>
 				</View>
 			) : (
-				<FlatList key = { viewMode } data = { items } keyExtractor = { item => `${item.bggId}` } numColumns = { viewMode === 'grid' ? 2 : 1 } columnWrapperStyle = { viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined } contentContainerStyle = {{ paddingTop: 16, paddingBottom: 40, flexGrow: 1 }}
+				<FlatList className = 'mt-3' key = { viewMode } data = { items } keyExtractor = { item => `${item.bggId}` } numColumns = { viewMode === 'grid' ? 2 : 1 } columnWrapperStyle = { viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined } contentContainerStyle = {{ paddingBottom: 40, flexGrow: 1 }}
 					renderItem = {({ item }) =>
 						viewMode === 'list' ? (
 							<GameListItem game = { item } onPress = { () => router.push(`/game/${item.bggId}`) } showRank = { !isSearching }/>

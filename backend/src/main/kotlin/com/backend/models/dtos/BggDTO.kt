@@ -2,6 +2,7 @@ package com.backend.models.dtos
 
 import com.backend.models.entities.ExpansionRef
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement
@@ -197,4 +198,25 @@ data class BggThingStatisticsXml(
 data class BggThingRatingsXml(
     @field:JacksonXmlProperty(localName = "averageweight")
     val averageWeight: BggValueXml? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class CardSetsByGameResponse(
+    val cardSets: List<CardSetJson> = emptyList(),
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class CardSetJson(
+    val cardTypes: List<CardTypeJson> = emptyList(),
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class CardTypeJson(
+    val name: String? = null,
+    val height: String? = null,
+    val width: String? = null,
+    val quantity: String? = null,
+
+    @field:JsonProperty("quantity_note")
+    val quantityNote: String? = null,
 )

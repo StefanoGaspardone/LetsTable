@@ -1,6 +1,7 @@
 package com.backend.models.dtos
 
 import com.backend.models.entities.Game
+import com.backend.models.entities.GameSleeve
 import io.swagger.v3.oas.annotations.media.Schema
 import java.util.*
 
@@ -68,9 +69,12 @@ data class GameDTO(
 
     @field:Schema(description = "List of publishers")
     val publishers: List<String>,
+
+    @field:Schema(description = "Sleeve/component recommendations, empty if not yet synced or unavailable")
+    val sleeves: List<GameSleeveDTO>,
 ) {
     companion object {
-        fun from(game: Game, inCollection: Boolean? = null, baseGame: GameDTO? = null) = GameDTO(
+        fun from(game: Game, inCollection: Boolean? = null, baseGame: GameDTO? = null, sleeves: List<GameSleeveDTO> = emptyList()) = GameDTO(
             id = game.id,
             bggId = game.bggId,
             name = game.name,
@@ -92,6 +96,7 @@ data class GameDTO(
             designers = game.designers,
             artists = game.artists,
             publishers = game.publishers,
+            sleeves = sleeves
         )
 
         fun fromSearchResult(item: BggSearchItemXml) = GameDTO(
@@ -116,6 +121,35 @@ data class GameDTO(
             designers = emptyList(),
             artists = emptyList(),
             publishers = emptyList(),
+            sleeves = emptyList(),
+        )
+    }
+}
+
+@Schema(description = "A sleeve/component type recommendation for this game")
+data class GameSleeveDTO(
+    @field:Schema(description = "Component name")
+    val name: String?,
+
+    @field:Schema(description = "Card height in mm")
+    val height: Double?,
+
+    @field:Schema(description = "Card width in mm")
+    val width: Double?,
+
+    @field:Schema(description = "Quantity in the game")
+    val quantity: Int?,
+
+    @field:Schema(description = "Free-form note about the quantity")
+    val quantityNote: String?,
+) {
+    companion object {
+        fun from(sleeve: GameSleeve) = GameSleeveDTO(
+            name = sleeve.name,
+            height = sleeve.height,
+            width = sleeve.width,
+            quantity = sleeve.quantity,
+            quantityNote = sleeve.quantityNote,
         )
     }
 }

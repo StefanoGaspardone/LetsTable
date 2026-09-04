@@ -15,6 +15,7 @@ import GamePickerSheet, { GamePickerSheetRef, PickedGame } from '@/components/co
 import SegmentedControl from '@/components/common/segmented-control';
 import PlayerIdentityPickerSheet, { PickedIdentity, PlayerIdentityPickerSheetRef } from '@/components/common/player-identity-picker-sheet';
 import ColorSwatchPicker from '@/components/common/color-swatch-picker';
+import FingerOrderPicker from '@/components/common/finger-order-picker';
 
 import { createMatch } from '@/api/match';
 
@@ -22,7 +23,6 @@ import { getPlayerColor } from '@/lib/colors';
 
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
-import FingerOrderPicker from './finger-order-picker';
 
 interface PresetGame {
 	id: string;
@@ -283,6 +283,12 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
             ? players.map(p => p.guestName).filter((n): n is string => n !== null)
             : teams.flatMap(t => t.players.map(p => p.guestName)).filter((n): n is string => n !== null);
 
+    const isValid =
+        presetGame !== null &&
+        (mode === 'individual'
+            ? players.length > 0
+            : teams.length >= 2 && teams.every(t => t.players.length > 0));
+
 	return (
         <>
             <AppBottomSheet ref = { sheetRef }>
@@ -434,7 +440,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                             </Pressable>
                         </View>
                     )}
-                    <Button className = 'h-14 rounded-full' onPress = { handleSubmit } disabled = { isSubmitting }>
+                    <Button className = 'h-14 rounded-full' onPress = { handleSubmit } disabled = { isSubmitting || !isValid }>
                         <Text className = 'text-base font-semibold text-primary-foreground'>
                             {isSubmitting ? 'Creazione...' : 'Inizia Partita'}
                         </Text>

@@ -20,4 +20,13 @@ export interface Game {
 	designers: string[];
 	artists: string[];
 	publishers: string[];
+	sleeves: GameSleeve[];
+}
+
+export interface GameSleeve {
+	name: string | null;
+	height: number | null;
+	width: number | null;
+	quantity: number | null;
+	quantityNote: string | null;
 }

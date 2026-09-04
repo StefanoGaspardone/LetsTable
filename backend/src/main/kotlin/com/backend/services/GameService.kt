@@ -4,11 +4,14 @@ import com.backend.clients.BggClient
 import com.backend.exceptions.GameNotFoundOnBggException
 import com.backend.models.dtos.BggThingItemXml
 import com.backend.models.dtos.GameDTO
+import com.backend.models.dtos.GameSleeveDTO
 import com.backend.models.dtos.PageDTO
 import com.backend.models.entities.Game
+import com.backend.models.entities.GameSleeve
 import com.backend.models.mappers.toPageDTO
 import com.backend.repositories.CollectionItemRepository
 import com.backend.repositories.GameRepository
+import com.backend.repositories.GameSleeveRepository
 import com.backend.security.CurrentUser
 import org.jsoup.Jsoup
 import org.slf4j.LoggerFactory
@@ -26,6 +29,7 @@ class GameService(
     private val bggClient: BggClient,
     private val gameRepository: GameRepository,
     private val collectionItemRepository: CollectionItemRepository,
+    private val gameSleeveRepository: GameSleeveRepository,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -49,6 +53,14 @@ class GameService(
                 existing
             }
 
+            val existingSleeves = game.id?.let { gameSleeveRepository.findAllByGameId(it) } ?: emptyList()
+            val sleevesList = if(existingSleeves.isEmpty() && game.id != null) {
+                syncSleeves(game)
+                gameSleeveRepository.findAllByGameId(game.id!!)
+            } else {
+                existingSleeves
+            }
+
             val inCollection = game.id?.let { gameId ->
                 collectionItemRepository.existsByUserIdAndGameId(CurrentUser.id(), gameId)
             }
@@ -62,8 +74,10 @@ class GameService(
                 }
             } else null
 
+            val sleevesDTO = sleevesList.map { s -> GameSleeveDTO.from(s) }
+
             logger.info("\n\t[INFO] [game_service][get_or_sync_game] Resolved game with bggId {}", bggId)
-            return GameDTO.from(game, inCollection, baseGame)
+            return GameDTO.from(game, inCollection, baseGame, sleevesDTO)
         } catch(e: GameNotFoundOnBggException) {
             logger.warn("\n\t[WARN] [game_service][get_or_sync_game] Game not found on BGG with id {}", bggId)
             throw e
@@ -83,11 +97,14 @@ class GameService(
             val pageable = PageRequest.of(pageSafe, sizeSafe)
 
             val result = gameRepository.findAllByRankIsNotNullOrderByRankAsc(pageable)
-
-            val inCollectionMap = buildInCollectionMap(result.content.mapNotNull { it.id })
+            val gameIds = result.content.mapNotNull { it.id }
+            val inCollectionMap = buildInCollectionMap(gameIds)
+            val sleevesMap = gameSleeveRepository.findAllByGameIdIn(gameIds)
+                .groupBy { it.game.id }
+                .mapValues { (_, sleeves) -> sleeves.map { GameSleeveDTO.from(it) } }
 
             logger.info("\n\t[INFO] [game_service][get_hot_games] Retrieved {} hot games", result.numberOfElements)
-            return result.toPageDTO { GameDTO.from(it, inCollectionMap[it.id]) }
+            return result.toPageDTO { GameDTO.from(it, inCollectionMap[it.id], sleeves = sleevesMap[it.id] ?: emptyList()) }
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [game_service][get_hot_games] Error retrieving hot games: {}", e.message)
             throw e
@@ -119,7 +136,6 @@ class GameService(
             hotItems.forEach { item ->
                 val existing = gameRepository.findByBggId(item.id).orElse(null)
                 val details = detailsByBggId[item.id]
-
                 val game = if(details != null) {
                     applyBggDetails(existing ?: Game(bggId = item.id, name = "", lastSyncedAt = Instant.now()), details)
                 } else {
@@ -132,9 +148,10 @@ class GameService(
                         isExpansion = false
                     )
                 }
-
                 game.rank = item.rank
-                gameRepository.save(game)
+                val savedGame = gameRepository.save(game)
+
+                if(details != null) syncSleeves(savedGame)
             }
 
             logger.info("\n\t[INFO] [game_service][refresh_hot_games] Hot games cache refreshed with {} entries", hotItems.size)
@@ -282,12 +299,42 @@ class GameService(
         return game
     }
 
+    private fun syncSleeves(game: Game) {
+        val gameId = game.id ?: return
+
+        try {
+            val response = bggClient.getCardSetsByGame(game.bggId)
+            val cardTypes = response.cardSets.flatMap { it.cardTypes }
+
+            gameSleeveRepository.deleteAllByGameId(gameId)
+
+            val sleeves = cardTypes.map { cardType ->
+                GameSleeve(
+                    game = game,
+                    name = cardType.name,
+                    height = cardType.height?.toDoubleOrNull(),
+                    width = cardType.width?.toDoubleOrNull(),
+                    quantity = cardType.quantity?.toIntOrNull(),
+                    quantityNote = cardType.quantityNote?.takeIf { it.isNotBlank() },
+                )
+            }
+
+            gameSleeveRepository.saveAll(sleeves)
+        } catch(e: Exception) {
+            logger.warn("\n\t[WARN] [game_service][sync_sleeves] Error syncing sleeves for game {}: {}", game.bggId, e.message)
+        }
+    }
+
     private fun syncFromBgg(bggId: Long, existing: Game?): Game {
         val details = bggClient.getGameDetails(bggId).items.firstOrNull()
             ?: throw GameNotFoundOnBggException(bggId)
 
         val game = existing ?: Game(bggId = bggId, name = "", lastSyncedAt = Instant.now())
-        return gameRepository.save(applyBggDetails(game, details))
+        val savedGame = gameRepository.save(applyBggDetails(game, details))
+
+        syncSleeves(savedGame)
+
+        return savedGame
     }
 
     private val PLAYER_COUNT_REGEX = Regex("""(\d+(?:[–-]\d+)?)""")

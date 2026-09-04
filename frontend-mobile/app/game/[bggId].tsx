@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Linking, Pressable, View } from 'react-native';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -7,8 +7,9 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, FileText, Plus, UserCheck, ArrowLeftRight, Puzzle, Gauge, PenTool, Palette, Building2, Trash2, Library, Check, Heart } from 'lucide-react-native';
+import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, FileText, Plus, UserCheck, ArrowLeftRight, Puzzle, Gauge, PenTool, Palette, Building2, Trash2, Library, Check, Heart, Layers, Ruler } from 'lucide-react-native';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, interpolate, interpolateColor, Extrapolation, useDerivedValue } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScrollView } from 'react-native-gesture-handler';
 
@@ -17,7 +18,8 @@ import ScreenHeader from '@/components/common/screen-header';
 import MeepleIllustration from '@/components/common/meeple-illustration';
 import BackButton from '@/components/common/back-button';
 import FabMenu from '@/components/common/fab-menu';
-import AccordionItem from '@/components/common/accordion-item';
+import SegmentedControl from '@/components/common/segmented-control';
+import GameGridItem from '@/components/common/game-grid-item';
 import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/register-match-sheet';
 
 import { getGameByBggId, getGameExpansions } from '@/api/game';
@@ -31,17 +33,27 @@ const IMAGE_HEIGHT = 280;
 const SHEET_RADIUS = 28;
 const SHEET_OVERLAP = 32;
 const BADGE_SIZE = 48;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const INFINITE_SCROLL_THRESHOLD = 400;
+
+type TabKey = 'info' | 'file' | 'expansions';
 
 const GameDetailScreen = () => {
 	const insets = useSafeAreaInsets();
 	const { bggId } = useLocalSearchParams<{ bggId: string }>();
+
 	const scrollY = useSharedValue(0);
+	const contentHeight = useSharedValue(0);
+	const layoutHeight = useSharedValue(0);
 
 	const queryClient = useQueryClient();
 	const { showToast } = useToast();
 
 	const registerMatchSheetRef = useRef<RegisterMatchSheetRef>(null);
+	const pagerRef = useRef<ScrollView>(null);
 
+	const [activeTab, setActiveTab] = useState<TabKey>('info');
+	const [pageHeight, setPageHeight] = useState(300);
 	const [shouldFetchExpansions, setShouldFetchExpansions] = useState(false);
 	const [shouldFetchRules, setShouldFetchRules] = useState(false);
 
@@ -84,27 +96,28 @@ const GameDetailScreen = () => {
 		try {
 			const localUri = await downloadRuleFile(game!.id, fileId, fileName);
 			const contentUri = await FileSystem.getContentUriAsync(localUri);
-
+			
 			await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
 				data: contentUri,
 				flags: 1,
 				type: 'application/pdf',
 			});
-		} catch (error) {
+		} catch(error) {
 			showToast('Impossibile aprire il file', 'error');
 		}
 	}
 
 	const handleUploadRule = async () => {
 		const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
-		if(result.canceled) return;
-
-		const asset = result.assets[0];
 		
+		if(result.canceled) return;
+		
+		const asset = result.assets[0];
+
 		try {
 			await uploadGameRule(game!.id, asset.uri, asset.name);
 			queryClient.invalidateQueries({ queryKey: ['games', 'rules', game!.id] });
-			
+
 			showToast('Regolamento caricato con successo', 'success');
 		} catch(error: any) {
 			const message = error?.response?.data?.message ?? 'Errore durante il caricamento';
@@ -112,9 +125,47 @@ const GameDetailScreen = () => {
 		}
 	}
 
+	const TABS: { key: TabKey; label: string }[] = [
+		{ key: 'info', label: 'Info' },
+		{ key: 'file', label: 'File' },
+		...(!game?.isExpansion ? [{ key: 'expansions' as TabKey, label: `Espansioni (${game?.expansions ?? 0})` }] : []),
+	];
+
+	const activateTab = (key: TabKey) => {
+		setActiveTab(key);
+		
+		if(key === 'file' && !shouldFetchRules) setShouldFetchRules(true);
+		if(key === 'expansions' && !shouldFetchExpansions) setShouldFetchExpansions(true);
+	}
+
+	const handleTabPress = (value: string) => {
+		const key = value as TabKey;
+		const index = TABS.findIndex(t => t.key === key);
+		
+		pagerRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
+		
+		activateTab(key);
+	}
+
+	const handlePagerScrollEnd = (e: any) => {
+		const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+		const key = TABS[index]?.key;
+		
+		if(key) activateTab(key);
+	}
+
+	const loadMoreExpansions = () => {
+		if(activeTab === 'expansions' && hasNextPage && !isFetchingNextPage) fetchNextPage();
+	}
+
 	const scrollHandler = useAnimatedScrollHandler({
 		onScroll: (event) => {
 			scrollY.value = event.contentOffset.y;
+
+			const distanceFromBottom = contentHeight.value - (event.contentOffset.y + layoutHeight.value);
+			if(distanceFromBottom < INFINITE_SCROLL_THRESHOLD) {
+				scheduleOnRN(loadMoreExpansions);
+			}
 		},
 	});
 
@@ -130,9 +181,12 @@ const GameDetailScreen = () => {
 		opacity: interpolate(scrollY.value, [0, COLLAPSE_DISTANCE], [1, 0], Extrapolation.CLAMP),
 	}));
 
+	const stickyTabBarStyle = useAnimatedStyle(() => ({
+		opacity: interpolate(scrollY.value, [0, COLLAPSE_DISTANCE], [0, 1], Extrapolation.CLAMP),
+	}));
+
 	const handleToggleCollection = () => {
 		const wasInCollection = collectionStatus?.inCollection;
-
 		toggleCollection.mutate(
 			{ gameId: game!.id, itemId: collectionStatus?.itemId ?? null },
 			{
@@ -152,175 +206,52 @@ const GameDetailScreen = () => {
 		return <View className = 'flex-1 bg-background'/>;
 	}
 
+	const hasRecommendations = Boolean(game.bestWith || (game.recommendedWith && game.recommendedWith !== game.bestWith));
+	const hasCredits = game.designers.length > 0 || game.artists.length > 0 || game.publishers.length > 0;
+
+	const expansionRows: typeof expansions[] = [];
+	for(let i = 0; i < expansions.length; i += 2) expansionRows.push(expansions.slice(i, i + 2));
+
 	return (
 		<View className = 'flex-1 bg-background'>
 			<Image source = {{ uri: game.imageUrl ?? game.thumbnailUrl ?? undefined }} style = {{ position: 'absolute', top: 0, left: 0, right: 0, height: IMAGE_HEIGHT }} contentFit = 'cover'/>
 			<Animated.View style = { [{ position: 'absolute', top: 0, left: 0, right: 0, height: HEADER_HEIGHT }, scrimStyle] }>
 				<LinearGradient colors = { ['rgba(0,0,0,0.45)', 'rgba(0,0,0,0)'] } style = {{ flex: 1 }}/>
 			</Animated.View>
+			<Animated.View pointerEvents = { activeTab ? 'box-none' : 'none' } style = { [{ position: 'absolute', top: HEADER_HEIGHT, left: 0, right: 0, zIndex: 9 }, stickyTabBarStyle] }>
+				<View className = 'bg-background px-4 pb-2 pt-1 border-b border-border/50'>
+					<SegmentedControl options = { TABS.map(t => ({ value: t.key, label: t.label })) } selected = { activeTab } onSelect = { handleTabPress }/>
+				</View>
+			</Animated.View>
 			<View style = {{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
 				<ScreenHeader title = 'Dettagli Gioco' titleStyle = { titleColorStyle } renderBackground = { <Animated.View style = { [{ flex: 1 }, headerBackgroundStyle] } className = 'bg-background'/> } leftElement = { <BackButton progress = { headerProgress }/> }/>
 			</View>
-			<Animated.ScrollView onScroll = { scrollHandler } scrollEventThrottle = { 16 } contentContainerStyle = {{ paddingBottom: 60 }}>
+			<Animated.ScrollView onScroll = { scrollHandler } scrollEventThrottle = { 16 } contentContainerStyle = {{ paddingBottom: 60 }} onLayout = { e => { layoutHeight.value = e.nativeEvent.layout.height; } } onContentSizeChange = { (_, height) => { contentHeight.value = height; } }>
 				<View style = {{ height: IMAGE_HEIGHT - SHEET_OVERLAP }}/>
-				<View style = {{ borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS }} className = 'bg-background px-4 pb-6 pt-6'>
+				<View style = {{ borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS }} className = 'bg-background pb-6 pt-6'>
 					<View style = {{ position: 'absolute', top: -BADGE_SIZE / 2, right: 24, width: BADGE_SIZE, height: BADGE_SIZE }} className = 'items-center justify-center rounded-full border-2 border-background bg-[#C45135] shadow-lg'>
 						<MeepleIllustration size = { 28 } color = '#FFFFFF'/>
 					</View>
-					<View className = 'mt-2 flex-row items-start gap-3'>
-						<Text className = 'flex-1 font-display text-2xl text-foreground'>{game.name}</Text>
-						<View className = 'flow-col'>
-							{collectionStatus?.inCollection && (
-								<View className = 'mt-1.5 flex-row items-center gap-1 rounded-full bg-[#C45135]/10 px-2 py-1'>
-									<Check size = { 13 } color = '#C45135' strokeWidth = { 2.5 }/>
-									<Text className = 'text-xs font-medium text-[#C45135]'>Posseduto</Text>
-								</View>
-							)}
-							{game.isExpansion && (
-								<View className = 'mt-1.5 flex-row items-center gap-1 rounded-full bg-[#C45135]/10 px-2 py-1'>
-									<Puzzle size = { 13 } color = '#C45135' strokeWidth = { 2.5 }/>
-									<Text className = 'text-xs font-medium text-[#C45135]'>Espansione</Text>
-								</View>
-							)}
-						</View>
-					</View>
-					{game.description && (
-						<Text className = 'mt-2 text-sm leading-5 text-muted-foreground'>{game.description}</Text>
-					)}
-					{(() => {
-						const hasRecommendations = Boolean(
-							game.bestWith || (game.recommendedWith && game.recommendedWith !== game.bestWith)
-						);
-
-						return (
-							<View className = 'mt-4 rounded-2xl border border-border bg-white shadow-sm overflow-hidden'>
-								<View className = 'p-3'>
-									<View className = 'flex-row items-center justify-around'>
-										{game.minPlayers && game.maxPlayers && (
-											<View className = 'flex-1 items-center px-2'>
-												<View className = 'mb-1 flex-row items-center gap-1.5'>
-													<Users size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-													<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
-														Giocatori
-													</Text>
-												</View>
-												<Text className = 'font-display text-lg'>
-													{game.minPlayers === game.maxPlayers ? game.minPlayers : `${game.minPlayers}-${game.maxPlayers}`}
-												</Text>
-											</View>
-										)}
-										{game.minPlayers && game.playingTimeMinutes && <View className = 'h-8 w-[1px] bg-border'/>}	
-										{game.playingTimeMinutes && (
-											<View className = 'flex-1 items-center px-2'>
-												<View className = 'mb-1 flex-row items-center gap-1.5'>
-													<Clock size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-													<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
-														Durata
-													</Text>
-												</View>
-												<Text className = 'font-display text-lg'>
-													{game.playingTimeMinutes} <Text className = 'font-sans text-xs text-muted-foreground'>min</Text>
-												</Text>
-											</View>
-										)}
+					<View className = 'px-4'>
+						<View className = 'mt-2 flex-row items-start gap-3'>
+							<Text className = 'flex-1 font-display text-2xl text-foreground'>{game.name}</Text>
+							<View className = 'flow-col'>
+								{collectionStatus?.inCollection && (
+									<View className = 'mt-1.5 flex-row items-center gap-1 rounded-full bg-[#C45135]/10 px-2 py-1'>
+										<Check size = { 13 } color = '#C45135' strokeWidth = { 2.5 }/>
+										<Text className = 'text-xs font-medium text-[#C45135]'>Posseduto</Text>
 									</View>
-									{(game.yearPublished || game.difficulty) && (game.minPlayers || game.playingTimeMinutes) && (
-										<View className = 'my-3 h-[0.75px] bg-border'/>
-									)}
-									<View className = 'flex-row items-center justify-around'>
-										{game.yearPublished && (
-											<View className = 'flex-1 items-center px-2'>
-												<View className = 'mb-1 flex-row items-center gap-1.5'>
-													<Calendar size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-													<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
-														Anno
-													</Text>
-												</View>
-												<Text className = 'font-display text-lg'>{game.yearPublished}</Text>
-											</View>
-										)}
-										{game.yearPublished && game.difficulty && <View className = 'h-8 w-[1px] bg-border'/>}
-										{game.difficulty && (
-											<View className = 'flex-1 items-center px-2'>
-												<View className = 'mb-1 flex-row items-center gap-1.5'>
-													<Gauge size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-													<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
-														Difficoltà
-													</Text>
-												</View>
-												<Text className = 'font-display text-lg'>{game.difficulty.toFixed(1)} / 5</Text>
-											</View>
-										)}
-									</View>
-								</View>
-								{hasRecommendations && (
-									<View className = 'flex-row items-center border-t border-border/50 bg-background py-2.5'>
-										{game.bestWith && (
-											<View className = 'flex-1 flex-row items-center justify-center gap-1.5 px-1'>
-												<UserCheck size = { 13 } color = '#736E65' strokeWidth = { 2 }/>
-												<Text className = 'font-sans text-xs text-muted-foreground pb-1 leading-normal' style = {{ includeFontPadding: false }}>
-													Ideale: <Text className = 'font-sans-semibold text-foreground'>{game.bestWith}</Text>
-												</Text>
-											</View>
-										)}
-										{game.bestWith && game.recommendedWith && game.recommendedWith !== game.bestWith && (
-											<View className = 'h-4 w-[1px] bg-border'/>
-										)}
-										{game.recommendedWith && game.recommendedWith !== game.bestWith && (
-											<View className = 'flex-1 flex-row items-center justify-center gap-1.5 px-1'>
-												<Users size = { 13 } color = '#736E65' strokeWidth = { 2 }/>
-												<Text className = 'font-sans text-xs text-muted-foreground pb-1 leading-normal' style = {{ includeFontPadding: false }}>
-													Consigliato: <Text className = 'font-sans-semibold text-foreground'>{game.recommendedWith}</Text>
-												</Text>
-											</View>
-										)}
+								)}
+								{game.isExpansion && (
+									<View className = 'mt-1.5 flex-row items-center gap-1 rounded-full bg-[#C45135]/10 px-2 py-1'>
+										<Puzzle size = { 13 } color = '#C45135' strokeWidth = { 2.5 }/>
+										<Text className = 'text-xs font-medium text-[#C45135]'>Espansione</Text>
 									</View>
 								)}
 							</View>
-						);
-					})()}
-					<View className = 'mt-4'>
-						<AccordionItem title = 'Regole' onFirstOpen = { () => setShouldFetchRules(true) }>
-							<Pressable onPress = { handleVisitBgg } className = 'flex-row items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2.5'>
-								<ExternalLink size = { 16 } color = '#C45135'/>
-								<Text className = 'text-sm font-medium text-foreground'>Visita su BoardGameGeek</Text>
-							</Pressable>
-							{isLoadingRules ? (
-								<View className = 'items-center py-4'>
-									<ActivityIndicator color = '#C45135'/>
-								</View>
-							) : (
-								<View className = 'mt-3 gap-2'>
-									{ruleFiles?.map(ruleFile => (
-										<Pressable key = { ruleFile.id } onPress = { () => handleOpenRuleFile(ruleFile.id, ruleFile.fileName) } className = 'flex-row items-center gap-2 rounded-xl border border-border px-3 py-2.5 active:bg-black/20'>
-											<FileText size = { 16 } color = '#736E65'/>
-											<View className = 'flex-1'>
-												<Text className = 'text-sm text-foreground' numberOfLines = { 1 }>
-													{ruleFile.fileName}
-												</Text>
-												{ruleFile.uploadedByUsername && (
-													<Text className = 'text-xs text-muted-foreground'>
-														Caricato da {ruleFile.uploadedByUsername}
-													</Text>
-												)}
-											</View>
-										</Pressable>
-									))}
-									<Pressable onPress = { handleUploadRule } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
-										{({ pressed }) => (
-											<>
-												<Plus size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
-												<Text className = { `text-sm ${pressed ? 'text-white' : 'text-muted-foreground'}` }>
-													Carica un regolamento
-												</Text>
-											</>
-										)}
-									</Pressable>
-								</View>
-							)}
-						</AccordionItem>
-						{game.isExpansion && game.baseGame ? (
-							<Pressable onPress = { () => router.push(`/game/${game.baseGame!.bggId}`) } className = 'flex-row items-center gap-3 rounded-2xl border border-border bg-card p-3 active:opacity-80 mb-3'>
+						</View>
+						{game.isExpansion && game.baseGame && (
+							<Pressable onPress = { () => router.push(`/game/${game.baseGame!.bggId}`) } className = 'mt-4 flex-row items-center gap-3 rounded-2xl border border-border bg-card p-3 active:opacity-80'>
 								<View style = {{ width: 48, height: 48 }} className = 'overflow-hidden rounded-xl bg-secondary'>
 									{game.baseGame.thumbnailUrl ? (
 										<Image source = {{ uri: game.baseGame.thumbnailUrl }} style = {{ width: 48, height: 48 }} contentFit = 'cover'/>
@@ -338,83 +269,235 @@ const GameDetailScreen = () => {
 								</View>
 								<ArrowLeftRight size = { 16 } color = '#C45135'/>
 							</Pressable>
-						) : (
-							<AccordionItem title = { `Espansioni (${game.expansions ?? 0})` } onFirstOpen = { () => setShouldFetchExpansions(true) }>
-								{isLoadingExpansions ? (
-									<View className = 'items-center py-4'>
-										<ActivityIndicator color = '#C45135'/>
-									</View>
-								) : expansions && expansions.length > 0 ? (
-									<ScrollView horizontal showsHorizontalScrollIndicator = { false } contentContainerStyle = {{ gap: 12, paddingVertical: 4 }}
-										onScroll = { ({ nativeEvent }) => {
-											const isCloseToEnd = nativeEvent.layoutMeasurement.width + nativeEvent.contentOffset.x >= nativeEvent.contentSize.width - 100;
-											if(isCloseToEnd && hasNextPage && !isFetchingNextPage) fetchNextPage();
-										}}
-										scrollEventThrottle = { 200 }
-									>
-										{expansions.map((expansion) => (
-											<Pressable key = { expansion.bggId } onPress = { () => router.push(`/game/${expansion.bggId}`) } className = 'w-32 active:opacity-80'>
-												<View className = 'h-28 w-28 overflow-hidden rounded-xl shadow-sm'>
-													{expansion.thumbnailUrl ? (
-														<Image source = {{ uri: expansion.thumbnailUrl }} style = {{ width: '100%', height: '100%' }} contentFit = 'cover'/>
-													) : (
-														<View className = 'h-full w-full items-center justify-center'>
-															<Dices size = { 20 } color = '#736E65'/>
+						)}
+						<View className = 'mt-4'>
+							<SegmentedControl options = { TABS.map(t => ({ value: t.key, label: t.label })) } selected = { activeTab } onSelect = { handleTabPress }/>
+						</View>
+					</View>
+					<View style = {{ height: pageHeight, marginTop: 16 }}>
+						<ScrollView ref = { pagerRef } horizontal pagingEnabled showsHorizontalScrollIndicator = { false } onMomentumScrollEnd = { handlePagerScrollEnd } contentContainerStyle = {{ alignItems: 'flex-start' }}>
+							<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { if(activeTab === 'info') setPageHeight(e.nativeEvent.layout.height); } }>
+								<View className = 'px-4 gap-4'>
+									{game.description && (
+										<Text className = 'text-sm leading-5 text-muted-foreground'>{game.description}</Text>
+									)}
+									<View className = 'rounded-2xl border border-border bg-white shadow-sm overflow-hidden'>
+										<View className = 'p-3'>
+											<View className = 'flex-row items-center justify-around'>
+												{game.minPlayers && game.maxPlayers && (
+													<View className = 'flex-1 items-center px-2'>
+														<View className = 'mb-1 flex-row items-center gap-1.5'>
+															<Users size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+															<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+																Giocatori
+															</Text>
 														</View>
-													)}
-												</View>
-												<Text style = {{ width: 114 }} className = 'mt-1.5 font-sans-medium text-sm leading-4'>
-													{expansion.name}
-												</Text>
-												{expansion.yearPublished != null && (
-													<Text className = 'mt-1 text-xs text-muted-foreground'>{expansion.yearPublished}</Text>
+														<Text className = 'font-display text-lg'>
+															{game.minPlayers === game.maxPlayers ? game.minPlayers : `${game.minPlayers}-${game.maxPlayers}`}
+														</Text>
+													</View>
 												)}
-											</Pressable>
-										))}
-										{isFetchingNextPage && (
-											<View className = 'w-28 items-center justify-center'>
-													<ActivityIndicator size = 'small' color = '#C45135'/>
+												{game.minPlayers && game.playingTimeMinutes && <View className = 'h-8 w-[1px] bg-border'/>}
+												{game.playingTimeMinutes && (
+													<View className = 'flex-1 items-center px-2'>
+														<View className = 'mb-1 flex-row items-center gap-1.5'>
+															<Clock size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+															<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+																Durata
+															</Text>
+														</View>
+														<Text className = 'font-display text-lg'>
+															{game.playingTimeMinutes} <Text className = 'font-sans text-xs text-muted-foreground'>min</Text>
+														</Text>
+													</View>
+												)}
+											</View>
+											{(game.yearPublished || game.difficulty) && (game.minPlayers || game.playingTimeMinutes) && (
+												<View className = 'my-3 h-[0.75px] bg-border'/>
+											)}
+											<View className = 'flex-row items-center justify-around'>
+												{game.yearPublished && (
+													<View className = 'flex-1 items-center px-2'>
+														<View className = 'mb-1 flex-row items-center gap-1.5'>
+															<Calendar size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+															<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+																Anno
+															</Text>
+														</View>
+														<Text className = 'font-display text-lg'>{game.yearPublished}</Text>
+													</View>
+												)}
+												{game.yearPublished && game.difficulty && <View className = 'h-8 w-[1px] bg-border'/>}
+												{game.difficulty && (
+													<View className = 'flex-1 items-center px-2'>
+														<View className = 'mb-1 flex-row items-center gap-1.5'>
+															<Gauge size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+															<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+																Difficoltà
+															</Text>
+														</View>
+														<Text className = 'font-display text-lg'>{game.difficulty.toFixed(1)} / 5</Text>
+													</View>
+												)}
+											</View>
+										</View>
+										{hasRecommendations && (
+											<View className = 'flex-row items-center border-t border-border/50 bg-background py-2.5'>
+												{game.bestWith && (
+													<View className = 'flex-1 flex-row items-center justify-center gap-1.5 px-1'>
+														<UserCheck size = { 13 } color = '#736E65' strokeWidth = { 2 }/>
+														<Text className = 'font-sans text-xs text-muted-foreground pb-1 leading-normal' style = {{ includeFontPadding: false }}>
+															Ideale: <Text className = 'font-sans-semibold text-foreground'>{game.bestWith}</Text>
+														</Text>
+													</View>
+												)}
+												{game.bestWith && game.recommendedWith && game.recommendedWith !== game.bestWith && (
+													<View className = 'h-4 w-[1px] bg-border'/>
+												)}
+												{game.recommendedWith && game.recommendedWith !== game.bestWith && (
+													<View className = 'flex-1 flex-row items-center justify-center gap-1.5 px-1'>
+														<Users size = { 13 } color = '#736E65' strokeWidth = { 2 }/>
+														<Text className = 'font-sans text-xs text-muted-foreground pb-1 leading-normal' style = {{ includeFontPadding: false }}>
+															Consigliato: <Text className = 'font-sans-semibold text-foreground'>{game.recommendedWith}</Text>
+														</Text>
+													</View>
+												)}
+											</View>
+										)}
+									</View>
+									{game.sleeves.length > 0 && (
+										<View className = 'rounded-2xl border border-border bg-card p-4'>
+											<View className = 'mb-3 flex-row items-center gap-2'>
+												<Layers size = { 16 } color = '#C45135'/>
+												<Text className = 'font-display text-base text-foreground'>Componenti e Sleeve</Text>
+											</View>
+											<View className = 'gap-2'>
+												{game.sleeves.map((sleeve, index) => (
+													<View key = { index } className = 'flex-row items-center gap-2 rounded-xl bg-background px-3 py-2.5 border border-border'>
+														<Ruler size = { 14 } color = '#736E65'/>
+														<View className = 'flex-1'>
+															<Text className = 'text-sm text-foreground' numberOfLines = { 1 }>
+																{sleeve.name ?? 'Componente'}
+															</Text>
+															{sleeve.height != null && sleeve.width != null && (
+																<Text className = 'text-xs text-muted-foreground'>
+																	{sleeve.width}×{sleeve.height} mm
+																	{sleeve.quantity != null && ` · ${sleeve.quantity} pz`}
+																	{sleeve.quantityNote ? ` (${sleeve.quantityNote})` : ''}
+																</Text>
+															)}
+														</View>
+													</View>
+												))}
+											</View>
+										</View>
+									)}
+									{hasCredits && (
+										<View className = 'rounded-2xl border border-border bg-card p-4'>
+											<Text className = 'mb-3 font-display text-base text-foreground'>Crediti</Text>
+											{game.designers.length > 0 && (
+												<View className = 'mb-2 flex-row items-start gap-2'>
+													<PenTool size = { 14 } color = '#736E65' style = {{ marginTop: 1 }}/>
+													<View className = 'flex-1'>
+														<Text className = 'text-xs text-muted-foreground'>Design</Text>
+														<Text className = 'text-sm text-foreground'>{game.designers.join(', ')}</Text>
+													</View>
 												</View>
 											)}
-									</ScrollView>
-								) : (
-									<Text className = 'py-2 text-sm text-muted-foreground'>Nessuna espansione trovata.</Text>
-								)}
-							</AccordionItem>
-						)}
+											{game.artists.length > 0 && (
+												<View className = 'mb-2 flex-row items-start gap-2'>
+													<Palette size = { 14 } color = '#736E65' style = {{ marginTop: 1 }}/>
+													<View className = 'flex-1'>
+														<Text className = 'text-xs text-muted-foreground'>Illustrazioni</Text>
+														<Text className = 'text-sm text-foreground'>{game.artists.join(', ')}</Text>
+													</View>
+												</View>
+											)}
+											{game.publishers.length > 0 && (
+												<View className = 'flex-row items-start gap-2'>
+													<Building2 size = { 14 } color = '#736E65' style = {{ marginTop: 1 }}/>
+													<View className = 'flex-1'>
+														<Text className = 'text-xs text-muted-foreground'>Editori</Text>
+														<Text className = 'text-sm text-foreground'>{game.publishers.join(', ')}</Text>
+													</View>
+												</View>
+											)}
+										</View>
+									)}
+								</View>
+							</View>
+							<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { if(activeTab === 'file') setPageHeight(e.nativeEvent.layout.height); } }>
+								<View className = 'px-4 gap-2'>
+									<Pressable onPress = { handleVisitBgg } className = 'flex-row items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2.5'>
+										<ExternalLink size = { 16 } color = '#C45135'/>
+										<Text className = 'text-sm font-medium text-foreground'>Visita su BoardGameGeek</Text>
+									</Pressable>
+									{isLoadingRules ? (
+										<View className = 'items-center py-4'>
+											<ActivityIndicator color = '#C45135'/>
+										</View>
+									) : (
+										<>
+											{ruleFiles?.map(ruleFile => (
+												<Pressable key = { ruleFile.id } onPress = { () => handleOpenRuleFile(ruleFile.id, ruleFile.fileName) } className = 'flex-row items-center gap-2 rounded-xl border border-border px-3 py-2.5 active:bg-black/20'>
+													<FileText size = { 16 } color = '#736E65'/>
+													<View className = 'flex-1'>
+														<Text className = 'text-sm text-foreground' numberOfLines = { 1 }>
+															{ruleFile.fileName}
+														</Text>
+														{ruleFile.uploadedByUsername && (
+															<Text className = 'text-xs text-muted-foreground'>
+																Caricato da {ruleFile.uploadedByUsername}
+															</Text>
+														)}
+													</View>
+												</Pressable>
+											))}
+											<Pressable onPress = { handleUploadRule } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
+												{({ pressed }) => (
+													<>
+														<Plus size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+														<Text className = { `text-sm ${pressed ? 'text-white' : 'text-muted-foreground'}` }>
+															Carica un regolamento
+														</Text>
+													</>
+												)}
+											</Pressable>
+										</>
+									)}
+								</View>
+							</View>
+							{!game.isExpansion && (
+								<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { if(activeTab === 'expansions') setPageHeight(e.nativeEvent.layout.height); } }>
+									<View className = 'px-4'>
+										{isLoadingExpansions ? (
+											<View className = 'items-center py-4'>
+												<ActivityIndicator color = '#C45135'/>
+											</View>
+										) : expansions.length > 0 ? (
+											<View className = 'gap-0'>
+												{expansionRows.map((row, rowIndex) => (
+													<View key = { rowIndex } className = 'flex-row gap-3'>
+														{row.map(expansion => (
+															<GameGridItem key = { expansion.bggId } game = { expansion } onPress = { () => router.push(`/game/${expansion.bggId}`) }/>
+														))}
+														{row.length === 1 && <View style = {{ flex: 1 }}/>}
+													</View>
+												))}
+												{isFetchingNextPage && (
+													<View className = 'items-center py-3'>
+														<ActivityIndicator size = 'small' color = '#C45135'/>
+													</View>
+												)}
+											</View>
+										) : (
+											<Text className = 'py-2 text-sm text-muted-foreground'>Nessuna espansione trovata.</Text>
+										)}
+									</View>
+								</View>
+							)}
+						</ScrollView>
 					</View>
-					{(game.designers.length > 0 || game.artists.length > 0 || game.publishers.length > 0) && (
-						<View className = 'rounded-2xl border border-border bg-card p-4'>
-							<Text className = 'mb-3 font-display text-base text-foreground'>Crediti</Text>
-							{game.designers.length > 0 && (
-								<View className = 'mb-2 flex-row items-start gap-2'>
-									<PenTool size = { 14 } color = '#736E65' style = {{ marginTop: 1 }}/>
-									<View className = 'flex-1'>
-										<Text className = 'text-xs text-muted-foreground'>Design</Text>
-										<Text className = 'text-sm text-foreground'>{game.designers.join(', ')}</Text>
-									</View>
-								</View>
-							)}
-							{game.artists.length > 0 && (
-								<View className = 'mb-2 flex-row items-start gap-2'>
-									<Palette size = { 14 } color = '#736E65' style = {{ marginTop: 1 }}/>
-									<View className = 'flex-1'>
-										<Text className = 'text-xs text-muted-foreground'>Illustrazioni</Text>
-										<Text className = 'text-sm text-foreground'>{game.artists.join(', ')}</Text>
-									</View>
-								</View>
-							)}
-							{game.publishers.length > 0 && (
-								<View className = 'flex-row items-start gap-2'>
-									<Building2 size = { 14 } color = '#736E65' style = {{ marginTop: 1 }}/>
-									<View className = 'flex-1'>
-										<Text className = 'text-xs text-muted-foreground'>Editori</Text>
-										<Text className = 'text-sm text-foreground'>{game.publishers.join(', ')}</Text>
-									</View>
-								</View>
-							)}
-						</View>
-					)}
 				</View>
 			</Animated.ScrollView>
 			<FabMenu
@@ -423,7 +506,7 @@ const GameDetailScreen = () => {
 						? [
 								{
 									label: 'Registra partita',
-									icon: <Trophy size = { 18 } color = '#736E65'/>,
+									icon: <Trophy size = { 18 } className = 'text-foreground'/>,
 									onPress: () =>
 										registerMatchSheetRef.current?.present({
 											id: game.id,
@@ -435,12 +518,12 @@ const GameDetailScreen = () => {
 						: []),
 					{
 						label: collectionStatus?.inCollection ? 'Rimuovi dalla collezione' : 'Aggiungi alla collezione',
-						icon: collectionStatus?.inCollection ? <Trash2 size = { 18 } color = '#736E65'/> : <Library size = { 18 } color = '#736E65'/>,
+						icon: collectionStatus?.inCollection ? <Trash2 size = { 18 } className = 'text-foreground'/> : <Library size = { 18 } className = 'text-foreground'/>,
 						onPress: handleToggleCollection,
 					},
 					{
 						label: 'Aggiungi a una wishlist',
-						icon: <Heart size = { 18 } color = '#736E65'/>,
+						icon: <Heart size = { 18 } className = 'text-foreground'/>,
 						onPress: () => { },
 					}
 				]}

@@ -4,6 +4,8 @@ import com.backend.exceptions.BggRequestFailedException
 import com.backend.models.dtos.BggHotResponseXml
 import com.backend.models.dtos.BggSearchResponseXml
 import com.backend.models.dtos.BggThingResponseXml
+import com.backend.models.dtos.CardSetsByGameResponse
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.xml.XmlMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.slf4j.LoggerFactory
@@ -12,6 +14,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
+import java.net.URI
 import java.time.Duration
 
 @Component
@@ -21,7 +24,9 @@ class BggClient(
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
+
     private val xmlMapper = XmlMapper().registerKotlinModule()
+    private val jsonMapper = ObjectMapper().registerKotlinModule()
 
     fun searchGames(query: String): BggSearchResponseXml {
         logger.debug("\n\t[DEBUG] [bgg_client][search_games] Searching BGG for query {}", query)
@@ -113,6 +118,29 @@ class BggClient(
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [bgg_client][get_hot_games] Error fetching BGG hot list: {}", e.message)
             throw BggRequestFailedException(e)
+        }
+    }
+
+    fun getCardSetsByGame(bggId: Long): CardSetsByGameResponse {
+        logger.debug("\n\t[DEBUG] [bgg_client][get_card_sets_by_game] Fetching card sets for id {}", bggId)
+
+        try {
+            val uri = URI.create("https://api.geekdo.com/api/cardsetsbygame?objectid=$bggId&nosession=1")
+
+            val rawJson = bggWebClient.get()
+                .uri(uri)
+                .retrieve()
+                .bodyToMono<String>()
+                .timeout(Duration.ofSeconds(10))
+                .block()!!
+
+            val parsed = jsonMapper.readValue(rawJson, CardSetsByGameResponse::class.java)
+
+            logger.info("\n\t[INFO] [bgg_client][get_card_sets_by_game] Fetched {} card sets for id {}", parsed.cardSets.size, bggId)
+            return parsed
+        } catch(e: Exception) {
+            logger.warn("\n\t[WARN] [bgg_client][get_card_sets_by_game] Error fetching card sets for id {}: {}", bggId, e.message)
+            return CardSetsByGameResponse()
         }
     }
 }

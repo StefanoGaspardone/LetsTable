@@ -7,6 +7,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import AuthScreenLayout from '@/components/auth/auth-screen-layout';
+import AuthField from '@/components/auth/auth-field';
+import PasswordInput from '@/components/common/password-input';
 
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
@@ -14,8 +16,6 @@ import { useToast } from '@/contexts/toast-context';
 import { LoginFormValues, loginSchema } from '@/schemas/auth-schema';
 
 import { login as log_in } from '@/api/auth';
-import AuthField from '@/components/auth/auth-field';
-import PasswordInput from '@/components/common/password-input';
 
 const LoginScreen = () => {
 	const { login } = useAuth();
@@ -70,7 +70,7 @@ const LoginScreen = () => {
 				)}
 			/>
 			<Button className = 'mt-4 h-14 rounded-full' onPress = { handleSubmit(onSubmit) } disabled = { !isValid || isSubmitting }>
-				<Text className='text-base font-semibold text-primary-foreground'>
+				<Text className = 'text-base font-semibold text-primary-foreground'>
 					{isSubmitting ? 'Accesso in corso...' : 'Accedi'}
 				</Text>
 			</Button>
