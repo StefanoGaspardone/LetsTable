@@ -36,6 +36,7 @@ const LoginScreen = () => {
 			const response = await log_in(values);
 			await login(response.accessToken, response.refreshToken, response.user);
 			
+			router.dismissAll();
 			router.replace('/(tabs)/home');
 		} catch(error: any) {
 			const message = error?.response?.data?.message ?? 'Credenziali non valide';

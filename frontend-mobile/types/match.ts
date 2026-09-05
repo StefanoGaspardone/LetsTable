@@ -75,3 +75,13 @@ export interface CreateMatchPayload {
 	teams: CreateMatchTeamPayload[] | null;
 	players: MatchIndividualPlayerPayload[] | null;
 }
+
+export interface UpdateMatchPayload {
+	gameId: string;
+	playedAt: string;
+	place: string | null;
+	notes: string | null;
+	isTeamBased: boolean;
+	teams: CreateMatchTeamPayload[] | null;
+	players: MatchIndividualPlayerPayload[] | null;
+}

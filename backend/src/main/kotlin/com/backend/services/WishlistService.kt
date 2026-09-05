@@ -11,7 +11,6 @@ import com.backend.models.specifications.WishlistItemSpecification
 import com.backend.repositories.*
 import com.backend.utils.resolveSort
 import org.slf4j.LoggerFactory
-import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.PageRequest.of
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

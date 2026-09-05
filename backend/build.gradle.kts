@@ -54,13 +54,22 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
     runtimeOnly("org.postgresql:postgresql")
 
+    testImplementation(platform("org.testcontainers:testcontainers-bom:1.20.1"))
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-test")
     testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("io.projectreactor:reactor-test")
+    testImplementation("org.testcontainers:testcontainers")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
+    testImplementation("io.mockk:mockk:1.13.13")
+    testImplementation("com.squareup.okhttp3:mockwebserver3:5.1.0")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
@@ -85,6 +94,8 @@ jacoco {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    systemProperty("spring.profiles.active", "test")
+    jvmArgs("-Xshare:off")
     finalizedBy(tasks.jacocoTestReport)
 }
 
@@ -112,6 +123,8 @@ tasks.jacocoTestReport {
                     "**/*Application*",
                     "**/*ApplicationKt*",
                     "**/exceptions/**",
+                    "**/security/**",
+                    "**/properties/**",
                     "**/*$*inlined*",
                     $$"**/*$lambda*",
                 )

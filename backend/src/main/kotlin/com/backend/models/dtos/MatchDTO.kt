@@ -86,19 +86,48 @@ data class CreateMatchRequest(
 
     @field:Schema(description = "Whether players are grouped into teams")
     @field:NotNull
-    val isTeamBased: Boolean,
+    override val isTeamBased: Boolean,
 
     @field:Schema(description = "How long the match actually took, in minutes")
     val durationMinutes: Int? = null,
 
     @field:Schema(description = "Teams, required and non-empty only if isTeamBased is true")
     @field:Valid
-    val teams: List<CreateMatchTeamRequest>? = null,
+    override val teams: List<CreateMatchTeamRequest>? = null,
 
     @field:Schema(description = "Individual players, required and non-empty only if isTeamBased is false")
     @field:Valid
-    val players: List<MatchIndividualPlayerRequest>? = null,
-)
+    override val players: List<MatchIndividualPlayerRequest>? = null,
+): MatchPlayersPayload
+
+@Schema(description = "Payload to update an existing match")
+data class UpdateMatchRequest(
+    @field:Schema(description = "Internal id of the game played (obtained via GET /games/{bggId})")
+    @field:NotNull
+    val gameId: UUID,
+
+    @field:Schema(description = "Date the match was played")
+    @field:NotNull
+    val playedAt: LocalDate,
+
+    @field:Schema(description = "Where the match was played", example = "Marco's place")
+    val place: String? = null,
+
+    @field:Schema(description = "Free-form notes about the match")
+    val notes: String? = null,
+
+    @field:Schema(description = "Whether players are grouped into teams")
+    @field:NotNull
+    override val isTeamBased: Boolean,
+
+    @field:Schema(description = "Teams, required and non-empty only if isTeamBased is true")
+    @field:Valid
+    override val teams: List<CreateMatchTeamRequest>? = null,
+
+    @field:Schema(description = "Individual players, required and non-empty only if isTeamBased is false")
+    @field:Valid
+    override val players: List<MatchIndividualPlayerRequest>? = null,
+): MatchPlayersPayload
 
 @Schema(description = "A player's identity within a team (no individual color/score, those are team-level)")
 data class MatchPlayerRefDTO(
@@ -256,3 +285,9 @@ data class MatchDayCountResponse(
     @field:Schema(description = "Number of matches played that day")
     val count: Long,
 )
+
+interface MatchPlayersPayload {
+    val isTeamBased: Boolean
+    val teams: List<CreateMatchTeamRequest>?
+    val players: List<MatchIndividualPlayerRequest>?
+}

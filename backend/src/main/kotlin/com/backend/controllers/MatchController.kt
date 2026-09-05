@@ -5,6 +5,7 @@ import com.backend.models.dtos.MatchDayCountResponse
 import com.backend.models.dtos.MatchDTO
 import com.backend.models.dtos.PageDTO
 import com.backend.exceptions.ErrorResponse
+import com.backend.models.dtos.UpdateMatchRequest
 import com.backend.security.CurrentUser
 import com.backend.services.MatchService
 import io.swagger.v3.oas.annotations.Operation
@@ -121,9 +122,9 @@ class MatchController(
     @PutMapping("/{matchId}")
     fun updateMatch(
         @PathVariable matchId: UUID,
-        @Valid @RequestBody request: CreateMatchRequest,
-    ): ResponseEntity<MatchDTO> =
-        ResponseEntity.ok(matchService.updateMatch(CurrentUser.id(), matchId, request))
+        @Valid @RequestBody request: UpdateMatchRequest,
+    ): MatchDTO =
+        matchService.updateMatch(CurrentUser.id(), matchId, request)
 
     @Operation(summary = "Delete match", description = "Delete a match. Only the creator can delete it.")
     @ApiResponses(

@@ -8,8 +8,10 @@ import com.backend.models.dtos.MatchIndividualPlayerRequest
 import com.backend.models.dtos.MatchPlayerDTO
 import com.backend.models.dtos.MatchPlayerIdentityRequest
 import com.backend.models.dtos.MatchPlayerRefDTO
+import com.backend.models.dtos.MatchPlayersPayload
 import com.backend.models.dtos.MatchTeamDTO
 import com.backend.models.dtos.PageDTO
+import com.backend.models.dtos.UpdateMatchRequest
 import com.backend.models.entities.*
 import com.backend.models.mappers.toPageDTO
 import com.backend.models.specifications.MatchSpecification
@@ -19,6 +21,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
@@ -79,7 +83,7 @@ class MatchService(
     }
 
     @Transactional
-    fun updateMatch(userId: UUID, matchId: UUID, request: CreateMatchRequest): MatchDTO {
+    fun updateMatch(userId: UUID, matchId: UUID, request: UpdateMatchRequest): MatchDTO {
         logger.debug("\n\t[DEBUG] [match_service][update_match] User {} updating match {}", userId, matchId)
 
         try {
@@ -100,7 +104,12 @@ class MatchService(
             match.playedAt = request.playedAt
             match.place = request.place
             match.notes = request.notes
-            match.durationMinutes = request.durationMinutes
+
+            if(match.durationMinutes == null) {
+                val elapsedMinutes = Duration.between(match.createdAt, Instant.now()).toMinutes().toInt()
+                match.durationMinutes = elapsedMinutes.coerceAtLeast(1)
+            }
+
             val savedMatch = matchRepository.save(match)
 
             matchPlayerRepository.deleteAllByMatchId(matchId)
@@ -229,29 +238,32 @@ class MatchService(
         }
     }
 
-    private fun validateRequest(request: CreateMatchRequest) {
+    private fun validateRequest(request: MatchPlayersPayload) {
+        val teams = request.teams
+        val players = request.players
+
         if(request.isTeamBased) {
-            if(request.teams.isNullOrEmpty()) {
+            if(teams.isNullOrEmpty()) {
                 throw InvalidMatchTeamsException("At least one team is required when isTeamBased is true")
             }
 
-            if(!request.players.isNullOrEmpty()) {
+            if(!players.isNullOrEmpty()) {
                 throw InvalidMatchPlayersException("Individual players must not be provided when isTeamBased is true")
             }
 
-            request.teams.forEach { team ->
+            teams.forEach { team ->
                 team.players.forEach { validateIdentity(it.userId, it.guestName) }
             }
         } else {
-            if(request.players.isNullOrEmpty()) {
+            if(players.isNullOrEmpty()) {
                 throw InvalidMatchPlayersException("At least one player is required when isTeamBased is false")
             }
 
-            if(!request.teams.isNullOrEmpty()) {
+            if(!teams.isNullOrEmpty()) {
                 throw InvalidMatchTeamsException("Teams must not be provided when isTeamBased is false")
             }
 
-            request.players.forEach { validateIdentity(it.userId, it.guestName) }
+            players.forEach { validateIdentity(it.userId, it.guestName) }
         }
     }
 
@@ -264,9 +276,12 @@ class MatchService(
         }
     }
 
-    private fun buildMatchPlayersAndTeams(match: Match, request: CreateMatchRequest): MatchDTO {
+    private fun buildMatchPlayersAndTeams(match: Match, request: MatchPlayersPayload): MatchDTO {
+        val teams = request.teams
+        val players = request.players
+
         return if(request.isTeamBased) {
-            val teamResponses = request.teams!!.map { teamRequest ->
+            val teamResponses = teams!!.map { teamRequest ->
                 val team = matchTeamRepository.save(
                     MatchTeam(
                         match = match,
@@ -287,7 +302,7 @@ class MatchService(
 
             MatchDTO.from(match, teamResponses, null)
         } else {
-            val playerResponses = request.players!!.map { playerRequest ->
+            val playerResponses = players!!.map { playerRequest ->
                 MatchPlayerDTO.from(saveIndividualPlayer(match, playerRequest))
             }
 

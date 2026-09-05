@@ -78,6 +78,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
     const [teams, setTeams] = useState<LocalTeam[]>([]);
     const [identityPickerTargetTeamIndex, setIdentityPickerTargetTeamIndex] = useState<number | null>(null);
     const [isFingerPickerOpen, setIsFingerPickerOpen] = useState(false);
+    const [place, setPlace] = useState('');
 
     useImperativeHandle(ref, () => ({
 		present: game => {
@@ -91,6 +92,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 			);
             setTeams([]);
             setIdentityPickerTargetTeamIndex(null);
+            setPlace('');
 
 			sheetRef.current?.present();
 		},
@@ -235,7 +237,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
             const created = await createMatch({
                 gameId: presetGame.id,
                 playedAt,
-                place: null,
+                place: place.trim() || null,
                 notes: null,
                 durationMinutes: null,
                 isTeamBased: mode === 'team',
@@ -325,6 +327,10 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                     <Text className = 'mb-1.5 text-xs uppercase tracking-wide text-muted-foreground font-semibold'>Data</Text>
                     <View className = 'mb-4'>
                         <DatePickerField value = { playedAt } onChange = { setPlayedAt }/>
+                    </View>
+                    <Text className = 'mb-1.5 text-xs uppercase tracking-wide text-muted-foreground font-semibold'>Luogo (opzionale)</Text>
+                    <View className = 'mb-4'>
+                        <Input value = { place } onChangeText = { setPlace } placeholder = 'Es. Casa di Ale' className = 'h-11'/>
                     </View>
                     <Text className = 'mb-2 text-xs uppercase tracking-wide text-muted-foreground font-semibold'>Giocatori</Text>
 					<View className = 'mb-4'>
