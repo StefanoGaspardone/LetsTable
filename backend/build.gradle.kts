@@ -70,6 +70,7 @@ dependencies {
     testImplementation("com.squareup.okhttp3:mockwebserver3:5.1.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
+    testImplementation("org.testcontainers:minio:1.20.1")
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

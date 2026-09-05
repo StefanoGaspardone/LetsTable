@@ -70,7 +70,9 @@ class UserService(
                 val onlyPlayerIsThisUser = playersInMatch.size == 1 && playersInMatch.first().user?.id == userId
 
                 if(onlyPlayerIsThisUser) {
+                    matchPlayerRepository.deleteAll(playersInMatch)
                     matchRepository.delete(match)
+
                     deletedSoloMatches++
                 }
             }

@@ -14,13 +14,31 @@ interface FriendRequestRepository: JpaRepository<FriendRequest, UUID> {
 
     fun findBySenderIdAndReceiverId(senderId: UUID, receiverId: UUID): Optional<FriendRequest>
 
-    fun findByReceiverIdAndStatus(receiverId: UUID, status: FriendRequestStatus): List<FriendRequest>
-
-    fun findBySenderIdAndStatus(senderId: UUID, status: FriendRequestStatus): List<FriendRequest>
+    @Query(
+        """
+        SELECT fr FROM FriendRequest fr
+        JOIN FETCH fr.sender
+        JOIN FETCH fr.receiver
+        WHERE fr.receiver.id = :receiverId AND fr.status = :status
+        """
+    )
+    fun findByReceiverIdAndStatus(@Param("receiverId") receiverId: UUID, @Param("status") status: FriendRequestStatus): List<FriendRequest>
 
     @Query(
         """
         SELECT fr FROM FriendRequest fr
+        JOIN FETCH fr.sender
+        JOIN FETCH fr.receiver
+        WHERE fr.sender.id = :senderId AND fr.status = :status
+        """
+    )
+    fun findBySenderIdAndStatus(@Param("senderId") senderId: UUID, @Param("status") status: FriendRequestStatus): List<FriendRequest>
+
+    @Query(
+        """
+        SELECT fr FROM FriendRequest fr
+        JOIN FETCH fr.sender
+        JOIN FETCH fr.receiver
         WHERE fr.status = 'ACCEPTED'
         AND (fr.sender.id = :userId OR fr.receiver.id = :userId)
         """
