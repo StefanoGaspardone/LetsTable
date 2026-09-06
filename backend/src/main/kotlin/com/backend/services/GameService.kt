@@ -273,7 +273,6 @@ class GameService(
                 e.message,
                 e
             )
-            throw e
         }
     }
 

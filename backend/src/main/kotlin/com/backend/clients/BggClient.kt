@@ -37,7 +37,7 @@ class BggClient(
                 .header(HttpHeaders.AUTHORIZATION, "Bearer $apiToken")
                 .retrieve()
                 .bodyToMono<String>()
-                .timeout(Duration.ofSeconds(10))
+                .timeout(Duration.ofSeconds(30))
                 .block()!!
 
             val parsed = xmlMapper.readValue(rawXml, BggSearchResponseXml::class.java)
@@ -59,7 +59,7 @@ class BggClient(
                 .header(HttpHeaders.AUTHORIZATION, "Bearer $apiToken")
                 .retrieve()
                 .bodyToMono<String>()
-                .timeout(Duration.ofSeconds(10))
+                .timeout(Duration.ofSeconds(30))
                 .block()!!
 
             val parsed = xmlMapper.readValue(rawXml, BggThingResponseXml::class.java)
@@ -85,7 +85,7 @@ class BggClient(
                     .header(HttpHeaders.AUTHORIZATION, "Bearer $apiToken")
                     .retrieve()
                     .bodyToMono<String>()
-                    .timeout(Duration.ofSeconds(15))
+                    .timeout(Duration.ofSeconds(30))
                     .block()!!
 
                 xmlMapper.readValue(rawXml, BggThingResponseXml::class.java).items
@@ -108,7 +108,7 @@ class BggClient(
                 .header(HttpHeaders.AUTHORIZATION, "Bearer $apiToken")
                 .retrieve()
                 .bodyToMono<String>()
-                .timeout(Duration.ofSeconds(10))
+                .timeout(Duration.ofSeconds(30))
                 .block()!!
 
             val parsed = xmlMapper.readValue(rawXml, BggHotResponseXml::class.java)
@@ -131,7 +131,7 @@ class BggClient(
                 .uri(uri)
                 .retrieve()
                 .bodyToMono<String>()
-                .timeout(Duration.ofSeconds(10))
+                .timeout(Duration.ofSeconds(30))
                 .block()!!
 
             val parsed = jsonMapper.readValue(rawJson, CardSetsByGameResponse::class.java)
