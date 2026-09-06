@@ -11,24 +11,24 @@ import java.time.Duration
 @Configuration
 class WebClientConfig {
 
-    @Bean
-    fun bggWebClient(): WebClient {
-        val httpClient = HttpClient.create()
-            .responseTimeout(Duration.ofSeconds(10))
+        @Bean
+        fun bggWebClient(): WebClient {
+            val httpClient = HttpClient.create()
+                .responseTimeout(Duration.ofSeconds(30))
 
-        val strategies = ExchangeStrategies.builder()
-            .codecs { configurer ->
-                configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024)
-            }
-            .build()
+            val strategies = ExchangeStrategies.builder()
+                .codecs { configurer ->
+                    configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024)
+                }
+                .build()
 
-        return WebClient.builder()
-            .baseUrl("https://boardgamegeek.com/xmlapi2")
-            .defaultHeader("User-Agent", "LetsTable/1.0 (+https://letstable.app)")
-            .exchangeStrategies(strategies)
-            .clientConnector(ReactorClientHttpConnector(httpClient))
-            .build()
-    }
+            return WebClient.builder()
+                .baseUrl("https://boardgamegeek.com/xmlapi2")
+                .defaultHeader("User-Agent", "LetsTable/1.0 (+https://letstable.app)")
+                .exchangeStrategies(strategies)
+                .clientConnector(ReactorClientHttpConnector(httpClient))
+                .build()
+        }
 
     @Bean
     fun expoPushWebClient(): WebClient {
