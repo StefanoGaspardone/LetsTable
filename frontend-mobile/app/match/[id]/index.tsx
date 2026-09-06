@@ -20,6 +20,8 @@ import { useConfirmDialog } from '@/contexts/confirm-dialog-context';
 
 import { formatDuration } from '@/lib/time';
 
+import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+
 if(Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -40,6 +42,8 @@ const MatchDetailScreen = () => {
         queryKey: ['matches', 'detail', id],
         queryFn: () => getMatchById(id),
     });
+
+	useRefetchOnFocus(['matches', 'detail', id]);
 
     const isCreator = match?.createdBy?.id === user?.id;
     const isInProgress = match?.durationMinutes == null;
@@ -125,8 +129,12 @@ const MatchDetailScreen = () => {
     }, [match]);
 
     if(isLoading || !match) {
-        return <View className = 'flex-1 bg-background'/>;
-    }
+		return (
+			<View className = 'flex-1 items-center justify-center bg-background'>
+				<ActivityIndicator color = '#C45135'/>
+			</View>
+		)
+	}
 
     const formattedDate = new Date(match.playedAt).toLocaleDateString('it-IT', {
         day: 'numeric',

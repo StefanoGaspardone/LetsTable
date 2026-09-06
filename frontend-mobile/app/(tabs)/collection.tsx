@@ -14,6 +14,7 @@ import { Text } from '@/components/ui/text';
 
 import { useDebounce } from '@/hooks/use-debounce';
 import { useCollection } from '@/hooks/use-collection';
+import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 
 const FILTER_OPTIONS = [
 	{ value: 'all', label: 'Tutti' },
@@ -32,7 +33,10 @@ const CollectionScreen = () => {
 	const debouncedSearch = useDebounce(search);
 
 	const playedFilter = selectedFilter === 'played' ? true : selectedFilter === 'new' ? false : undefined;
+
 	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useCollection(debouncedSearch, playedFilter);
+	useRefetchOnFocus(['collection']);
+
 	const items = data?.pages.flatMap((page) => page.content) ?? [];
 
 	const currentIndex = FILTER_OPTIONS.findIndex((option) => option.value === selectedFilter);

@@ -45,6 +45,9 @@ class Game(
     @Column(name = "last_synced_at", nullable = false)
     var lastSyncedAt: Instant = Instant.now(),
 
+    @Column(name = "sleeves_synced_at", nullable = true)
+    var sleevesSyncedAt: Instant? = null,
+
     @Column(name = "best_with", nullable = true)
     var bestWith: String? = null,
 

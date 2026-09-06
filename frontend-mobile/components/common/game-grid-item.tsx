@@ -54,8 +54,8 @@ const GameGridItem = ({ game, onPress, showRank = false }: GameGridItemProps) =>
 					</View>
 				)}
 			</View>
-			<View className = 'mt-1'>
-				<Text className = 'text-base font-semibold text-foreground' numberOfLines = { 1 }>
+			<View className = 'mt-1 flex justify-between'>
+				<Text className = 'text-base font-semibold text-foreground' numberOfLines = { 2 }>
 					{game.name}
 				</Text>
 				<View className = 'mt-1.5 flex-row items-center justify-between gap-3'>

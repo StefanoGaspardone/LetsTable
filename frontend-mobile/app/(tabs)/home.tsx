@@ -16,11 +16,16 @@ import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/r
 import { useHomeStats } from '@/hooks/use-stat';
 import { useMatches } from '@/hooks/use-match';
 import { useMyWishlists } from '@/hooks/use-wishlist';
+import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 
 const HomeScreen = () => {
 	const { totalMatches, totalGames } = useHomeStats();
 	const { data: matchesData } = useMatches({ sort: 'playedAt-desc', size: 1 } as any);
 	const { data: wishlists } = useMyWishlists();
+
+	useRefetchOnFocus(['matches']);
+	useRefetchOnFocus(['collection']);
+	useRefetchOnFocus(['wishlists']);
 
 	const [isSettingsPressed, setIsSettingsPressed] = useState(false);
 

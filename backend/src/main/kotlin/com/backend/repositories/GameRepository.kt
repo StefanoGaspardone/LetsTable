@@ -20,4 +20,6 @@ interface GameRepository: JpaRepository<Game, UUID> {
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Game g SET g.rank = null")
     fun clearAllRanks()
+
+    fun findAllByBggIdIn(bggIds: Collection<Long>): List<Game>
 }

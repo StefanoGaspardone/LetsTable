@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 
 import { addItemToWishlist, getWishlistById, listMyWishlists, listWishlistItems, listWishlistMembers } from '@/api/wishlist';
 
-export function useAddToDefaultWishlist() {
+export const useAddToDefaultWishlist = () => {
 	const queryClient = useQueryClient();
 
 	return useMutation({

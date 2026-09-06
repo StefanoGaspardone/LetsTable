@@ -14,6 +14,8 @@ import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/r
 
 import { listMatches, getCalendarMatch } from '@/api/match';
 
+import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+
 const VIEW_OPTIONS = [
 	{ value: 'calendar', label: 'Calendario' },
 	{ value: 'list', label: 'Lista' },
@@ -38,6 +40,7 @@ const MatchesScreen = () => {
 		getNextPageParam: lastPage => (lastPage.last ? undefined : lastPage.number + 1),
 		enabled: viewMode === 'list',
 	});
+	useRefetchOnFocus(['matches']);
 
 	const matches = listData?.pages.flatMap(page => page.content) ?? [];
 

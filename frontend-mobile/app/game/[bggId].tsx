@@ -28,6 +28,7 @@ import { downloadRuleFile, listGameRules, uploadGameRule } from '@/api/game-rule
 import { useToast } from '@/contexts/toast-context';
 
 import { useCollectionStatus, useToggleCollection } from '@/hooks/use-game';
+import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 
 const IMAGE_HEIGHT = 280;
 const SHEET_RADIUS = 28;
@@ -53,7 +54,11 @@ const GameDetailScreen = () => {
 	const pagerRef = useRef<ScrollView>(null);
 
 	const [activeTab, setActiveTab] = useState<TabKey>('info');
-	const [pageHeight, setPageHeight] = useState(300);
+	const [tabHeights, setTabHeights] = useState<Record<TabKey, number>>({
+		info: 300,
+		file: 300,
+		expansions: 300,
+	});
 	const [shouldFetchExpansions, setShouldFetchExpansions] = useState(false);
 	const [shouldFetchRules, setShouldFetchRules] = useState(false);
 
@@ -91,6 +96,9 @@ const GameDetailScreen = () => {
 
 	const { data: collectionStatus } = useCollectionStatus(game?.id);
 	const toggleCollection = useToggleCollection();
+
+	useRefetchOnFocus(['games', 'detail', bggId]);
+	useRefetchOnFocus(['collection', 'status', game?.id]);
 
 	const handleOpenRuleFile = async (fileId: string, fileName: string) => {
 		try {
@@ -203,7 +211,11 @@ const GameDetailScreen = () => {
 	}
 
 	if(isLoading || !game) {
-		return <View className = 'flex-1 bg-background'/>;
+		return (
+			<View className = 'flex-1 items-center justify-center bg-background'>
+				<ActivityIndicator color = '#C45135'/>
+			</View>
+		)
 	}
 
 	const hasRecommendations = Boolean(game.bestWith || (game.recommendedWith && game.recommendedWith !== game.bestWith));
@@ -274,9 +286,9 @@ const GameDetailScreen = () => {
 							<SegmentedControl options = { TABS.map(t => ({ value: t.key, label: t.label })) } selected = { activeTab } onSelect = { handleTabPress }/>
 						</View>
 					</View>
-					<View style = {{ height: pageHeight, marginTop: 16 }}>
+					<View style = {{ height: tabHeights[activeTab], marginTop: 16 }}>
 						<ScrollView ref = { pagerRef } horizontal pagingEnabled showsHorizontalScrollIndicator = { false } onMomentumScrollEnd = { handlePagerScrollEnd } contentContainerStyle = {{ alignItems: 'flex-start' }}>
-							<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { if(activeTab === 'info') setPageHeight(e.nativeEvent.layout.height); } }>
+							<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { const height = e.nativeEvent?.layout?.height; if(height) setTabHeights(prev => ({ ...prev, info: height })); } }>
 								<View className = 'px-4 gap-4'>
 									{game.description && (
 										<Text className = 'text-sm leading-5 text-muted-foreground'>{game.description}</Text>
@@ -426,7 +438,7 @@ const GameDetailScreen = () => {
 									)}
 								</View>
 							</View>
-							<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { if(activeTab === 'file') setPageHeight(e.nativeEvent.layout.height); } }>
+							<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { const height = e.nativeEvent?.layout?.height; if(height) setTabHeights(prev => ({ ...prev, file: height })); } }>
 								<View className = 'px-4 gap-2'>
 									<Pressable onPress = { handleVisitBgg } className = 'flex-row items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2.5'>
 										<ExternalLink size = { 16 } color = '#C45135'/>
@@ -468,7 +480,7 @@ const GameDetailScreen = () => {
 								</View>
 							</View>
 							{!game.isExpansion && (
-								<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { if(activeTab === 'expansions') setPageHeight(e.nativeEvent.layout.height); } }>
+								<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { const height = e.nativeEvent?.layout?.height; if(height) setTabHeights(prev => ({ ...prev, expansions: height })); } }>
 									<View className = 'px-4'>
 										{isLoadingExpansions ? (
 											<View className = 'items-center py-4'>

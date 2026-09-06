@@ -12,7 +12,10 @@ class HotGamesScheduler(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    @Scheduled(fixedRate = 6 * 60 * 60 * 1000, initialDelay = 0)
+    @Scheduled(
+        fixedDelay = 6 * 60 * 60 * 1000,
+        initialDelay = 0
+    )
     fun refreshHotGames() {
         logger.debug("\n\t[DEBUG] [hot_games_scheduler][refresh_hot_games] Triggering scheduled hot games refresh")
 

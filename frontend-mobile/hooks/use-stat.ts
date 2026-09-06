@@ -18,5 +18,5 @@ export const useHomeStats = () => {
 		totalMatches: matchesQuery.data?.totalElements ?? 0,
 		totalGames: collectionQuery.data?.totalElements ?? 0,
 		isLoading: matchesQuery.isLoading || collectionQuery.isLoading,
-	};
+	}
 }

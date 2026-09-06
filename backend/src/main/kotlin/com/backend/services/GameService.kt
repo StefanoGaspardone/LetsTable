@@ -18,11 +18,9 @@ import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
-import kotlin.collections.forEach
 
 @Service
 class GameService(
@@ -30,6 +28,8 @@ class GameService(
     private val gameRepository: GameRepository,
     private val collectionItemRepository: CollectionItemRepository,
     private val gameSleeveRepository: GameSleeveRepository,
+    private val hotGamesPersistenceService: HotGamesPersistenceService,
+    private val gameSleevePersistenceService: GameSleevePersistenceService,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -38,14 +38,28 @@ class GameService(
         private const val STALE_AFTER_DAYS = 7L
     }
 
-    @Transactional
-    fun getOrSyncGame(bggId: Long, resolveBaseGame: Boolean = true): GameDTO {
-        logger.debug("\n\t[DEBUG] [game_service][get_or_sync_game] Resolving game with bggId {}", bggId)
+    fun getOrSyncGame(
+        bggId: Long,
+        resolveBaseGame: Boolean = true
+    ): GameDTO {
+        logger.debug(
+            "\n\t[DEBUG] [game_service][get_or_sync_game] Resolving game with bggId {}",
+            bggId
+        )
 
         try {
-            val existing = gameRepository.findByBggId(bggId).orElse(null)
-            val isStale = existing == null ||
-                    existing.lastSyncedAt.isBefore(Instant.now().minus(STALE_AFTER_DAYS, ChronoUnit.DAYS))
+            val existing = gameRepository
+                .findByBggId(bggId)
+                .orElse(null)
+
+            val isStale =
+                existing == null ||
+                        existing.lastSyncedAt.isBefore(
+                            Instant.now().minus(
+                                STALE_AFTER_DAYS,
+                                ChronoUnit.DAYS
+                            )
+                        )
 
             val game = if(isStale) {
                 syncFromBgg(bggId, existing)
@@ -53,91 +67,184 @@ class GameService(
                 existing
             }
 
-            val existingSleeves = game.id?.let { gameSleeveRepository.findAllByGameId(it) } ?: emptyList()
-            val sleevesList = if(existingSleeves.isEmpty() && game.id != null) {
+            val existingSleeves = game.id
+                ?.let { gameSleeveRepository.findAllByGameId(it) }
+                ?: emptyList()
+
+            val sleevesList = if(
+                game.id != null &&
+                game.sleevesSyncedAt == null
+            ) {
                 syncSleeves(game)
+
                 gameSleeveRepository.findAllByGameId(game.id!!)
             } else {
                 existingSleeves
             }
 
             val inCollection = game.id?.let { gameId ->
-                collectionItemRepository.existsByUserIdAndGameId(CurrentUser.id(), gameId)
+                collectionItemRepository.existsByUserIdAndGameId(
+                    CurrentUser.id(),
+                    gameId
+                )
             }
 
-            val baseGame = if(resolveBaseGame && game.isExpansion == true && game.baseGameBggId != null) {
-                try {
-                    getOrSyncGame(game.baseGameBggId!!, resolveBaseGame = false)
-                } catch(e: Exception) {
-                    logger.warn("\n\t[WARN] [game_service][get_or_sync_game] Could not resolve base game, skipping\n\tbaseGameBggId={}\n\treason={}", game.baseGameBggId, e.message)
+            val baseGame =
+                if(
+                    resolveBaseGame &&
+                    game.isExpansion == true &&
+                    game.baseGameBggId != null
+                ) {
+                    try {
+                        getOrSyncGame(
+                            game.baseGameBggId!!,
+                            resolveBaseGame = false
+                        )
+                    } catch(e: Exception) {
+                        logger.warn(
+                            "\n\t[WARN] [game_service][get_or_sync_game] Could not resolve base game, skipping\n\tbaseGameBggId={}\n\treason={}",
+                            game.baseGameBggId,
+                            e.message
+                        )
+                        null
+                    }
+                } else {
                     null
                 }
-            } else null
 
-            val sleevesDTO = sleevesList.map { s -> GameSleeveDTO.from(s) }
+            val sleevesDTO = sleevesList.map {
+                GameSleeveDTO.from(it)
+            }
 
-            logger.info("\n\t[INFO] [game_service][get_or_sync_game] Resolved game with bggId {}", bggId)
-            return GameDTO.from(game, inCollection, baseGame, sleevesDTO)
+            logger.info(
+                "\n\t[INFO] [game_service][get_or_sync_game] Resolved game with bggId {}",
+                bggId
+            )
+
+            return GameDTO.from(
+                game,
+                inCollection,
+                baseGame,
+                sleevesDTO
+            )
         } catch(e: GameNotFoundOnBggException) {
-            logger.warn("\n\t[WARN] [game_service][get_or_sync_game] Game not found on BGG with id {}", bggId)
+            logger.warn(
+                "\n\t[WARN] [game_service][get_or_sync_game] Game not found on BGG with id {}",
+                bggId
+            )
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [game_service][get_or_sync_game] Error resolving game with bggId {}: {}", bggId, e.message)
+            logger.error(
+                "\n\t[ERROR] [game_service][get_or_sync_game] Error resolving game with bggId {}: {}",
+                bggId,
+                e.message,
+                e
+            )
             throw e
         }
     }
 
-    @Transactional
-    fun getHotGames(page: Int, size: Int): PageDTO<GameDTO> {
-        logger.debug("\n\t[DEBUG] [game_service][get_hot_games] Retrieving hot games\n\tpage={}\n\tsize={}", page, size)
+    fun getHotGames(
+        page: Int,
+        size: Int
+    ): PageDTO<GameDTO> {
+        logger.debug(
+            "\n\t[DEBUG] [game_service][get_hot_games] Retrieving hot games\n\tpage={}\n\tsize={}",
+            page,
+            size
+        )
 
         try {
             val pageSafe = if(page < 0) 0 else page
             val sizeSafe = size.coerceIn(1, 100)
             val pageable = PageRequest.of(pageSafe, sizeSafe)
 
-            val result = gameRepository.findAllByRankIsNotNullOrderByRankAsc(pageable)
-            val gameIds = result.content.mapNotNull { it.id }
-            val inCollectionMap = buildInCollectionMap(gameIds)
-            val sleevesMap = gameSleeveRepository.findAllByGameIdIn(gameIds)
-                .groupBy { it.game.id }
-                .mapValues { (_, sleeves) -> sleeves.map { GameSleeveDTO.from(it) } }
+            val result = gameRepository
+                .findAllByRankIsNotNullOrderByRankAsc(pageable)
 
-            logger.info("\n\t[INFO] [game_service][get_hot_games] Retrieved {} hot games", result.numberOfElements)
-            return result.toPageDTO { GameDTO.from(it, inCollectionMap[it.id], sleeves = sleevesMap[it.id] ?: emptyList()) }
+            val gameIds = result.content
+                .mapNotNull { it.id }
+
+            val inCollectionMap = buildInCollectionMap(gameIds)
+
+            val sleevesMap = gameSleeveRepository
+                .findAllByGameIdIn(gameIds)
+                .groupBy { it.game.id }
+                .mapValues { (_, sleeves) ->
+                    sleeves.map {
+                        GameSleeveDTO.from(it)
+                    }
+                }
+
+            logger.info(
+                "\n\t[INFO] [game_service][get_hot_games] Retrieved {} hot games",
+                result.numberOfElements
+            )
+
+            return result.toPageDTO {
+                GameDTO.from(
+                    it,
+                    inCollectionMap[it.id],
+                    sleeves = sleevesMap[it.id] ?: emptyList()
+                )
+            }
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [game_service][get_hot_games] Error retrieving hot games: {}", e.message)
+            logger.error(
+                "\n\t[ERROR] [game_service][get_hot_games] Error retrieving hot games: {}",
+                e.message,
+                e
+            )
             throw e
         }
     }
 
-    @Transactional
     fun refreshHotGames() {
-        logger.debug("\n\t[DEBUG] [game_service][refresh_hot_games] Refreshing hot games cache from BGG")
+        logger.debug(
+            "\n\t[DEBUG] [game_service][refresh_hot_games] Refreshing hot games cache from BGG"
+        )
 
         try {
             val hotItems = bggClient.getHotGames().items
+
             if(hotItems.isEmpty()) {
-                logger.info("\n\t[INFO] [game_service][refresh_hot_games] No hot games returned from BGG")
+                logger.info(
+                    "\n\t[INFO] [game_service][refresh_hot_games] No hot games returned from BGG"
+                )
                 return
             }
-
-            gameRepository.clearAllRanks()
 
             val bggIds = hotItems.map { it.id }
 
             val detailsByBggId = try {
-                bggClient.getGameDetailsBatch(bggIds).items.associateBy { it.id }
+                bggClient
+                    .getGameDetailsBatch(bggIds)
+                    .items
+                    .associateBy { it.id }
             } catch(e: Exception) {
-                logger.warn("\n\t[WARN] [game_service][refresh_hot_games] Batch enrichment failed\n\treason={}", e.message)
+                logger.warn(
+                    "\n\t[WARN] [game_service][refresh_hot_games] Batch enrichment failed\n\treason={}",
+                    e.message
+                )
                 emptyMap()
             }
 
-            hotItems.forEach { item ->
-                val existing = gameRepository.findByBggId(item.id).orElse(null)
+            val existingGamesByBggId = gameRepository
+                .findAllByBggIdIn(bggIds)
+                .associateBy { it.bggId }
+
+            val gamesToSave = hotItems.map { item ->
+                val existing = existingGamesByBggId[item.id]
                 val details = detailsByBggId[item.id]
+
                 val game = if(details != null) {
-                    applyBggDetails(existing ?: Game(bggId = item.id, name = "", lastSyncedAt = Instant.now()), details)
+                    applyBggDetails(
+                        existing ?: Game(
+                            bggId = item.id,
+                            name = "",
+                            lastSyncedAt = Instant.now()
+                        ),
+                        details
+                    )
                 } else {
                     existing ?: Game(
                         bggId = item.id,
@@ -148,153 +255,367 @@ class GameService(
                         isExpansion = false
                     )
                 }
-                game.rank = item.rank
-                val savedGame = gameRepository.save(game)
 
-                if(details != null) syncSleeves(savedGame)
+                game.rank = item.rank
+
+                game
             }
 
-            logger.info("\n\t[INFO] [game_service][refresh_hot_games] Hot games cache refreshed with {} entries", hotItems.size)
+            hotGamesPersistenceService.saveHotGames(gamesToSave)
+
+            logger.info(
+                "\n\t[INFO] [game_service][refresh_hot_games] Hot games cache refreshed with {} entries",
+                gamesToSave.size
+            )
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [game_service][refresh_hot_games] Error refreshing hot games cache: {}", e.message)
+            logger.error(
+                "\n\t[ERROR] [game_service][refresh_hot_games] Error refreshing hot games cache: {}",
+                e.message,
+                e
+            )
             throw e
         }
     }
 
-    @Transactional
-    fun search(query: String, page: Int, size: Int): PageDTO<GameDTO> {
-        logger.debug("\n\t[DEBUG] [game_service][search] Searching games\n\tquery={}\n\tpage={}\n\tsize={}", query, page, size)
+    fun search(
+        query: String,
+        page: Int,
+        size: Int
+    ): PageDTO<GameDTO> {
+        logger.debug(
+            "\n\t[DEBUG] [game_service][search] Searching games\n\tquery={}\n\tpage={}\n\tsize={}",
+            query,
+            page,
+            size
+        )
 
         try {
-            val lightweightResults = bggClient.searchGames(query).items
+            val lightweightResults = bggClient
+                .searchGames(query)
+                .items
 
-            val pageSafe = if(page < 0) 0 else page
+            val pageSafe = page.coerceAtLeast(0)
             val sizeSafe = size.coerceIn(1, 100)
             val pageable = PageRequest.of(pageSafe, sizeSafe)
 
             val start = pageSafe * sizeSafe
-            val pageItems = if(start >= lightweightResults.size) emptyList()
-            else lightweightResults.subList(start, minOf(start + sizeSafe, lightweightResults.size))
 
-            val fallback = pageItems.associateBy({ it.id }) { GameDTO.fromSearchResult(it) }
-            val enrichedContent = enrichWithBatchDetails(pageItems.map { it.id }, fallback)
+            val pageItems =
+                if(start >= lightweightResults.size) {
+                    emptyList()
+                } else {
+                    lightweightResults.subList(
+                        start,
+                        minOf(
+                            start + sizeSafe,
+                            lightweightResults.size
+                        )
+                    )
+                }
 
-            val pageResult = PageImpl(enrichedContent, pageable, lightweightResults.size.toLong())
+            if(pageItems.isEmpty()) {
+                return PageImpl<GameDTO>(
+                    emptyList(),
+                    pageable,
+                    lightweightResults.size.toLong()
+                ).toPageDTO { it }
+            }
 
-            logger.info("\n\t[INFO] [game_service][search] Returning {} enriched results for query {}", enrichedContent.size, query)
+            val bggIds = pageItems.map { it.id }
+
+            val existingGamesByBggId = gameRepository
+                .findAllByBggIdIn(bggIds)
+                .associateBy { it.bggId }
+
+            val now = Instant.now()
+
+            val staleThreshold = now.minus(
+                STALE_AFTER_DAYS,
+                ChronoUnit.DAYS
+            )
+
+            val freshGames = mutableMapOf<Long, Game>()
+            val gamesToEnrich = mutableListOf<Long>()
+
+            pageItems.forEach { item ->
+                val existing = existingGamesByBggId[item.id]
+
+                if(
+                    existing != null &&
+                    !existing.lastSyncedAt.isBefore(staleThreshold)
+                ) {
+                    freshGames[item.id] = existing
+                } else {
+                    gamesToEnrich.add(item.id)
+                }
+            }
+
+            logger.debug(
+                "\n\t[DEBUG] [game_service][search] Search cache status\n\tfresh={}\n\ttoEnrich={}",
+                freshGames.size,
+                gamesToEnrich.size
+            )
+
+            val enrichedGamesByBggId =
+                if(gamesToEnrich.isNotEmpty()) {
+                    enrichWithBatchDetails(
+                        gamesToEnrich,
+                        existingGamesByBggId
+                    )
+                } else {
+                    emptyMap()
+                }
+
+            val gamesByBggId = freshGames + enrichedGamesByBggId
+
+            val savedGameIds = gamesByBggId.values
+                .mapNotNull { it.id }
+
+            val inCollectionMap =
+                buildInCollectionMap(savedGameIds)
+
+            val content = pageItems.map { item ->
+                val game = gamesByBggId[item.id]
+
+                if(game != null) {
+                    GameDTO.from(
+                        game,
+                        inCollectionMap[game.id]
+                    )
+                } else {
+                    GameDTO.fromSearchResult(item)
+                }
+            }
+
+            val pageResult = PageImpl(
+                content,
+                pageable,
+                lightweightResults.size.toLong()
+            )
+
+            logger.info(
+                "\n\t[INFO] [game_service][search] Returning {} enriched results for query {}",
+                content.size,
+                query
+            )
+
             return pageResult.toPageDTO { it }
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [game_service][search] Error searching games with query {}: {}", query, e.message)
+            logger.error(
+                "\n\t[ERROR] [game_service][search] Error searching games with query {}: {}",
+                query,
+                e.message,
+                e
+            )
             throw e
         }
     }
 
-    @Transactional
-    fun getExpansions(bggId: Long, page: Int, size: Int): PageDTO<GameDTO> {
-        logger.debug("\n\t[DEBUG] [game_service][get_expansions] Fetching expansions\n\tbggId={}\n\tpage={}\n\tsize={}", bggId, page, size)
+    fun getExpansions(
+        bggId: Long,
+        page: Int,
+        size: Int
+    ): PageDTO<GameDTO> {
+        logger.debug(
+            "\n\t[DEBUG] [game_service][get_expansions] Fetching expansions\n\tbggId={}\n\tpage={}\n\tsize={}",
+            bggId,
+            page,
+            size
+        )
 
         try {
-            val game = gameRepository.findByBggId(bggId)
-                .orElseThrow { GameNotFoundOnBggException(bggId) }
+            val game = gameRepository
+                .findByBggId(bggId)
+                .orElseThrow {
+                    GameNotFoundOnBggException(bggId)
+                }
 
             val allExpansions = game.expansionRefs.mapNotNull { ref ->
                 try {
-                    getOrSyncGame(ref.bggId, resolveBaseGame = false)
+                    getOrSyncGame(
+                        ref.bggId,
+                        resolveBaseGame = false
+                    )
                 } catch(e: Exception) {
-                    logger.warn("\n\t[WARN] [game_service][get_expansions] Could not sync expansion, skipping\n\texpansionBggId={}\n\treason={}", ref.bggId, e.message)
+                    logger.warn(
+                        "\n\t[WARN] [game_service][get_expansions] Could not sync expansion, skipping\n\texpansionBggId={}\n\treason={}",
+                        ref.bggId,
+                        e.message
+                    )
                     null
                 }
             }
 
-            val sortedExpansions = allExpansions.sortedWith(compareBy({ it.yearPublished ?: Int.MAX_VALUE }, { it.name }))
+            val sortedExpansions = allExpansions.sortedWith(
+                compareBy(
+                    { it.yearPublished ?: Int.MAX_VALUE },
+                    { it.name }
+                )
+            )
 
             val pageSafe = if(page < 0) 0 else page
             val sizeSafe = size.coerceIn(1, 50)
             val pageable = PageRequest.of(pageSafe, sizeSafe)
 
             val start = pageSafe * sizeSafe
-            val content = if(start >= sortedExpansions.size) emptyList() else sortedExpansions.subList(start, minOf(start + sizeSafe, sortedExpansions.size))
 
-            val pageResult = PageImpl(content, pageable, sortedExpansions.size.toLong())
+            val content =
+                if(start >= sortedExpansions.size) {
+                    emptyList()
+                } else {
+                    sortedExpansions.subList(
+                        start,
+                        minOf(
+                            start + sizeSafe,
+                            sortedExpansions.size
+                        )
+                    )
+                }
 
-            logger.info("\n\t[INFO] [game_service][get_expansions] Resolved expansions page\n\tbggId={}\n\tpage={}\n\tresolvedCount={}\n\ttotalCount={}", bggId, pageSafe, content.size, sortedExpansions.size)
+            val pageResult = PageImpl(
+                content,
+                pageable,
+                sortedExpansions.size.toLong()
+            )
+
+            logger.info(
+                "\n\t[INFO] [game_service][get_expansions] Resolved expansions page\n\tbggId={}\n\tpage={}\n\tresolvedCount={}\n\ttotalCount={}",
+                bggId,
+                pageSafe,
+                content.size,
+                sortedExpansions.size
+            )
+
             return pageResult.toPageDTO { it }
         } catch(e: GameNotFoundOnBggException) {
             logger.warn("\n\t[WARN] [game_service][get_expansions] Game not found\n\tbggId={}", bggId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [game_service][get_expansions] Error fetching expansions\n\tbggId={}\n\treason={}", bggId, e.message)
+            logger.error("\n\t[ERROR] [game_service][get_expansions] Error fetching expansions\n\tbggId={}\n\treason={}", bggId, e.message, e)
             throw e
         }
     }
 
-    private fun enrichWithBatchDetails(bggIds: List<Long>, fallback: Map<Long, GameDTO>): List<GameDTO> {
-        if(bggIds.isEmpty()) return emptyList()
+    private fun enrichWithBatchDetails(bggIds: List<Long>, existingGamesByBggId: Map<Long, Game>): Map<Long, Game> {
+        if(bggIds.isEmpty()) {
+            return emptyMap()
+        }
 
         val detailsByBggId = try {
-            bggClient.getGameDetailsBatch(bggIds).items.associateBy { it.id }
+            bggClient
+                .getGameDetailsBatch(bggIds)
+                .items
+                .associateBy { it.id }
         } catch(e: Exception) {
-            logger.warn("\n\t[WARN] [game_service][enrich_with_batch_details] Batch enrichment failed, falling back to lightweight results\n\treason={}", e.message)
-            emptyMap()
+            logger.warn("\n\t[WARN] [game_service][enrich_with_batch_details] Batch enrichment failed\n\treason={}", e.message)
+            return emptyMap()
         }
 
-        val savedGames = mutableMapOf<Long, Game>()
-
-        bggIds.forEach { id ->
+        val gamesToSave = bggIds.mapNotNull { id ->
             val details = detailsByBggId[id]
-            if(details != null) {
-                try {
-                    val existing = gameRepository.findByBggId(id).orElse(null)
-                    val game = applyBggDetails(existing ?: Game(bggId = id, name = "", lastSyncedAt = Instant.now()), details)
+                ?: return@mapNotNull null
 
-                    savedGames[id] = gameRepository.save(game)
-                } catch(e: Exception) {
-                    logger.warn("\n\t[WARN] [game_service][enrich_with_batch_details] Failed to persist enriched game, using lightweight fallback\n\tbggId={}\n\treason={}", id, e.message)
-                }
-            }
+            val existing = existingGamesByBggId[id]
+
+            applyBggDetails(
+                existing ?: Game(
+                    bggId = id,
+                    name = "",
+                    lastSyncedAt = Instant.now()
+                ),
+                details
+            )
         }
 
-        val inCollectionMap = buildInCollectionMap(savedGames.values.mapNotNull { it.id })
-
-        return bggIds.map { id ->
-            val game = savedGames[id]
-
-            if(game == null) {
-                fallback.getValue(id)
-            } else {
-                GameDTO.from(game, inCollectionMap[game.id])
-            }
+        if(gamesToSave.isEmpty()) {
+            return emptyMap()
         }
+
+        val savedGames = hotGamesPersistenceService
+            .saveGames(gamesToSave)
+
+        return savedGames.associateBy { it.bggId }
     }
 
     private fun applyBggDetails(game: Game, details: BggThingItemXml): Game {
         val cleanDescription = details.description
-            ?.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
-            ?.let { Jsoup.parse(it).body().wholeText() }
-            ?.replace(Regex("\n{3,}"), "\n\n")
+            ?.replace(
+                Regex(
+                    "<br\\s*/?>",
+                    RegexOption.IGNORE_CASE
+                ),
+                "\n"
+            )
+            ?.let {
+                Jsoup.parse(it)
+                    .body()
+                    .wholeText()
+            }
+            ?.replace(
+                Regex("\n{3,}"),
+                "\n\n"
+            )
             ?.trim()
 
         game.name = details.primaryName() ?: game.name
         game.yearPublished = details.yearPublished?.value?.toIntOrNull()
         game.thumbnailUrl = details.thumbnail
         game.imageUrl = details.image
-        game.minPlayers = details.minPlayers?.value?.toIntOrNull()?.takeIf { it > 0 }
-        game.maxPlayers = details.maxPlayers?.value?.toIntOrNull()?.takeIf { it > 0 }
-        game.playingTimeMinutes = details.playingTime?.value?.toIntOrNull()?.takeIf { it > 0 }
-        game.description = cleanDescription
-        game.bestWith = parsePlayerCountRecommendation(details.pollSummaryValue("bestwith"))
+        game.minPlayers = details.minPlayers
+                ?.value
+                ?.toIntOrNull()
+                ?.takeIf { it > 0 }
+
+        game.maxPlayers =
+            details.maxPlayers
+                ?.value
+                ?.toIntOrNull()
+                ?.takeIf { it > 0 }
+
+        game.playingTimeMinutes =
+            details.playingTime
+                ?.value
+                ?.toIntOrNull()
+                ?.takeIf { it > 0 }
+
+        game.description =
+            cleanDescription
+
+        game.bestWith =
+            parsePlayerCountRecommendation(
+                details.pollSummaryValue("bestwith")
+            )
         game.recommendedWith = parsePlayerCountRecommendation(details.pollSummaryValue("recommmendedwith"))
         game.expansionRefs = details.expansionRefs()
         game.lastSyncedAt = Instant.now()
         game.isExpansion = details.type != "boardgame"
 
-        val baseGameRef = details.baseGameRef()
-        game.baseGameBggId = baseGameRef?.bggId
+        val baseGameRef =
+            details.baseGameRef()
 
-        game.difficulty = details.statistics?.ratings?.averageWeight?.value?.toDoubleOrNull()?.takeIf { it > 0 }
-        game.designers = details.links.filter { it.type == "boardgamedesigner" }.map { it.value }
-        game.artists = details.links.filter { it.type == "boardgameartist" }.map { it.value }
-        game.publishers = details.links.filter { it.type == "boardgamepublisher" }.map { it.value }
+        game.baseGameBggId = baseGameRef?.bggId
+        game.difficulty =
+            details.statistics
+                ?.ratings
+                ?.averageWeight
+                ?.value
+                ?.toDoubleOrNull()
+                ?.takeIf { it > 0 }
+
+        game.designers =
+            details.links
+                .filter { it.type == "boardgamedesigner" }
+                .map { it.value }
+
+        game.artists =
+            details.links
+                .filter { it.type == "boardgameartist" }
+                .map { it.value }
+
+        game.publishers =
+            details.links
+                .filter { it.type == "boardgamepublisher" }
+                .map { it.value }
 
         return game
     }
@@ -303,10 +624,11 @@ class GameService(
         val gameId = game.id ?: return
 
         try {
-            val response = bggClient.getCardSetsByGame(game.bggId)
-            val cardTypes = response.cardSets.flatMap { it.cardTypes }
+            val response =
+                bggClient.getCardSetsByGame(game.bggId)
 
-            gameSleeveRepository.deleteAllByGameId(gameId)
+            val cardTypes = response.cardSets
+                .flatMap { it.cardTypes }
 
             val sleeves = cardTypes.map { cardType ->
                 GameSleeve(
@@ -315,41 +637,72 @@ class GameService(
                     height = cardType.height?.toDoubleOrNull(),
                     width = cardType.width?.toDoubleOrNull(),
                     quantity = cardType.quantity?.toIntOrNull(),
-                    quantityNote = cardType.quantityNote?.takeIf { it.isNotBlank() },
+                    quantityNote = cardType.quantityNote
+                        ?.takeIf { it.isNotBlank() },
                 )
             }
 
-            gameSleeveRepository.saveAll(sleeves)
+            gameSleevePersistenceService.replaceSleeves(
+                    gameId = gameId,
+                    game = game,
+                    sleeves = sleeves
+                )
+
+            logger.info("\n\t[INFO] [game_service][sync_sleeves] Synced {} card types for game {}", sleeves.size, game.bggId)
         } catch(e: Exception) {
             logger.warn("\n\t[WARN] [game_service][sync_sleeves] Error syncing sleeves for game {}: {}", game.bggId, e.message)
         }
     }
 
     private fun syncFromBgg(bggId: Long, existing: Game?): Game {
-        val details = bggClient.getGameDetails(bggId).items.firstOrNull()
+        val details = bggClient
+            .getGameDetails(bggId)
+            .items
+            .firstOrNull()
             ?: throw GameNotFoundOnBggException(bggId)
 
-        val game = existing ?: Game(bggId = bggId, name = "", lastSyncedAt = Instant.now())
-        val savedGame = gameRepository.save(applyBggDetails(game, details))
+        val game = existing ?: Game(
+            bggId = bggId,
+            name = "",
+            lastSyncedAt = Instant.now()
+        )
 
-        syncSleeves(savedGame)
-
-        return savedGame
+        return gameRepository.save(
+            applyBggDetails(
+                game,
+                details
+            )
+        )
     }
 
-    private val PLAYER_COUNT_REGEX = Regex("""(\d+(?:[–-]\d+)?)""")
+    private val PLAYER_COUNT_REGEX =
+        Regex("""(\d+(?:[–-]\d+)?)""")
 
     private fun parsePlayerCountRecommendation(raw: String?): String? {
         if(raw.isNullOrBlank()) return null
-        if(raw == "(no votes)" || raw == "(Undetermined)") return null
 
-        return PLAYER_COUNT_REGEX.find(raw)?.value
+        if(raw == "(no votes)" || raw == "(Undetermined)") {
+            return null
+        }
+
+        return PLAYER_COUNT_REGEX
+            .find(raw)
+            ?.value
     }
 
     private fun buildInCollectionMap(gameIds: List<UUID>): Map<UUID, Boolean> {
-        if(gameIds.isEmpty()) return emptyMap()
+        if(gameIds.isEmpty()) {
+            return emptyMap()
+        }
 
-        val idsInCollection = collectionItemRepository.findGameIdsInCollection(CurrentUser.id(), gameIds)
-        return gameIds.associateWith { it in idsInCollection }
+        val idsInCollection =
+            collectionItemRepository.findGameIdsInCollection(
+                CurrentUser.id(),
+                gameIds
+            )
+
+        return gameIds.associateWith {
+            it in idsInCollection
+        }
     }
 }

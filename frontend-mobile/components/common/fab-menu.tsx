@@ -1,7 +1,8 @@
 import { useEffect, useState, cloneElement, isValidElement } from 'react';
 import { View, Pressable } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming, Easing } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming, withDelay, Easing } from 'react-native-reanimated';
 import { Plus } from 'lucide-react-native';
+
 import { Text } from '@/components/ui/text';
 
 export interface FabMenuAction {
@@ -14,29 +15,60 @@ interface FabMenuProps {
 	actions: FabMenuAction[];
 }
 
+const STAGGER_DELAY_MS = 40;
+
+const FabMenuItem = ({ action, index, isOpen, onPress }: { action: FabMenuAction; index: number; isOpen: boolean; onPress: () => void }) => {
+	const opacity = useSharedValue(0);
+	const translateY = useSharedValue(16);
+	const scale = useSharedValue(0.85);
+
+	useEffect(() => {
+		const openDelay = index * STAGGER_DELAY_MS;
+
+		if(isOpen) {
+			opacity.value = withDelay(openDelay, withTiming(1, { duration: 200, easing: Easing.out(Easing.cubic) }));
+			translateY.value = withDelay(openDelay, withTiming(0, { duration: 220, easing: Easing.out(Easing.back(1.2)) }));
+			scale.value = withDelay(openDelay, withTiming(1, { duration: 220, easing: Easing.out(Easing.back(1.2)) }));
+		} else {
+			opacity.value = withTiming(0, { duration: 120 });
+			translateY.value = withTiming(16, { duration: 120, easing: Easing.in(Easing.cubic) });
+			scale.value = withTiming(0.85, { duration: 120, easing: Easing.in(Easing.cubic) });
+		}
+	}, [isOpen]);
+
+	const itemStyle = useAnimatedStyle(() => ({
+		opacity: opacity.value,
+		transform: [{ translateY: translateY.value }, { scale: scale.value }],
+	}));
+
+	return (
+		<Animated.View style = { itemStyle }>
+			<Pressable onPress = { onPress } className = 'flex-row items-center gap-3 rounded-full border border-border bg-card px-4 py-3 shadow-md active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
+				{({ pressed }) => (
+					<>
+						<Text className = { `text-sm ${pressed ? 'text-white' : 'text-foreground'}` }>
+							{action.label}
+						</Text>
+						{isValidElement(action.icon) && pressed
+							? cloneElement(action.icon as React.ReactElement<any>, { color: '#FFFFFF' })
+							: action.icon}
+					</>
+				)}
+			</Pressable>
+		</Animated.View>
+	)
+}
+
 const FabMenu = ({ actions }: FabMenuProps) => {
 	const [isOpen, setIsOpen] = useState(false);
-
 	const rotation = useSharedValue(0);
-	const panelOpacity = useSharedValue(0);
-	const panelTranslateY = useSharedValue(12);
 
 	useEffect(() => {
 		rotation.value = withTiming(isOpen ? 45 : 0, { duration: 200, easing: Easing.out(Easing.cubic) });
-		panelOpacity.value = withTiming(isOpen ? 1 : 0, { duration: isOpen ? 180 : 150 });
-		panelTranslateY.value = withTiming(isOpen ? 0 : 12, {
-			duration: isOpen ? 200 : 150,
-			easing: Easing.out(Easing.cubic),
-		});
 	}, [isOpen]);
 
 	const iconStyle = useAnimatedStyle(() => ({
 		transform: [{ rotate: `${rotation.value}deg` }],
-	}));
-
-	const panelStyle = useAnimatedStyle(() => ({
-		opacity: panelOpacity.value,
-		transform: [{ translateY: panelTranslateY.value }],
 	}));
 
 	const handleToggle = () => setIsOpen(prev => !prev);
@@ -52,22 +84,20 @@ const FabMenu = ({ actions }: FabMenuProps) => {
 				<Pressable onPress = { () => setIsOpen(false) } style = {{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} className = 'bg-black/20'/>
 			)}
 			<View className = 'absolute bottom-6 right-6 items-end' pointerEvents = 'box-none'>
-				<Animated.View style = { panelStyle } pointerEvents = { isOpen ? 'auto' : 'none' } className = 'mb-3 items-end gap-3'>
-					{actions.map((action, index) => (
-                        <Pressable key = { index } onPress = { () => handleActionPress(action) } className = 'flex-row items-center gap-3 rounded-full border border-border bg-card px-4 py-3 shadow-md active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
-                            {({ pressed }) => (
-                                <>
-                                    <Text className = { `text-sm ${pressed ? 'text-white' : 'text-foreground'}` }>
-                                        {action.label}
-                                    </Text>
-                                    {isValidElement(action.icon) && pressed
-                                        ? cloneElement(action.icon as React.ReactElement<any>, { color: '#FFFFFF' })
-                                        : action.icon}
-                                </>
-                            )}
-                        </Pressable>
-                    ))}
-				</Animated.View>
+				<View pointerEvents = { isOpen ? 'auto' : 'none' } className = 'mb-3 items-end gap-3'>
+					{[...actions].reverse().map((action, reversedIndex) => {
+						const index = actions.length - 1 - reversedIndex;
+						return (
+							<FabMenuItem
+								key = { index }
+								action = { action }
+								index = { index }
+								isOpen = { isOpen }
+								onPress = { () => handleActionPress(action) }
+							/>
+						);
+					})}
+				</View>
 				<Pressable onPress = { handleToggle } className = 'h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:bg-primary/90'>
 					<Animated.View style = { iconStyle }>
 						<Plus size = { 26 } color = '#FFFFFF'/>

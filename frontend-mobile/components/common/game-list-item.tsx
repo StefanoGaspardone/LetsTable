@@ -30,7 +30,7 @@ const GameListItem = ({ game, onPress, showRank }: GameListItemProps) => {
 			<View className = 'flex-1 gap-1'>
 				<View className = 'flex-row items-center justify-between gap-2'>
 					<View className = 'flex-1 flex-row items-center gap-1.5'>
-						<Text className = 'shrink text-base font-semibold text-foreground' numberOfLines = { 1 }>
+						<Text className = 'shrink text-base font-semibold text-foreground' numberOfLines = { 2 }>
 							{game.name}
 						</Text>
 						{game.inCollection && (
