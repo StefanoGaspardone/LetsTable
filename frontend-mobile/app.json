@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "frontend-mobile",
-    "slug": "frontend-mobile",
+    "name": "Let's Table",
+    "slug": "lets-table",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend-mobile",
+    "scheme": "letstable",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "**/*"
@@ -14,6 +14,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.letstable.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -40,6 +41,9 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "https://letstable.onrender.com/api/v1"
     }
   }
 }
