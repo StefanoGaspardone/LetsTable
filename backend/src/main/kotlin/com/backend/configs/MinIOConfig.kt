@@ -7,9 +7,10 @@ import io.minio.MinioClient
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.env.Environment
 
 @Configuration
-class MinIOConfig(private val properties: MinIOProperties) {
+class MinIOConfig(private val properties: MinIOProperties, private val environment: Environment) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -18,9 +19,16 @@ class MinIOConfig(private val properties: MinIOProperties) {
         val client = MinioClient.builder()
             .endpoint(properties.url)
             .credentials(properties.accessKey, properties.secretKey)
+            .region("eu-central-1")
             .build()
 
-        ensureBucketExists(client)
+        val isDev = environment.activeProfiles.isEmpty() || environment.activeProfiles.any { it in listOf("dev", "local") }
+        if(isDev) {
+            ensureBucketExists(client)
+        } else {
+            logger.info("\n\t[INFO] [minio_config] Skipping automatic bucket creation for non-dev environment")
+        }
+
         return client
     }
 
