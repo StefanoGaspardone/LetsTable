@@ -4,6 +4,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "Let's Table",
   slug: "lets-table",
+  owner: "stegaspadev2002",
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
@@ -29,7 +30,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ...config.extra,
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? "https://letstable.onrender.com/api/v1",
     eas: {
-      projectId: "fc865124-d0eb-474c-b0bc-f8d83486aba6"
+      projectId: "051685f9-5f00-4569-b4f4-483ffefc6bc8"
     }
   }
 });

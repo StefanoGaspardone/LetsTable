@@ -41,9 +41,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "apiUrl": "https://letstable.onrender.com/api/v1"
     }
   }
 }

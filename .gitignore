@@ -69,13 +69,14 @@ docker-compose.local.yml
 **/jacoco/
 
 # Frontend (React / TypeScript)
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/coverage/
-frontend/.eslintcache
-frontend/*.tsbuildinfo
+node_modules/
+dist/
+.vite/
+coverage/
+.eslintcache
+*.tsbuildinfo
 .expo/
+expo-env.d.ts
 
 # JS package managers / tooling (workspace-wide)
 node_modules/
