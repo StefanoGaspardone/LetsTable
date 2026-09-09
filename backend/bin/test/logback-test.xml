@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Nessun appender o logger attivo durante i test -->
+    <root level="OFF" />
+</configuration>

@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/letstable_db}
+    username: ${DATABASE_USERNAME:letstable_user}
+    password: ${DATABASE_PASSWORD:letstable_pass}
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    org.hibernate.SQL: debug

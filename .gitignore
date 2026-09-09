@@ -29,7 +29,7 @@ logs/
 
 # Environment and secrets (keep templates tracked)
 .env
-.env.*
+.env.local
 *.properties
 !**/gradle/wrapper/gradle-wrapper.properties
 !**/sonar-project.properties

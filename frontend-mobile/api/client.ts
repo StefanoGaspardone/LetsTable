@@ -1,10 +1,9 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import Constants from 'expo-constants';
 import { router } from 'expo-router';
 
 import { tokenStorage } from '@/lib/token-storage';
 
-export const API_URL = Constants.expoConfig?.extra?.apiUrl as string;
+export const API_URL =  process.env.EXPO_PUBLIC_API_URL ?? 'https://letstable.onrender.com/api/v1';
 
 export const apiClient = axios.create({
 	baseURL: API_URL,

@@ -21,7 +21,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-router",
     "expo-status-bar",
     "expo-secure-store",
-    "expo-image"
+    "expo-image",
+    [
+      "expo-splash-screen",
+      {
+        image: "./assets/images/adaptive-icon.png",
+        imageWidth: 200,
+        resizeMode: "contain",
+        backgroundColor: "#f1efe9"
+      }
+    ]
   ],
   experiments: {
     typedRoutes: true

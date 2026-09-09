@@ -8,9 +8,12 @@ export const loginSchema = z.object({
 export const signupSchema = z
 	.object({
 		username: z.string().min(3, 'Minimo 3 caratteri').max(50),
-		email: z.string().email('Email non valida'),
+		email: z.email('Email non valida'),
 		password: z.string().min(8, 'Minimo 8 caratteri').max(72),
 		confirmPassword: z.string().min(1, 'Conferma la password'),
+		acceptTerms: z.boolean().refine(val => val === true, {
+			message: 'Devi accettare i Termini e Condizioni per proseguire',
+		}),
 	})
 	.refine((data) => data.password === data.confirmPassword, {
 		message: 'Le password non coincidono',

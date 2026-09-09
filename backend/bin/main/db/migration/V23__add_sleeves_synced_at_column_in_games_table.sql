@@ -1,0 +1,2 @@
+ALTER TABLE games
+    ADD COLUMN sleeves_synced_at TIMESTAMP WITH TIME ZONE;
