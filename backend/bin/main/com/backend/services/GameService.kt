@@ -538,22 +538,10 @@ class GameService(
 
     private fun applyBggDetails(game: Game, details: BggThingItemXml): Game {
         val cleanDescription = details.description
-            ?.replace(
-                Regex(
-                    "<br\\s*/?>",
-                    RegexOption.IGNORE_CASE
-                ),
-                "\n"
-            )
-            ?.let {
-                Jsoup.parse(it)
-                    .body()
-                    .wholeText()
-            }
-            ?.replace(
-                Regex("\n{3,}"),
-                "\n\n"
-            )
+            ?.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
+            ?.let { Jsoup.parse(it).body().wholeText() }
+            ?.replace(Regex("""[—–-]\s*description from (the )?publisher\.?\s*$""", RegexOption.IGNORE_CASE), "")
+            ?.replace(Regex("\n{3,}"), "\n\n")
             ?.trim()
 
         game.name = details.primaryName() ?: game.name

@@ -11,6 +11,7 @@ import AppBottomSheet from '@/components/common/app-bottom-sheet';
 import { useGameSearch } from '@/hooks/use-game';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useCollection } from '@/hooks/use-collection';
+import { useRecentGames } from '@/hooks/use-match';
 
 export interface PickedGame {
 	id: string;
@@ -46,6 +47,7 @@ const GamePickerSheet = forwardRef<GamePickerSheetRef, GamePickerSheetProps>(({ 
 
 	const collectionQuery = useCollection('', undefined, false);
 	const searchQuery = useGameSearch(debouncedSearch);
+	const recentGamesQuery = useRecentGames();
 
 	const collectionItems = (collectionQuery.data?.pages.flatMap(p => p.content) ?? [])
 		.map(item => item.game);
@@ -79,16 +81,41 @@ const GamePickerSheet = forwardRef<GamePickerSheetRef, GamePickerSheetProps>(({ 
 						<Search size = { 18 } className = 'text-muted-foreground'/>
 					</View>
 				</View>
-				{!isSearching && (
-					<Text className = 'mb-2 text-xs uppercase tracking-wide font-semibold text-muted-foreground px-4'>La tua collezione</Text>
-				)}
 				{isLoading ? (
 					<View className = 'items-center py-8 px-4'>
 						<ActivityIndicator color = '#C45135'/>
 					</View>
 				) : (
 					<BottomSheetFlatList data = { items } keyExtractor = { (item, index) => item.id ?? `${item.bggId}-${index}` }
-						renderItem={({ item }) => (
+						ListHeaderComponent = {
+							!isSearching ? (
+								<>
+									{recentGamesQuery.data && recentGamesQuery.data.length > 0 && (
+										<>
+											<Text className = 'mb-2 text-xs uppercase tracking-wide font-semibold text-muted-foreground px-4'>Giochi recenti</Text>
+											{recentGamesQuery.data.map(game => (
+												<Pressable key = { game.id ?? game.bggId } onPress = { () => handleSelect(game) } className = 'flex-row items-center gap-3 border-b border-border py-2.5 active:bg-[#DDD8CE] px-4'>
+													<View style = {{ width: 44, height: 44 }} className = 'overflow-hidden rounded-xl bg-secondary'>
+														{game.thumbnailUrl ? (
+															<Image source = {{ uri: game.thumbnailUrl }} style = {{ width: 44, height: 44 }} contentFit = 'cover'/>
+														) : (
+															<View className = 'h-full w-full items-center justify-center'>
+																<Dices size = { 16 } color = '#736E65'/>
+															</View>
+														)}
+													</View>
+													<Text className = 'flex-1 text-sm font-medium text-foreground' numberOfLines = { 1 }>
+														{game.name}
+													</Text>
+												</Pressable>
+											))}
+										</>
+									)}
+									<Text className = 'mb-2 mt-3 text-xs uppercase tracking-wide font-semibold text-muted-foreground px-4'>La tua collezione</Text>
+								</>
+							) : null
+						}
+						renderItem = { ({ item }) => (
 							<Pressable onPress = { () => handleSelect(item) } className = 'flex-row items-center gap-3 border-b border-border py-2.5 active:bg-[#DDD8CE] px-4'>
 								<View style = {{ width: 44, height: 44 }} className = 'overflow-hidden rounded-xl bg-secondary'>
 									{item.thumbnailUrl ? (

@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, Linking, Pressable, View } from 'react-native';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
@@ -46,12 +46,14 @@ const GameDetailScreen = () => {
 	const scrollY = useSharedValue(0);
 	const contentHeight = useSharedValue(0);
 	const layoutHeight = useSharedValue(0);
+	const inlineTabBarY = useSharedValue(0);
 
 	const queryClient = useQueryClient();
 	const { showToast } = useToast();
 
 	const registerMatchSheetRef = useRef<RegisterMatchSheetRef>(null);
 	const pagerRef = useRef<ScrollView>(null);
+	const mainScrollRef = useRef<Animated.ScrollView>(null);
 
 	const [activeTab, setActiveTab] = useState<TabKey>('info');
 	const [tabHeights, setTabHeights] = useState<Record<TabKey, number>>({
@@ -189,9 +191,14 @@ const GameDetailScreen = () => {
 		opacity: interpolate(scrollY.value, [0, COLLAPSE_DISTANCE], [1, 0], Extrapolation.CLAMP),
 	}));
 
-	const stickyTabBarStyle = useAnimatedStyle(() => ({
-		opacity: interpolate(scrollY.value, [0, COLLAPSE_DISTANCE], [0, 1], Extrapolation.CLAMP),
-	}));
+	const stickyTabBarStyle = useAnimatedStyle(() => {
+		const triggerPoint = inlineTabBarY.value - HEADER_HEIGHT;
+		const fadeRange = 24;
+
+		return {
+			opacity: interpolate(scrollY.value, [triggerPoint, triggerPoint + fadeRange], [0, 1], Extrapolation.CLAMP),
+		};
+	});
 
 	const handleToggleCollection = () => {
 		const wasInCollection = collectionStatus?.inCollection;
@@ -209,6 +216,19 @@ const GameDetailScreen = () => {
 			}
 		);
 	}
+
+	useFocusEffect(
+		useCallback(() => {
+			setActiveTab('info');
+			setShouldFetchExpansions(false);
+			setShouldFetchRules(false);
+
+			mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+			pagerRef.current?.scrollTo({ x: 0, animated: false });
+
+			scrollY.value = 0;
+		}, [bggId])
+	);
 
 	if(isLoading || !game) {
 		return (
@@ -238,7 +258,7 @@ const GameDetailScreen = () => {
 			<View style = {{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
 				<ScreenHeader title = 'Dettagli Gioco' titleStyle = { titleColorStyle } renderBackground = { <Animated.View style = { [{ flex: 1 }, headerBackgroundStyle] } className = 'bg-background'/> } leftElement = { <BackButton progress = { headerProgress }/> }/>
 			</View>
-			<Animated.ScrollView onScroll = { scrollHandler } scrollEventThrottle = { 16 } contentContainerStyle = {{ paddingBottom: 60 }} onLayout = { e => { layoutHeight.value = e.nativeEvent.layout.height; } } onContentSizeChange = { (_, height) => { contentHeight.value = height; } }>
+			<Animated.ScrollView ref = { mainScrollRef } onScroll = { scrollHandler } scrollEventThrottle = { 16 } contentContainerStyle = {{ paddingBottom: 60 }} onLayout = { e => { layoutHeight.value = e.nativeEvent.layout.height; } } onContentSizeChange = { (_, height) => { contentHeight.value = height; } }>
 				<View style = {{ height: IMAGE_HEIGHT - SHEET_OVERLAP }}/>
 				<View style = {{ borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS }} className = 'bg-background pb-6 pt-6'>
 					<View style = {{ position: 'absolute', top: -BADGE_SIZE / 2, right: 24, width: BADGE_SIZE, height: BADGE_SIZE }} className = 'items-center justify-center rounded-full border-2 border-background bg-[#C45135] shadow-lg'>
@@ -282,7 +302,7 @@ const GameDetailScreen = () => {
 								<ArrowLeftRight size = { 16 } color = '#C45135'/>
 							</Pressable>
 						)}
-						<View className = 'mt-4'>
+						<View className = 'mt-4' onLayout = { e => { inlineTabBarY.value = e.nativeEvent.layout.y + IMAGE_HEIGHT - SHEET_OVERLAP; } }>
 							<SegmentedControl options = { TABS.map(t => ({ value: t.key, label: t.label })) } selected = { activeTab } onSelect = { handleTabPress }/>
 						</View>
 					</View>

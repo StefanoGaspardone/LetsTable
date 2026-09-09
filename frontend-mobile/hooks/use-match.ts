@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import { getCalendarMatch, listMatches, ListMatchesParams } from '@/api/match';
+import { getRecentGames } from '@/api/game';
 
 export const useMatches = (filters: Omit<ListMatchesParams, 'page'>) => {
 	return useInfiniteQuery({
@@ -15,5 +16,12 @@ export const useMatchCalendar = (year: number, month: number) => {
 	return useQuery({
 		queryKey: ['matches', 'calendar', year, month],
 		queryFn: () => getCalendarMatch(year, month),
+	});
+}
+
+export const useRecentGames = () => {
+	return useQuery({
+		queryKey: ['matches', 'recent-games'],
+		queryFn: () => getRecentGames(),
 	});
 }

@@ -2,6 +2,7 @@ package com.backend.services
 
 import com.backend.exceptions.*
 import com.backend.models.dtos.CreateMatchRequest
+import com.backend.models.dtos.GameDTO
 import com.backend.models.dtos.MatchDTO
 import com.backend.models.dtos.MatchDayCountResponse
 import com.backend.models.dtos.MatchIndividualPlayerRequest
@@ -234,6 +235,24 @@ class MatchService(
             return counts
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [match_service][get_match_calendar] Error retrieving calendar for user {}: {}", userId, e.message)
+            throw e
+        }
+    }
+
+    @Transactional
+    fun getRecentGames(userId: UUID, limit: Int = 10): List<GameDTO> {
+        logger.debug("\n\t[DEBUG] [match_service][get_recent_games] Retrieving recent games for user {}", userId)
+
+        try {
+            val pageable = PageRequest.of(0, limit)
+            val recentMatches = matchRepository.findRecentForUser(userId, pageable)
+            val distinctGames = recentMatches.map { it.game }.distinctBy { it.id }
+            val response = distinctGames.map { GameDTO.from(it) }
+
+            logger.info("\n\t[INFO] [match_service][get_recent_games] Found {} distinct games in last {} matches for user {}", response.size, recentMatches.size, userId)
+            return response
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [match_service][get_recent_games] Error retrieving recent games for user {}: {}", userId, e.message)
             throw e
         }
     }

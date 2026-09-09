@@ -1,6 +1,6 @@
 import { View, Pressable, LayoutChangeEvent } from 'react-native';
-import { useState } from 'react';
-import Animated, { useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import { useEffect, useState } from 'react';
+import Animated, { useAnimatedStyle, withTiming, Easing, useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Dices, Trophy, Users, User } from 'lucide-react-native';
 
@@ -40,20 +40,32 @@ const TabBar = ({ state, navigation }: TabBarProps) => {
 	const insets = useSafeAreaInsets();
 	const [tabWidth, setTabWidth] = useState(0);
 
+	const visibleRoutes = state.routes.filter(route => ICONS[route.name]);
+	const focusedVisibleIndex = visibleRoutes.findIndex(route => route.key === state.routes[state.index].key);
+
+	const lastValidIndex = useSharedValue(0);
+
+	useEffect(() => {
+		if(focusedVisibleIndex !== -1) {
+			lastValidIndex.value = focusedVisibleIndex;
+		}
+	}, [focusedVisibleIndex]);
+
 	const onLayout = (event: LayoutChangeEvent) => {
-		setTabWidth(event.nativeEvent.layout.width / state.routes.length);
+		setTabWidth(event.nativeEvent.layout.width / visibleRoutes.length);
 	}
 
 	const pillStyle = useAnimatedStyle(() => ({
-        transform: [
-            {
-                translateX: withTiming(
-                    state.index * tabWidth + (tabWidth - PILL_WIDTH) / 2,
-                    { duration: 280, easing: Easing.out(Easing.cubic) }
-                ),
-            },
-        ],
-    }));
+		opacity: withTiming(focusedVisibleIndex === -1 ? 0 : 1, { duration: 100 }),
+		transform: [
+			{
+				translateX: withTiming(
+					lastValidIndex.value * tabWidth + (tabWidth - PILL_WIDTH) / 2,
+					{ duration: 280, easing: Easing.out(Easing.cubic) }
+				),
+			},
+		],
+	}));
 
 	return (
 		<View className = 'flex-row border-t border-border bg-card' style = {{ paddingBottom: insets.bottom || 12, paddingTop: 8 }} onLayout = { onLayout }>
@@ -63,9 +75,12 @@ const TabBar = ({ state, navigation }: TabBarProps) => {
 				</Animated.View>
 			)}
 			{state.routes.map((route, index) => {
-				const isFocused = state.index === index;
 				const Icon = ICONS[route.name];
 				const label = LABELS[route.name];
+
+				if(!Icon) return null;
+
+				const isFocused = state.routes[state.index].key === route.key;
 
 				const onPress = () => {
 					const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });

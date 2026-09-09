@@ -2,6 +2,7 @@ package com.backend.repositories
 
 import com.backend.models.entities.Match
 import com.backend.models.projections.MatchDayCountProjection
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
 import org.springframework.data.jpa.repository.Query
@@ -31,9 +32,16 @@ interface MatchRepository : JpaRepository<Match, UUID>, JpaSpecificationExecutor
         ORDER BY m.playedAt ASC
         """
     )
-    fun countMatchesByDay(
-        @Param("userId") userId: UUID,
-        @Param("from") from: LocalDate,
-        @Param("to") to: LocalDate,
-    ): List<MatchDayCountProjection>
+    fun countMatchesByDay(@Param("userId") userId: UUID, @Param("from") from: LocalDate, @Param("to") to: LocalDate): List<MatchDayCountProjection>
+
+    @Query(
+        """
+    SELECT DISTINCT m FROM Match m
+    JOIN FETCH m.game
+    LEFT JOIN MatchPlayer mp ON mp.match = m
+    WHERE m.createdBy.id = :userId OR mp.user.id = :userId
+    ORDER BY m.playedAt DESC, m.createdAt DESC
+    """
+    )
+    fun findRecentForUser(@Param("userId") userId: UUID, pageable: Pageable): List<Match>
 }

@@ -28,3 +28,8 @@ export const getGameExpansions = async (bggId: number, page: number, size = 10):
 	});
 	return data;
 }
+
+export const getRecentGames = async (): Promise<Game[]> => {
+	const { data } = await apiClient.get<Game[]>('/matches/recent-games');
+	return data;
+}

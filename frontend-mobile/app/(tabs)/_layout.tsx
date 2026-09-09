@@ -17,6 +17,7 @@ const TabsLayout = () => {
 			<Tabs.Screen name = 'matches'/>
 			<Tabs.Screen name = 'friends'/>
 			<Tabs.Screen name = 'profile'/>
+
 		</Tabs>
 	)
 }
