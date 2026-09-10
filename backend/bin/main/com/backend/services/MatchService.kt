@@ -26,6 +26,9 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.YearMonth
+import java.time.ZoneOffset
 import java.util.UUID
 
 @Service
@@ -55,7 +58,7 @@ class MatchService(
                 game = game,
                 createdBy = createdBy,
                 isTeamBased = request.isTeamBased,
-                playedAt = request.playedAt,
+                playedAt = combineDateWithCurrentTime(request.playedAt),
                 place = request.place,
                 notes = request.notes,
                 durationMinutes = request.durationMinutes,
@@ -103,7 +106,10 @@ class MatchService(
 
             match.game = game
             match.isTeamBased = request.isTeamBased
-            match.playedAt = request.playedAt
+            val existingDate = match.playedAt.atZone(ZoneOffset.UTC).toLocalDate()
+            if(existingDate != request.playedAt) {
+                match.playedAt = combineDateWithCurrentTime(request.playedAt)
+            }
             match.place = request.place
             match.notes = request.notes
 
@@ -226,8 +232,9 @@ class MatchService(
         logger.debug("\n\t[DEBUG] [match_service][get_match_calendar] Retrieving calendar\n\tuserId={}\n\tyear={}\n\tmonth={}", userId, year, month)
 
         try {
-            val from = LocalDate.of(year, month, 1)
-            val to = from.withDayOfMonth(from.lengthOfMonth())
+            val yearMonth = YearMonth.of(year, month)
+            val from = yearMonth.atDay(1).atStartOfDay(ZoneOffset.UTC).toInstant()
+            val to = yearMonth.atEndOfMonth().plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant()
 
             val counts = matchRepository.countMatchesByDay(userId, from, to)
                 .map { MatchDayCountResponse(date = it.playedAt, count = it.matchCount) }
@@ -396,5 +403,10 @@ class MatchService(
             val players = matchPlayerRepository.findAllByMatchId(match.id!!).map { MatchPlayerDTO.from(it) }
             MatchDTO.from(match, null, players)
         }
+    }
+
+    private fun combineDateWithCurrentTime(date: LocalDate): Instant {
+        val currentTime = Instant.now().atZone(ZoneOffset.UTC).toLocalTime()
+        return LocalDateTime.of(date, currentTime).atZone(ZoneOffset.UTC).toInstant()
     }
 }

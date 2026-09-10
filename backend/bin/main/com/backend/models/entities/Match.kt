@@ -4,8 +4,7 @@ import jakarta.persistence.*
 import org.hibernate.annotations.CreationTimestamp
 import org.hibernate.annotations.UpdateTimestamp
 import java.time.Instant
-import java.time.LocalDate
-import java.util.UUID
+import java.util.*
 
 @Entity
 @Table(name = "matches")
@@ -26,7 +25,7 @@ class Match(
     var isTeamBased: Boolean = false,
 
     @Column(name = "played_at", nullable = false)
-    var playedAt: LocalDate,
+    var playedAt: Instant,
 
     @Column(name = "duration_minutes", nullable = true)
     var durationMinutes: Int? = null,

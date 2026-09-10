@@ -1,10 +1,12 @@
 package com.backend.models.specifications
 
+import com.backend.models.entities.Game
 import com.backend.models.entities.Match
 import com.backend.models.entities.MatchPlayer
 import com.backend.models.entities.User
 import org.springframework.data.jpa.domain.Specification
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.UUID
 
 object MatchSpecification {
@@ -26,15 +28,17 @@ object MatchSpecification {
             predicates.add(cb.or(creatorPredicate, playerPredicate))
 
             if(gameId != null) {
-                predicates.add(cb.equal(root.get<com.backend.models.entities.Game>("game").get<UUID>("id"), gameId))
+                predicates.add(cb.equal(root.get<Game>("game").get<UUID>("id"), gameId))
             }
 
             if(fromDate != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("playedAt"), fromDate))
+                val fromInstant = fromDate.atStartOfDay(ZoneOffset.UTC).toInstant()
+                predicates.add(cb.greaterThanOrEqualTo(root.get("playedAt"), fromInstant))
             }
 
             if(toDate != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("playedAt"), toDate))
+                val toInstant = toDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant()
+                predicates.add(cb.lessThan(root.get("playedAt"), toInstant))
             }
 
             cb.and(*predicates.toTypedArray())
