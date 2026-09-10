@@ -46,11 +46,14 @@ const FabMenuItem = ({ action, index, isOpen, onPress }: { action: FabMenuAction
 			<Pressable onPress = { onPress } className = 'flex-row items-center gap-3 rounded-full border border-border bg-card px-4 py-3 shadow-md active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
 				{({ pressed }) => (
 					<>
-						<Text className = { `text-sm ${pressed ? 'text-white' : 'text-foreground'}` }>
+						<Text className = { `text-sm font-semibold ${pressed ? 'text-white' : 'text-foreground'}` }>
 							{action.label}
 						</Text>
-						{isValidElement(action.icon) && pressed
-							? cloneElement(action.icon as React.ReactElement<any>, { color: '#FFFFFF' })
+						{isValidElement(action.icon)
+							? cloneElement(action.icon as React.ReactElement<any>, {
+									color: pressed ? '#FFFFFF' : (action.icon as React.ReactElement<any>).props.color,
+									strokeWidth: 2,
+								})
 							: action.icon}
 					</>
 				)}
@@ -87,15 +90,10 @@ const FabMenu = ({ actions }: FabMenuProps) => {
 				<View pointerEvents = { isOpen ? 'auto' : 'none' } className = 'mb-3 items-end gap-3'>
 					{[...actions].reverse().map((action, reversedIndex) => {
 						const index = actions.length - 1 - reversedIndex;
+						
 						return (
-							<FabMenuItem
-								key = { index }
-								action = { action }
-								index = { index }
-								isOpen = { isOpen }
-								onPress = { () => handleActionPress(action) }
-							/>
-						);
+							<FabMenuItem key = { index } action = { action } index = { index } isOpen = { isOpen } onPress = { () => handleActionPress(action) }/>
+						)
 					})}
 				</View>
 				<Pressable onPress = { handleToggle } className = 'h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg active:bg-primary/90'>

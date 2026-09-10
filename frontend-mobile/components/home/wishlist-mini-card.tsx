@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { ChevronRight, Plus, Heart, Users, Lock, Dices } from 'lucide-react-native';
+import { Heart, Users, Lock, Dices, ChevronRight } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 
 import { Text } from '@/components/ui/text';
@@ -14,10 +13,9 @@ interface WishlistMiniCardProps {
 	wishlist: Wishlist;
 }
 
-const THUMB_SIZE = 64;
+const THUMB_SIZE = 44;
 
 const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
-	const [isPressed, setIsPressed] = useState<boolean>(false);
 	const { data } = useQuery({
 		queryKey: ['wishlists', 'preview-items', wishlist.id],
 		queryFn: () => listWishlistItems(wishlist.id, 0, 3),
@@ -28,39 +26,36 @@ const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
 	const handleOpen = () => router.push(`/wishlist/${wishlist.id}`);
 
 	return (
-		<Pressable onPress = { handleOpen } className = 'mr-3 w-52 rounded-2xl border border-border bg-card p-4'>
-			<View className = 'flex-row items-center gap-2'>
-				<View className = 'h-8 w-8 items-center justify-center rounded-full bg-secondary'>
-					{wishlist.isDefault ? (
-						<Heart size= { 16 } color = '#C45135'/>
-					) : wishlist.isShared ? (
-						<Users size = { 16 } color = '#C45135'/>
-					) : (
-						<Lock size = { 16 } color = '#C45135'/>
-					)}
-				</View>
-				<Text className = 'flex-1 text-base font-semibold text-foreground' numberOfLines = { 1 }>
+		<Pressable onPress = { handleOpen } className = 'flex-row items-center gap-3 rounded-2xl border border-border bg-card p-2 active:scale-[0.98] active:opacity-75'>
+			<View className = 'h-11 w-11 items-center justify-center rounded-full bg-secondary'>
+				{wishlist.isDefault ? (
+					<Heart size = { 20 } color = '#C45135'/>
+				) : wishlist.isShared ? (
+					<Users size = { 20 } color = '#C45135'/>
+				) : (
+					<Lock size = { 20 } color = '#C45135'/>
+				)}
+			</View>
+			<View className = 'flex-1'>
+				<Text className = 'text-base font-semibold text-foreground' numberOfLines = { 1 }>
 					{wishlist.name}
 				</Text>
-				<ChevronRight size = { 16 } className = 'text-muted-foreground'/>
-			</View>
-			<View className = 'mt-4 flex-row items-center justify-between'>
-				<View className = 'flex-row'>
+				<View className = 'mt-1.5 flex-row'>
 					{previewItems.map((item, index) => (
-						<View key = { item.id } style = {{ width: THUMB_SIZE, height: THUMB_SIZE, marginLeft: index === 0 ? 0 : -14, zIndex: previewItems.length - index }} className = 'overflow-hidden rounded-xl border-2 border-card bg-secondary'>
+						<View key = { item.id } style = {{ width: THUMB_SIZE, height: THUMB_SIZE, marginLeft: index === 0 ? 0 : -12, zIndex: previewItems.length - index }} className = 'overflow-hidden rounded-lg border-2 border-card bg-secondary'>
 							{item.game.thumbnailUrl ? (
 								<Image source = {{ uri: item.game.thumbnailUrl }} style = {{ width: '100%', height: '100%' }} contentFit = 'cover'/>
 							) : (
 								<View className = 'h-full w-full items-center justify-center'>
-									<Dices size = { 16 } className = 'text-muted-foreground'/>
+									<Dices size = { 14 } className = 'text-muted-foreground'/>
 								</View>
 							)}
 						</View>
 					))}
 				</View>
-				<Pressable onPress = { handleOpen } className = 'h-9 w-9 items-center justify-center rounded-full bg-secondary active:bg-primary/90' onPressIn = { () => setIsPressed(true) } onPressOut = { () => setIsPressed(false) }>
-					<Plus size = { 18 } color = { isPressed ? '#FFFFFF' : '#C45135' }/>
-				</Pressable>
+			</View>
+			<View className = 'h-9 w-9 items-center justify-center rounded-full bg-secondary'>
+				<ChevronRight size = { 18 } color = '#C45135'/>
 			</View>
 		</Pressable>
 	)

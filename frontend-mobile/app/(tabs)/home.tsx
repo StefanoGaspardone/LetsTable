@@ -43,12 +43,12 @@ const HomeScreen = () => {
 		<View className = 'flex-1 bg-background'>
 			<ScreenHeader title = 'Bentornato'
 				rightElement = {
-					<Pressable onPress = { () => router.push('/(tabs)/profile') } onPressIn = { () => setIsSettingsPressed(true) } onPressOut = { () => setIsSettingsPressed(false) } hitSlop = { 8 } style = {{ height: 36, width: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: isSettingsPressed ? '#DDD8CE' : '#E9E4DB' }}>
+					<Pressable onPress = { () => router.push('/(tabs)/profile') } onPressIn = { () => setIsSettingsPressed(true) } onPressOut = { () => setIsSettingsPressed(false) } hitSlop = {{ top: 8, bottom: 4, left: 8, right: 8 }} style = {{ height: 36, width: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: isSettingsPressed ? '#DDD8CE' : '#E9E4DB' }}>
 						<Settings size = { 22 } className = 'text-muted-foreground'/>
 					</Pressable>
 				}
 			/>
-			<ScrollView contentContainerStyle = {{ padding: 16, paddingBottom: 100 }}>
+			<ScrollView contentContainerStyle = {{ padding: 16, paddingBottom: 24 }}>
 				<Text className = 'font-display text-xl text-foreground'>Le Mie Statistiche</Text>
 				<View className = 'mt-1 gap-3'>
 					{totalMatches > 0 && (
@@ -59,7 +59,14 @@ const HomeScreen = () => {
 						<QuickStatCard icon = { <Users size = { 48 } color = '#C45135'/> } label = 'Amici' value = { friends?.length ?? 0 }/>
 					</View>
 				</View>
-				<Text className = 'mt-3 mb-1 font-display text-xl text-foreground'>Partite Recenti</Text>
+				<View className = 'mt-4 mb-1 flex-row items-center justify-between'>
+					<Text className = 'font-display text-xl text-foreground'>Partite Recenti</Text>
+					{latestMatch && (
+					<Pressable onPress = { () => router.push('/(tabs)/matches') } hitSlop = { 8 }>
+						<Text className = 'text-sm font-semibold text-primary'>Vedi tutte</Text>
+					</Pressable>
+				)}
+				</View>
 				{latestMatch ? (
 					<View className = 'gap-2'>
 						<LatestMatchCard match = { latestMatch }/>
@@ -70,15 +77,23 @@ const HomeScreen = () => {
 				) : (
 					<EmptyState icon = { <Trophy size = { 32 } color = '#C45135'/> } title = 'Nessuna partita registrata' subtitle = 'Inizia a tracciare le tue serate di gioco.' actionLabel = 'Registra partita' onAction = { () => router.push('/match/new')}/>
 				)}
-				<Text className = 'mt-3 mb-1 font-display text-xl text-foreground'>Le Mie Wishlist</Text>
+				<View className = 'mt-4 mb-1 flex-row items-center justify-between'>
+					<Text className = 'font-display text-xl text-foreground'>Le Mie Wishlist</Text>
+					{latestMatch && (
+					<Pressable onPress = { () => router.push('/(tabs)/my-wishlists') } hitSlop = { 8 }>
+						<Text className = 'text-sm font-semibold text-primary'>Vedi tutte</Text>
+					</Pressable>
+				)}
+				</View>
 				{wishlists && wishlists.length > 0 ? (
-					<ScrollView horizontal showsHorizontalScrollIndicator = { false } contentContainerStyle = {{ paddingRight: 16 }}>
+					<View className = 'gap-2'>
 						{[...wishlists]
 							.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0))
+							.slice(0, 5)
 							.map(wishlist => (
 								<WishlistMiniCard key = { wishlist.id } wishlist = { wishlist }/>
 							))}
-					</ScrollView>
+					</View>
 				) : (
 					<Text className = 'text-sm text-muted-foreground'>Nessuna wishlist ancora</Text>
 				)}

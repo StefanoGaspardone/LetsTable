@@ -21,17 +21,17 @@ const ScreenHeader = ({ title, leftElement, rightElement, renderBackground, titl
 					{renderBackground}
 				</View>
 			)}
-			<View className = 'flex-row items-center justify-center'>
+			<View className = 'flex-row items-center justify-center' style = {{ minHeight: 40 }}>
 				<Animated.Text style = { [{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 24, color: '#1E1C1A' }, titleStyle] }>
 					{title}
 				</Animated.Text>
 				{leftElement && (
-					<View className = 'absolute left-0' style = {{ top: 0, bottom: 0, justifyContent: 'center' }}>
+					<View className = 'absolute left-0' pointerEvents = 'box-none' style = {{ top: 0, height: 40, justifyContent: 'center' }}>
 						{leftElement}
 					</View>
 				)}
 				{rightElement && (
-					<View className = 'absolute right-0' style = {{ top: 0, bottom: 0, justifyContent: 'center' }}>
+					<View className = 'absolute right-0' pointerEvents = 'box-none' style = {{ top: 0, height: 40, justifyContent: 'center' }}>
 						{rightElement}
 					</View>
 				)}

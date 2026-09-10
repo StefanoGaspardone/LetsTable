@@ -1,7 +1,7 @@
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Calendar, Dices, Users } from 'lucide-react-native';
+import { Calendar, ChevronRight, Dices, Users } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 
@@ -56,6 +56,7 @@ const MatchListItem = ({ match }: MatchListItemProps) => {
 					<Text className = 'text-xs font-medium text-[#C45135]'>In corso</Text>
 				</View>
 			)}
+			<ChevronRight size = { 18 } color = '#736E65'/>
 		</Pressable>
 	)
 }
