@@ -1,6 +1,6 @@
 import { apiClient } from '@/api/client';
 
-import { CreateMatchPayload, Match, MatchDayCount, UpdateMatchPayload } from '@/types/match';
+import { CreateMatchPayload, Match, MatchDayCount, MatchWinStats, UpdateMatchPayload } from '@/types/match';
 import { PageDTO } from '@/types/page';
 
 export interface ListMatchesParams {
@@ -50,4 +50,9 @@ export const createMatch = async (payload: CreateMatchPayload): Promise<Match> =
 export const updateMatch = async (matchId: string, payload: UpdateMatchPayload): Promise<Match> => {
     const { data } = await apiClient.put<Match>(`/matches/${matchId}`, payload);
     return data;
+}
+
+export const getWinStats = async (): Promise<MatchWinStats> => {
+	const { data } = await apiClient.get<MatchWinStats>('/matches/win-stats');
+	return data;
 }

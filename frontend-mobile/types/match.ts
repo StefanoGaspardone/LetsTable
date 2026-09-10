@@ -85,3 +85,8 @@ export interface UpdateMatchPayload {
 	teams: CreateMatchTeamPayload[] | null;
 	players: MatchIndividualPlayerPayload[] | null;
 }
+
+export interface MatchWinStats {
+	totalMatches: number;
+	totalWins: number;
+}

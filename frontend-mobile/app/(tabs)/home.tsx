@@ -1,37 +1,43 @@
 import { useRef, useState } from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
 import { router } from 'expo-router';
-import { Settings, Library, Trophy, ListPlus, UserPlus } from 'lucide-react-native';
+import { Settings, Library, Trophy, ListPlus, Users, UserPlus } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import ScreenHeader from '@/components/common/screen-header';
 import QuickStatCard from '@/components/home/quick-stat-card';
-import MeepleIllustration from '@/components/common/meeple-illustration';
 import EmptyState from '@/components/common/empty-state';
 import FabMenu from '@/components/common/fab-menu';
 import LatestMatchCard from '@/components/home/latest-match-card';
 import WishlistMiniCard from '@/components/home/wishlist-mini-card';
 import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/register-match-sheet';
+import WinRateCard from '@/components/home/win-rate-card';
+import RecentMatchCard from '@/components/home/recent-match-card';
 
 import { useHomeStats } from '@/hooks/use-stat';
 import { useMatches } from '@/hooks/use-match';
 import { useMyWishlists } from '@/hooks/use-wishlist';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+import { useFriends } from '@/hooks/use-friend';
 
 const HomeScreen = () => {
-	const { totalMatches, totalGames } = useHomeStats();
-	const { data: matchesData } = useMatches({ sort: 'playedAt-desc', size: 1 } as any);
+	const { totalWins, totalMatches, totalGames } = useHomeStats();
+	const { data: friends } = useFriends();
+	const { data: matchesData } = useMatches({ sort: 'playedAt-desc', size: 5 } as any);
 	const { data: wishlists } = useMyWishlists();
 
 	useRefetchOnFocus(['matches']);
 	useRefetchOnFocus(['collection']);
 	useRefetchOnFocus(['wishlists']);
+	useRefetchOnFocus(['friends']);
 
 	const [isSettingsPressed, setIsSettingsPressed] = useState(false);
 
 	const registerMatchSheetRef = useRef<RegisterMatchSheetRef>(null);
 
-	const latestMatch = matchesData?.pages?.[0]?.content?.[0];
+	const recentMatches = matchesData?.pages?.[0]?.content ?? [];
+	const latestMatch = recentMatches[0];
+	const otherRecentMatches = recentMatches.slice(1, 5);
 
 	return (
 		<View className = 'flex-1 bg-background'>
@@ -44,13 +50,23 @@ const HomeScreen = () => {
 			/>
 			<ScrollView contentContainerStyle = {{ padding: 16, paddingBottom: 100 }}>
 				<Text className = 'font-display text-xl text-foreground'>Le Mie Statistiche</Text>
-				<View className = 'flex-row gap-3 mt-1'>
-					<QuickStatCard icon = { <MeepleIllustration size = { 48 } color = '#C45135'/> } label = 'Partite totali' value = { totalMatches }/>
-					<QuickStatCard icon = { <Library size = { 48 } color = '#C45135'/> } label = 'Collezione' value = { totalGames }/>
+				<View className = 'mt-1 gap-3'>
+					{totalMatches > 0 && (
+						<WinRateCard totalWins = { totalWins } totalMatches = { totalMatches }/>
+					)}
+					<View className = 'flex-row gap-3'>
+						<QuickStatCard icon = { <Library size = { 48 } color = '#C45135'/> } label = 'Collezione' value = { totalGames }/>
+						<QuickStatCard icon = { <Users size = { 48 } color = '#C45135'/> } label = 'Amici' value = { friends?.length ?? 0 }/>
+					</View>
 				</View>
-				<Text className = 'mt-3 mb-1 font-display text-xl text-foreground'>Ultime Partite</Text>
+				<Text className = 'mt-3 mb-1 font-display text-xl text-foreground'>Partite Recenti</Text>
 				{latestMatch ? (
-					<LatestMatchCard match = { latestMatch }/>
+					<View className = 'gap-2'>
+						<LatestMatchCard match = { latestMatch }/>
+						{otherRecentMatches.map(match => (
+							<RecentMatchCard key = { match.id } match = { match }/>
+						))}
+					</View>
 				) : (
 					<EmptyState icon = { <Trophy size = { 32 } color = '#C45135'/> } title = 'Nessuna partita registrata' subtitle = 'Inizia a tracciare le tue serate di gioco.' actionLabel = 'Registra partita' onAction = { () => router.push('/match/new')}/>
 				)}

@@ -286,6 +286,15 @@ data class MatchDayCountResponse(
     val count: Long,
 )
 
+@Schema(description = "Total completed matches and wins for a user")
+data class MatchWinStatsDTO(
+    @field:Schema(description = "Total completed matches (created or participated)")
+    val totalMatches: Long,
+
+    @field:Schema(description = "Total matches won")
+    val totalWins: Long,
+)
+
 interface MatchPlayersPayload {
     val isTeamBased: Boolean
     val teams: List<CreateMatchTeamRequest>?

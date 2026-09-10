@@ -14,6 +14,10 @@ import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { ToastProvider } from '@/contexts/toast-context';
 import { ConfirmDialogProvider } from '@/contexts/confirm-dialog-context';
 
+import { useHealthCheck } from '@/hooks/use-health-check';
+
+import ServerDownOverlay from '@/components/common/server-down-overlay';
+
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
@@ -43,20 +47,13 @@ const RootLayoutNav = () => {
 			<Stack.Screen name = 'index'/>
 			<Stack.Screen name = '(auth)'/>
 			<Stack.Screen name = '(tabs)'/>
-			<Stack.Screen name = 'browse' options = {{ presentation: 'modal' }}/>
-			<Stack.Screen name = 'game/[bggId]'/>
-			<Stack.Screen name = 'playlist-picker' options = {{ presentation: 'modal' }}/>
-			<Stack.Screen name = 'my-wishlists' options = {{ presentation: 'modal' }}/>
-			<Stack.Screen name = 'wishlist/[id]'/>
-			<Stack.Screen name = 'match/[id]'/>
-			<Stack.Screen name = 'match/new'/>
-			<Stack.Screen name = 'match/[id]/edit'/>
-			<Stack.Screen name = 'match/[id]/finish'/>
 		</Stack>
 	)
 }
 
 const RootLayout = () => {
+	const { isHealthy, isChecking, retryNow } = useHealthCheck();
+
 	return (
 		<GestureHandlerRootView style = {{ flex: 1 }}>
 			<BottomSheetModalProvider>
@@ -66,6 +63,7 @@ const RootLayout = () => {
 							<ConfirmDialogProvider>
 								<ThemeProvider value = { DefaultTheme }>
 									<RootLayoutNav/>
+									{!isHealthy && <ServerDownOverlay isChecking = { isChecking } onRetry = { retryNow }/>}
 								</ThemeProvider>
 							</ConfirmDialogProvider>
 						</ToastProvider>

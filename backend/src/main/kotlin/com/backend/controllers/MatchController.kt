@@ -6,6 +6,7 @@ import com.backend.models.dtos.MatchDTO
 import com.backend.models.dtos.PageDTO
 import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.GameDTO
+import com.backend.models.dtos.MatchWinStatsDTO
 import com.backend.models.dtos.UpdateMatchRequest
 import com.backend.security.CurrentUser
 import com.backend.services.MatchService
@@ -243,7 +244,8 @@ class MatchController(
     fun getMatchCalendar(
         @Parameter(description = "Calendar year", example = "2026") @RequestParam year: Int,
         @Parameter(description = "Calendar month, 1-12", example = "8") @RequestParam month: Int,
-    ): List<MatchDayCountResponse> = matchService.getMatchCalendar(CurrentUser.id(), year, month)
+    ): List<MatchDayCountResponse> =
+        matchService.getMatchCalendar(CurrentUser.id(), year, month)
 
     @Operation(summary = "Recent games", description = "Distinct games played in the user's last 10 matches (created or participated), most recent first. Not paginated.")
     @ApiResponses(
@@ -255,5 +257,19 @@ class MatchController(
         ]
     )
     @GetMapping("/recent-games")
-    fun getRecentGames(): List<GameDTO> = matchService.getRecentGames(CurrentUser.id())
+    fun getRecentGames(): List<GameDTO> =
+        matchService.getRecentGames(CurrentUser.id())
+
+    @Operation(summary = "Win statistics", description = "Total completed matches and wins for the current user, across individual and team matches.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Win statistics",
+                content = [Content(schema = Schema(implementation = MatchWinStatsDTO::class))]
+            ),
+        ]
+    )
+    @GetMapping("/win-stats")
+    fun getWinStats(): MatchWinStatsDTO =
+        matchService.getWinStats(CurrentUser.id())
 }

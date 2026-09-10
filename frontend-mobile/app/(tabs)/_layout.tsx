@@ -17,7 +17,13 @@ const TabsLayout = () => {
 			<Tabs.Screen name = 'matches'/>
 			<Tabs.Screen name = 'friends'/>
 			<Tabs.Screen name = 'profile'/>
-
+			<Tabs.Screen name = 'browse' options = {{ href: null }}/>
+            <Tabs.Screen name = 'game/[bggId]' options = {{ href: null }}/>
+            <Tabs.Screen name = 'match/[id]' options = {{ href: null }}/>
+            <Tabs.Screen name = 'match/[id]/edit' options = {{ href: null }}/>
+            <Tabs.Screen name = 'match/[id]/finish' options = {{ href: null }}/>
+            <Tabs.Screen name = 'my-wishlists' options = {{ href: null }}/>
+            <Tabs.Screen name = 'wishlist/[id]' options = {{ href: null }}/>
 		</Tabs>
 	)
 }

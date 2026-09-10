@@ -11,6 +11,7 @@ import com.backend.models.dtos.MatchPlayerIdentityRequest
 import com.backend.models.dtos.MatchPlayerRefDTO
 import com.backend.models.dtos.MatchPlayersPayload
 import com.backend.models.dtos.MatchTeamDTO
+import com.backend.models.dtos.MatchWinStatsDTO
 import com.backend.models.dtos.PageDTO
 import com.backend.models.dtos.UpdateMatchRequest
 import com.backend.models.entities.*
@@ -253,6 +254,23 @@ class MatchService(
             return response
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [match_service][get_recent_games] Error retrieving recent games for user {}: {}", userId, e.message)
+            throw e
+        }
+    }
+
+    @Transactional
+    fun getWinStats(userId: UUID): MatchWinStatsDTO {
+        logger.debug("\n\t[DEBUG] [match_service][get_win_stats] Retrieving win stats for user {}", userId)
+
+        try {
+            val totalMatches = matchRepository.countCompletedMatchesForUser(userId)
+            val totalWins = matchRepository.countWonMatchesForUser(userId)
+            val response = MatchWinStatsDTO(totalMatches = totalMatches, totalWins = totalWins)
+
+            logger.info("\n\t[INFO] [match_service][get_win_stats] User {} has {} wins out of {} matches", userId, totalWins, totalMatches)
+            return response
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [match_service][get_win_stats] Error retrieving win stats for user {}: {}", userId, e.message)
             throw e
         }
     }

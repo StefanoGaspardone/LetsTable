@@ -36,12 +36,35 @@ interface MatchRepository : JpaRepository<Match, UUID>, JpaSpecificationExecutor
 
     @Query(
         """
-    SELECT DISTINCT m FROM Match m
-    JOIN FETCH m.game
-    LEFT JOIN MatchPlayer mp ON mp.match = m
-    WHERE m.createdBy.id = :userId OR mp.user.id = :userId
-    ORDER BY m.playedAt DESC, m.createdAt DESC
-    """
+        SELECT DISTINCT m FROM Match m
+        JOIN FETCH m.game
+        LEFT JOIN MatchPlayer mp ON mp.match = m
+        WHERE m.createdBy.id = :userId OR mp.user.id = :userId
+        ORDER BY m.playedAt DESC, m.createdAt DESC
+        """
     )
     fun findRecentForUser(@Param("userId") userId: UUID, pageable: Pageable): List<Match>
+
+    @Query(
+        """
+        SELECT COUNT(DISTINCT m.id) FROM Match m
+        LEFT JOIN MatchPlayer mp ON mp.match = m
+        WHERE (m.createdBy.id = :userId OR mp.user.id = :userId)
+        AND m.durationMinutes IS NOT NULL
+        """
+    )
+    fun countCompletedMatchesForUser(@Param("userId") userId: UUID): Long
+
+    @Query(
+        """
+        SELECT COUNT(DISTINCT m.id) FROM Match m
+        LEFT JOIN MatchPlayer mp ON mp.match = m
+        WHERE m.durationMinutes IS NOT NULL
+        AND (
+            (mp.user.id = :userId AND mp.isWinner = true)
+            OR (mp.user.id = :userId AND mp.team.id IS NOT NULL AND mp.team.isWinner = true)
+        )
+        """
+    )
+    fun countWonMatchesForUser(@Param("userId") userId: UUID): Long
 }

@@ -74,17 +74,21 @@ const TabBar = ({ state, navigation }: TabBarProps) => {
 					<View className = 'h-full w-full rounded-full' style = {{ backgroundColor: 'rgba(196, 81, 53, 0.12)' }}/>
 				</Animated.View>
 			)}
-			{state.routes.map((route, index) => {
+			{visibleRoutes.map((route, index) => {
 				const Icon = ICONS[route.name];
 				const label = LABELS[route.name];
-
-				if(!Icon) return null;
-
 				const isFocused = state.routes[state.index].key === route.key;
 
 				const onPress = () => {
-					const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-					if(!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+					const event = navigation.emit({
+						type: 'tabPress',
+						target: route.key,
+						canPreventDefault: true,
+					});
+
+					if(!isFocused && !event.defaultPrevented) {
+						navigation.navigate(route.name);
+					}
 				}
 
 				return (

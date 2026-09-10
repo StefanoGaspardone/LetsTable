@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { View, Pressable, ActivityIndicator, LayoutAnimation, Platform, UIManager, ScrollView } from 'react-native';
+import { View, Pressable, ActivityIndicator, LayoutAnimation, ScrollView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
@@ -21,10 +21,6 @@ import { useConfirmDialog } from '@/contexts/confirm-dialog-context';
 import { formatDuration } from '@/lib/time';
 
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
-
-if(Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const MatchDetailScreen = () => {
     const { id } = useLocalSearchParams<{ id: string }>();

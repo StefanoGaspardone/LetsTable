@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { listCollection } from '@/api/collection';
-import { listMatches } from '@/api/match';
+import { getWinStats } from '@/api/match';
 
 export const useHomeStats = () => {
-	const matchesQuery = useQuery({
-		queryKey: ['matches', 'home-summary'],
-		queryFn: () => listMatches({ page: 0, size: 1, sort: 'playedAt-desc' }),
+	const winStatsQuery = useQuery({
+		queryKey: ['matches', 'win-stats'],
+		queryFn: () => getWinStats(),
 	});
 
 	const collectionQuery = useQuery({
@@ -15,8 +15,9 @@ export const useHomeStats = () => {
 	});
 
 	return {
-		totalMatches: matchesQuery.data?.totalElements ?? 0,
+		totalMatches: winStatsQuery.data?.totalMatches ?? 0,
+		totalWins: winStatsQuery.data?.totalWins ?? 0,
 		totalGames: collectionQuery.data?.totalElements ?? 0,
-		isLoading: matchesQuery.isLoading || collectionQuery.isLoading,
+		isLoading: winStatsQuery.isLoading || collectionQuery.isLoading,
 	}
 }

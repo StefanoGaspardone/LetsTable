@@ -540,7 +540,7 @@ class GameService(
         val cleanDescription = details.description
             ?.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
             ?.let { Jsoup.parse(it).body().wholeText() }
-            ?.replace(Regex("""[—–-]\s*description from (the )?publisher\.?\s*$""", RegexOption.IGNORE_CASE), "")
+            ?.replace(Regex("""[—–-]\s*description from (the )?(publisher|designer|artist|manufacturer)\.?\s*$""", RegexOption.IGNORE_CASE), "")
             ?.replace(Regex("\n{3,}"), "\n\n")
             ?.trim()
 
