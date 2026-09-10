@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View, FlatList, ActivityIndicator, Pressable } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Search, List, LayoutGrid } from 'lucide-react-native';
 
 import ScreenHeader from '@/components/common/screen-header';
@@ -16,6 +16,13 @@ import { useGameSearch, useHotGames } from '@/hooks/use-game';
 const BrowseScreen = () => {
 	const [search, setSearch] = useState('');
 	const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
+
+	useFocusEffect(
+		useCallback(() => {
+			setSearch('');
+		}, [])
+	);
+
 	const debouncedSearch = useDebounce(search);
 	const isSearching = debouncedSearch.length > 0;
 

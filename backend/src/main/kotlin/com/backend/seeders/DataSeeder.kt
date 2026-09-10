@@ -15,7 +15,7 @@ class DataSeeder(
     private val wishlistSeeder: WishlistSeeder,
     private val matchSeeder: MatchSeeder,
     @Value($$"${seeding.enabled}") private val seedingEnabled: Boolean,
-) : CommandLineRunner {
+): CommandLineRunner {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 

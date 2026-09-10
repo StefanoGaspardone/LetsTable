@@ -35,7 +35,7 @@ const HomeScreen = () => {
 
 	const registerMatchSheetRef = useRef<RegisterMatchSheetRef>(null);
 
-	const recentMatches = matchesData?.pages?.[0]?.content ?? [];
+	const recentMatches = (matchesData?.pages?.[0]?.content ?? []).filter(match => match.durationMinutes != null);
 	const latestMatch = recentMatches[0];
 	const otherRecentMatches = recentMatches.slice(1, 5);
 

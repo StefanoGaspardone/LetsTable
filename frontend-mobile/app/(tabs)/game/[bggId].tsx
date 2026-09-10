@@ -409,7 +409,7 @@ const GameDetailScreen = () => {
 													<View key = { index } className = 'flex-row items-center gap-2 rounded-xl bg-background px-3 py-2.5 border border-border'>
 														<Ruler size = { 14 } color = '#736E65'/>
 														<View className = 'flex-1'>
-															<Text className = 'text-sm text-foreground' numberOfLines = { 1 }>
+															<Text className = 'text-sm text-foreground'>
 																{sleeve.name ?? 'Componente'}
 															</Text>
 															{sleeve.height != null && sleeve.width != null && (

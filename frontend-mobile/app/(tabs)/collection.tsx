@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View, Pressable, FlatList, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Search, List, LayoutGrid, Plus } from 'lucide-react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -29,6 +29,12 @@ const CollectionScreen = () => {
 	const [selectedFilter, setSelectedFilter] = useState('all');
 	const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
 	const [search, setSearch] = useState('');
+
+	useFocusEffect(
+		useCallback(() => {
+			setSearch('');
+		}, [])
+	);
 	
 	const debouncedSearch = useDebounce(search);
 

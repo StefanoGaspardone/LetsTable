@@ -72,15 +72,23 @@ const PlayerAvatarStack = ({ players }: { players: FlatPlayer[] }) => {
 }
 
 const TeamDotStack = ({ teams }: { teams: FlatTeam[] }) => {
+	const visibleTeams = teams.slice(0, MAX_VISIBLE_AVATARS);
+	const remainingCount = teams.length - visibleTeams.length;
+
 	return (
-		<View className = 'flex-row items-center gap-1.5'>
-			{teams.map((team, index) => (
-				<View key = { index } className = 'flex-row items-center gap-1'>
-					<View style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, backgroundColor: team.color }} className = 'items-center justify-center'>
+		<View className = 'flex-row items-center'>
+			{visibleTeams.map((team, index) => (
+				<View key = { index } style = {{ marginLeft: index === 0 ? 0 : -AVATAR_OVERLAP, zIndex: visibleTeams.length - index }}>
+					<View style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, backgroundColor: team.color, borderWidth: 2, borderColor: '#F2EFE9' }} className = 'items-center justify-center'>
 						<Text className = 'text-xs font-bold text-white'>{team.name.charAt(0).toUpperCase()}</Text>
 					</View>
 				</View>
 			))}
+			{remainingCount > 0 && (
+				<View style = {{ marginLeft: -AVATAR_OVERLAP }} className = 'h-[26px] items-center justify-center rounded-full bg-secondary px-2'>
+					<Text className = 'text-xs font-semibold text-muted-foreground'>+{remainingCount}</Text>
+				</View>
+			)}
 		</View>
 	)
 }

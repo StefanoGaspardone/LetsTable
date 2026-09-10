@@ -7,7 +7,7 @@ import MeepleIllustration from '@/components/common/meeple-illustration';
 
 const WelcomeScreen = () => {
 	return (
-		<View className = 'flex-1 bg-background px-8'>
+		<View className = 'flex-1 bg-background px-8 pb-6'>
 			<View className = 'flex-1 items-center justify-center'>
 				<MeepleIllustration size = { 140 } color = '#C45135'/>
 				<Text className = 'mt-8 text-center font-display text-4xl text-foreground'>

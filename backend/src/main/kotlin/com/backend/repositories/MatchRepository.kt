@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.Instant
 import java.time.LocalDate
 import java.util.*
 
@@ -23,16 +24,18 @@ interface MatchRepository : JpaRepository<Match, UUID>, JpaSpecificationExecutor
 
     @Query(
         """
-        SELECT m.playedAt as playedAt, COUNT(DISTINCT m.id) as matchCount
-        FROM Match m
-        LEFT JOIN MatchPlayer mp ON mp.match = m
-        WHERE (m.createdBy.id = :userId OR mp.user.id = :userId)
-        AND m.playedAt BETWEEN :from AND :to
-        GROUP BY m.playedAt
-        ORDER BY m.playedAt ASC
-        """
+        SELECT CAST(m.played_at AT TIME ZONE 'UTC' AS date) AS "playedAt", COUNT(DISTINCT m.id) AS "matchCount"
+        FROM matches m
+        LEFT JOIN match_players mp ON mp.match_id = m.id
+        WHERE (m.created_by_user_id = :userId OR mp.user_id = :userId)
+        AND m.played_at >= :from
+        AND m.played_at < :to
+        GROUP BY CAST(m.played_at AT TIME ZONE 'UTC' AS date)
+        ORDER BY CAST(m.played_at AT TIME ZONE 'UTC' AS date) ASC
+        """,
+        nativeQuery = true,
     )
-    fun countMatchesByDay(@Param("userId") userId: UUID, @Param("from") from: LocalDate, @Param("to") to: LocalDate): List<MatchDayCountProjection>
+    fun countMatchesByDay(@Param("userId") userId: UUID, @Param("from") from: Instant, @Param("to") to: Instant): List<MatchDayCountProjection>
 
     @Query(
         """

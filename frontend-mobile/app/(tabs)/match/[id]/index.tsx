@@ -43,7 +43,9 @@ const renderPodiumAvatar = (entry: any, size: number) => {
 	if(isTeam) {
 		return (
 			<View style = {{ width: size, height: size, borderRadius: size / 2, backgroundColor: entry.color }} className = 'items-center justify-center'>
-				<Users size = { Math.round(size * 0.42) } color = '#FFFFFF'/>
+				<Text style = {{ fontSize: Math.round(size * 0.4) }} className = 'font-bold text-white'>
+					{entry.name.charAt(0).toUpperCase()}
+				</Text>
 			</View>
 		)
 	}
@@ -52,7 +54,7 @@ const renderPodiumAvatar = (entry: any, size: number) => {
 		<Image source = {{ uri: entry.avatarUrl }} style = {{ width: size, height: size, borderRadius: size / 2 }}/>
 	) : (
 		<View style = {{ width: size, height: size, borderRadius: size / 2 }} className = 'items-center justify-center bg-secondary'>
-			<User size = { Math.round(size * 0.42) } color = { entry.color ?? '#736E65' }/>
+			<User size = { Math.round(size * 0.42) } color = '#736E65'/>
 		</View>
 	)
 }
@@ -253,21 +255,21 @@ const MatchDetailScreen = () => {
                     </Text>
                 </View>
 				{!isInProgress && sortedEntries.length > 0 && (
-					<View className = 'mb-6 rounded-2xl border border-border bg-white p-4 shadow-sm'>
+					<View className = 'mb-2 rounded-2xl border border-border bg-white p-4 shadow-sm'>
 						<View className = 'flex-row items-end justify-center gap-2'>
 							{sortedEntries.length >= 3 && (
 								<View className = 'flex-1 items-center'>
 									{secondPlace ? (
 										<Pressable onPress = { () => { if('members' in secondPlace) { setSelectedTeam(secondPlace); teamMembersSheetRef.current?.present(); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
 											{renderPodiumAvatar(secondPlace, 52)}
-											<Text className = 'mt-2 text-center text-xs font-semibold text-foreground' numberOfLines = { 1 }>
+											<Text className = 'text-center text-sm font-semibold text-foreground' numberOfLines = { 1 }>
 												{secondPlace.name}
 											</Text>
 											{'score' in secondPlace && secondPlace.score != null && (
-												<Text className = 'text-sm font-bold text-muted-foreground'>{secondPlace.score}</Text>
+												<Text className = 'text-lg font-bold text-muted-foreground'>{secondPlace.score}</Text>
 											)}
 											<View style = {{ height: 44 }} className = 'mt-2 w-full items-center justify-center rounded-t-lg bg-slate-200'>
-												<Text className = 'text-lg font-black text-slate-500'>2</Text>
+												<Text className = 'text-lg font-black text-slate-500'>2°</Text>
 											</View>
 										</Pressable>
 									) : (
@@ -279,14 +281,14 @@ const MatchDetailScreen = () => {
 								{firstPlace && (
 									<Pressable onPress = { () => { if('members' in firstPlace) { setSelectedTeam(firstPlace); teamMembersSheetRef.current?.present(); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
 										{renderPodiumAvatar(firstPlace, 64)}
-										<Text className = 'mt-2 text-center text-sm font-bold text-foreground' numberOfLines = { 1 }>
+										<Text className = 'text-center text-base font-bold text-foreground' numberOfLines = { 1 }>
 											{firstPlace.name}
 										</Text>
 										{'score' in firstPlace && firstPlace.score != null && (
-											<Text className = 'text-base font-black text-amber-600'>{firstPlace.score}</Text>
+											<Text className = 'text-xl font-black text-amber-600'>{firstPlace.score}</Text>
 										)}
 										<View style = {{ height: 64 }} className = 'mt-2 w-full items-center justify-center rounded-t-lg bg-amber-500'>
-											<Text className = 'text-xl font-black text-white'>1</Text>
+											<Text className = 'text-xl font-black text-white'>1°</Text>
 										</View>
 									</Pressable>
 								)}
@@ -295,14 +297,14 @@ const MatchDetailScreen = () => {
 								<View className = 'flex-1 items-center'>
 									<Pressable onPress = { () => { if('members' in secondPlace!) { setSelectedTeam(secondPlace); teamMembersSheetRef.current?.present(); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
 										{renderPodiumAvatar(secondPlace!, 52)}
-										<Text className = 'mt-2 text-center text-xs font-semibold text-foreground' numberOfLines = { 1 }>
+										<Text className = 'text-center text-sm font-semibold text-foreground' numberOfLines = { 1 }>
 											{secondPlace!.name}
 										</Text>
 										{'score' in secondPlace! && secondPlace!.score != null && (
-											<Text className = 'text-sm font-bold text-muted-foreground'>{secondPlace!.score}</Text>
+											<Text className = 'text-lg font-bold text-muted-foreground'>{secondPlace!.score}</Text>
 										)}
 										<View style = {{ height: 44 }} className = 'mt-2 w-full items-center justify-center rounded-t-lg bg-slate-200'>
-											<Text className = 'text-lg font-black text-slate-500'>2</Text>
+											<Text className = 'text-lg font-black text-slate-500'>2°</Text>
 										</View>
 									</Pressable>
 								</View>
@@ -312,14 +314,14 @@ const MatchDetailScreen = () => {
 									{thirdPlace ? (
 										<Pressable onPress = { () => { if('members' in thirdPlace) { setSelectedTeam(thirdPlace); teamMembersSheetRef.current?.present(); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
 											{renderPodiumAvatar(thirdPlace, 52)}
-											<Text className = 'mt-2 text-center text-xs font-semibold text-foreground' numberOfLines = { 1 }>
+											<Text className = 'text-center text-sm font-semibold text-foreground' numberOfLines = { 1 }>
 												{thirdPlace.name}
 											</Text>
 											{'score' in thirdPlace && thirdPlace.score != null && (
-												<Text className = 'text-sm font-bold text-muted-foreground'>{thirdPlace.score}</Text>
+												<Text className = 'text-lg font-bold text-muted-foreground'>{thirdPlace.score}</Text>
 											)}
 											<View style = {{ height: 32 }} className = 'mt-2 w-full items-center justify-center rounded-t-lg bg-amber-800/20'>
-												<Text className = 'text-lg font-black text-amber-800'>3</Text>
+												<Text className = 'text-lg font-black text-amber-800'>3°</Text>
 											</View>
 										</Pressable>
 									) : (
@@ -338,33 +340,41 @@ const MatchDetailScreen = () => {
                         if(isTeam) {
 							return (
                                 <Pressable key = { entry.id } onPress = { () => { setSelectedTeam(entry); teamMembersSheetRef.current?.present(); } } className = 'flex-row items-center gap-3 rounded-xl border border-border bg-card p-2.5 active:scale-[0.98] active:opacity-75'>
-                                    {!isInProgress && <Text className = 'w-5 text-center text-xs font-bold text-muted-foreground'>{rank}°</Text>}
-                                    <View style = {{ width: 32, height: 32, borderRadius: 16, backgroundColor: entry.color }} className = 'items-center justify-center'>
-										<Users size = { 15 } color = '#FFFFFF'/>
+                                    {!isInProgress && (
+										<View className = 'h-7 w-7 items-center justify-center rounded-full bg-secondary'>
+											<Text className = 'text-sm font-bold text-muted-foreground'>{rank}°</Text>
+										</View>
+									)}
+                                   <View style = {{ width: 32, height: 32, borderRadius: 16, backgroundColor: entry.color }} className = 'items-center justify-center'>
+										<Text className = 'text-sm font-bold text-white'>{entry.name.charAt(0).toUpperCase()}</Text>
 									</View>
                                     <View className = 'flex-1'>
                                         <Text className = 'text-sm font-semibold text-foreground' numberOfLines = { 1 }>{entry.name}</Text>
                                         <Text className = 'text-xs text-muted-foreground'>{entry.members.length} membri</Text>
                                     </View>
-                                    {!isInProgress && entry.score != null && <Text className = 'text-sm font-bold text-foreground'>{entry.score}</Text>}
+                                    {!isInProgress && entry.score && (
+									<View className = 'h-8 w-8 items-center justify-center rounded-full bg-secondary'>
+										<Text className = 'text-sm font-bold text-muted-foreground'>{entry.score}</Text>
+									</View>
+								)}
                                     <ChevronRight size = { 16 } color = '#736E65'/>
                                 </Pressable>
                             )
                         }
 
                         return (
-                            <View key = { entry.id } className = 'flex-row items-center gap-3 rounded-xl border border-border bg-card p-2.5'>
+                            <View key = { entry.id } className = 'flex-row items-center gap-2 rounded-xl border border-border bg-card p-2.5'>
                                 {!isInProgress && (
-									<View className = 'h-6 w-6 items-center justify-center rounded-full bg-secondary'>
-										<Text className = 'text-xs font-bold text-muted-foreground'>{rank}</Text>
+									<View className = 'h-7 w-7 items-center justify-center rounded-full bg-secondary'>
+										<Text className = 'text-sm font-bold text-muted-foreground'>{rank}°</Text>
 									</View>
 								)}
-                                <View style = {{ backgroundColor: entry.color ?? '#DDD8CE' }} className = 'h-4 w-4 rounded-full'/>
+                                <View style = {{ backgroundColor: entry.color ?? '#DDD8CE' }} className = 'h-5 w-5 rounded-full border border-black'/>
                                 {'avatarUrl' in entry && entry.avatarUrl ? (
-                                    <Image source = {{ uri: entry.avatarUrl }} style = {{ width: 32, height: 32, borderRadius: 16 }}/>
+                                    <Image source = {{ uri: entry.avatarUrl }} style = {{ width: 36, height: 36, borderRadius: 100 }}/>
                                 ) : (
-                                    <View className = 'h-8 w-8 items-center justify-center rounded-full bg-secondary'>
-                                        <User size = { 16 } color = '#736E65'/>
+                                    <View className = 'h-9 w-9 items-center justify-center rounded-full bg-secondary'>
+                                        <User size = { 20 } color = '#736E65'/>
                                     </View>
                                 )}
                                 <Text className = 'flex-1 text-sm font-medium text-foreground' numberOfLines = { 1 }>
@@ -374,8 +384,8 @@ const MatchDetailScreen = () => {
 									)}
 								</Text>
 								{!isInProgress && (
-									<View className = 'h-6 w-6 items-center justify-center rounded-full bg-secondary'>
-										<Text className = 'text-xs font-bold text-muted-foreground'>{rank}</Text>
+									<View className = 'h-8 w-8 items-center justify-center rounded-full bg-secondary'>
+										<Text className = 'text-sm font-bold text-muted-foreground'>{entry.score}</Text>
 									</View>
 								)}
                             </View>
@@ -384,10 +394,10 @@ const MatchDetailScreen = () => {
                 </View>
 				{isCreator && isInProgress && (
                     <View className = 'mt-6 flex-row gap-3'>
-                        <Button className = 'h-12 flex-1 rounded-full' onPress = { () => router.push(`/match/${match.id}/finish`) }>
+                        <Button className = 'h-12 flex-1 rounded-full active:scale-[0.98]' onPress = { () => router.push(`/match/${match.id}/finish`) }>
                             <Text className = 'text-sm font-semibold text-primary-foreground'>Termina partita</Text>
                         </Button>
-                        <Pressable onPress = { handleDelete } disabled = { isDeleting } className = 'h-12 w-12 items-center justify-center rounded-full border border-[#C45135]/40 active:border-primary/90 active:bg-primary/90'>
+                        <Pressable onPress = { handleDelete } disabled = { isDeleting } className = 'h-12 w-12 items-center justify-center rounded-full border border-[#C45135]/40 active:border-primary/90 active:bg-primary/90 active:scale-[0.98]'>
                             {({ pressed }) =>
                                 isDeleting ? (
                                     <ActivityIndicator size = 'small' color = '#C45135'/>
@@ -399,27 +409,31 @@ const MatchDetailScreen = () => {
                     </View>
                 )}
             </ScrollView>
-            {isCreator && !isInProgress && (
-                <FabMenu
-                    actions = { [
-                        {
-                            label: 'Rigioca',
-                            icon: <Repeat size = { 18 } className = 'text-foreground'/>,
-                            onPress: handleReplay,
-                        },
-                        {
-                            label: 'Modifica',
-                            icon: <Pencil size = { 18 } className = 'text-foreground'/>,
-                            onPress: () => router.push(`/match/${match.id}/edit`),
-                        },
-                        {
-                            label: 'Elimina',
-                            icon: <Trash2 size = { 18 } className = 'text-foreground'/>,
-                            onPress: handleDelete,
-                        },
-                    ] }
-                />
-            )}
+            {!isInProgress && (
+				<FabMenu
+					actions = { [
+						{
+							label: 'Rigioca',
+							icon: <Repeat size = { 18 } className = 'text-foreground'/>,
+							onPress: handleReplay,
+						},
+						...(isCreator
+							? [
+									{
+										label: 'Modifica',
+										icon: <Pencil size = { 18 } className = 'text-foreground'/>,
+										onPress: () => router.push(`/match/${match.id}/edit`),
+									},
+									{
+										label: 'Elimina',
+										icon: <Trash2 size = { 18 } className = 'text-foreground'/>,
+										onPress: handleDelete,
+									},
+								]
+							: []),
+					] }
+				/>
+			)}
             <RegisterMatchSheet ref = { registerMatchSheetRef }/>
             <AppBottomSheet ref = { teamMembersSheetRef }>
 				<View className = 'px-4 pb-6 pt-2'>
@@ -427,7 +441,7 @@ const MatchDetailScreen = () => {
 						<>
 							<View className = 'mb-4 flex-row items-center gap-3'>
 								<View style = {{ width: 40, height: 40, borderRadius: 20, backgroundColor: selectedTeam.color }} className = 'items-center justify-center'>
-									<Users size = { 18 } color = '#FFFFFF'/>
+									<Text className = 'text-base font-bold text-white'>{selectedTeam.name.charAt(0).toUpperCase()}</Text>
 								</View>
 								<Text className = 'font-display text-lg text-foreground'>{selectedTeam.name}</Text>
 							</View>

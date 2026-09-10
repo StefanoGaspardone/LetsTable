@@ -235,8 +235,8 @@ data class MatchDTO(
     @field:Schema(description = "Whether players are grouped into teams")
     val isTeamBased: Boolean,
 
-    @field:Schema(description = "Date the match was played")
-    val playedAt: LocalDate,
+    @field:Schema(description = "Timestamp of when the match was played")
+    val playedAt: Instant,
 
     @field:Schema(description = "Where the match was played")
     val place: String?,

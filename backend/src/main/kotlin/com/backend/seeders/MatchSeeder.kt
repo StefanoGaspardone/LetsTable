@@ -6,7 +6,9 @@ import com.backend.repositories.MatchRepository
 import com.backend.repositories.MatchTeamRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.time.Instant
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 @Component
 class MatchSeeder(
@@ -22,14 +24,18 @@ class MatchSeeder(
 
         try {
             val (marco, anna, luca, elena) = users
-            val (arkNova, seti, _, twilight) = games
+
+            val gamesByBggId = games.associateBy { it.bggId }
+            val arkNova = gamesByBggId[342942L] ?: games[0]
+            val seti = gamesByBggId[397598L] ?: games[1]
+            val twilight = gamesByBggId[233078L] ?: games[3]
 
             val individualMatch = matchRepository.save(
                 Match(
                     game = arkNova,
                     createdBy = marco,
                     isTeamBased = false,
-                    playedAt = LocalDate.now().minusDays(2),
+                    playedAt = Instant.now().minus(2, ChronoUnit.DAYS).minus(3, ChronoUnit.HOURS),
                     place = "Casa di Marco",
                     notes = "Prima partita ad Ark Nova, molto tirata fino alla fine.",
                     durationMinutes = 95,
@@ -46,7 +52,7 @@ class MatchSeeder(
                     game = twilight,
                     createdBy = luca,
                     isTeamBased = true,
-                    playedAt = LocalDate.now().minusDays(5),
+                    playedAt = Instant.now().minus(5, ChronoUnit.DAYS).minus(6, ChronoUnit.HOURS),
                     place = "Ludoteca centrale",
                     notes = "Partita epica durata quasi tutto il pomeriggio.",
                     durationMinutes = 420,
@@ -56,9 +62,17 @@ class MatchSeeder(
             val teamA = matchTeamRepository.save(
                 MatchTeam(match = teamMatch, name = "Impero", color = "#C45135", score = 12, isWinner = true, startingPosition = 1)
             )
-
             val teamB = matchTeamRepository.save(
                 MatchTeam(match = teamMatch, name = "Ribelli", color = "#3B6E91", score = 8, isWinner = false, startingPosition = 2)
+            )
+            val teamC = matchTeamRepository.save(
+                MatchTeam(match = teamMatch, name = "Mercanti", color = "#5C8A4F", score = 6, isWinner = false, startingPosition = 3)
+            )
+            val teamD = matchTeamRepository.save(
+                MatchTeam(match = teamMatch, name = "Nomadi", color = "#B08968", score = 9, isWinner = false, startingPosition = 4)
+            )
+            val teamE = matchTeamRepository.save(
+                MatchTeam(match = teamMatch, name = "Federazione", color = "#7C5CBF", score = 5, isWinner = false, startingPosition = 5)
             )
 
             listOf(
@@ -66,6 +80,10 @@ class MatchSeeder(
                 MatchPlayer(match = teamMatch, team = teamA, user = luca),
                 MatchPlayer(match = teamMatch, team = teamB, user = anna),
                 MatchPlayer(match = teamMatch, team = teamB, user = null, guestName = "Paolo"),
+                MatchPlayer(match = teamMatch, team = teamC, user = elena),
+                MatchPlayer(match = teamMatch, team = teamD, user = null, guestName = "Francesca"),
+                MatchPlayer(match = teamMatch, team = teamD, user = null, guestName = "Davide"),
+                MatchPlayer(match = teamMatch, team = teamE, user = null, guestName = "Sara"),
             ).forEach { matchPlayerRepository.save(it) }
 
             val inProgressMatch = matchRepository.save(
@@ -73,7 +91,7 @@ class MatchSeeder(
                     game = seti,
                     createdBy = anna,
                     isTeamBased = false,
-                    playedAt = LocalDate.now(),
+                    playedAt = Instant.now(),
                     place = null,
                     notes = null,
                     durationMinutes = null,
