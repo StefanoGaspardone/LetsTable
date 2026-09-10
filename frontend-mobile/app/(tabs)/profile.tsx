@@ -1,11 +1,13 @@
 import { View } from 'react-native';
 
-import { Text } from '@/components/ui/text';
+import ScreenHeader from '@/components/common/screen-header';
+import ComingSoon from '@/components/common/cooming-soon';
 
 const ProfileScreen = () => {
 	return (
-		<View className = 'flex-1 items-center justify-center bg-background'>
-			<Text className = 'text-foreground'>Profile - in arrivo</Text>
+		<View className = 'flex-1 bg-background'>
+			<ScreenHeader title = 'Profilo'/>
+			<ComingSoon title = 'Profilo in arrivo' subtitle = "Qui potrai gestire le tue informazioni, le impostazioni e le preferenze dell'account."/>
 		</View>
 	)
 }

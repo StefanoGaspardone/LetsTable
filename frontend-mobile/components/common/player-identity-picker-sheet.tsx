@@ -3,7 +3,7 @@ import { View, Pressable, TextInput } from 'react-native';
 import { BottomSheetModal, BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { Search, User as UserIcon, Check, Plus, ChevronLeft } from 'lucide-react-native';
+import { Search, User as UserIcon, Plus, ChevronLeft, X } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -71,6 +71,14 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
         );
     }
 
+    const removeSelected = (identity: PickedIdentity) => {
+        setSelected(prev =>
+            identity.userId
+                ? prev.filter(s => s.userId !== identity.userId)
+                : prev.filter(s => s.guestName !== identity.guestName)
+        );
+    }
+
     const handleAddGuest = () => {
         const trimmed = guestNameInput.trim();
         if(!trimmed) return;
@@ -108,34 +116,49 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
                     </View>
                 </View>
                 {selected.length > 0 && (
-                    <View className = 'mb-3 flex-row flex-wrap gap-1.5'>
+                    <View className = 'mb-3 flex-row flex-wrap'>
                         {selected.map((identity, index) => (
-                            <View key = { index } className = 'flex-row items-center gap-1 rounded-full bg-[#C45135]/10 px-2.5 py-1'>
-                                <Text className = 'text-xs font-medium text-[#C45135]'>{identity.displayName}</Text>
+                            <View key = { index } style = {{ width: '25%', padding: 4 }}>
+                                <Pressable onPress = { () => removeSelected(identity) } className = 'items-center gap-1.5 rounded-2xl border border-[#C45135]/40 bg-[#C45135]/5 py-3 active:scale-[0.98] active:opacity-75'>
+                                    <View className = 'relative'>
+                                        {identity.avatarUrl ? (
+                                            <Image source = {{ uri: identity.avatarUrl }} style = {{ width: 56, height: 56, borderRadius: 28 }}/>
+                                        ) : (
+                                            <View className = 'h-14 w-14 items-center justify-center rounded-full bg-secondary border border-primary'>
+                                                <UserIcon size = { 22 } color = '#736E65'/>
+                                            </View>
+                                        )}
+                                        <View className = 'absolute -right-1 -top-1 h-5 w-5 items-center justify-center rounded-full bg-[#C45135]'>
+                                            <X size = { 12 } color = '#FFFFFF' strokeWidth = { 3 }/>
+                                        </View>
+                                    </View>
+                                    <Text className = 'text-center text-sm font-medium text-foreground' numberOfLines = { 1 }>
+                                        {identity.displayName}
+                                    </Text>
+                                </Pressable>
                             </View>
                         ))}
                     </View>
                 )}
-                <BottomSheetFlatList data = { visibleUsers } keyExtractor = { item => item.id }
+                <BottomSheetFlatList data = { visibleUsers } keyExtractor = { item => item.id } numColumns = { 4 }
                     renderItem  = { ({ item }) => {
                         const selectedState = isSelected(item.id);
 
                         return (
-                            <Pressable onPress = { () => toggleUser(item.id, item.username, item.avatarUrl) } className = 'flex-row items-center gap-3 border-b border-border py-2.5'>
-                                <View className = { `h-5 w-5 items-center justify-center rounded-md border-2 ${selectedState ? 'border-[#C45135] bg-[#C45135]' : 'border-border'}` }>
-                                    {selectedState && <Check size = { 12 } color = '#FFFFFF' strokeWidth = { 3 }/>}
-                                </View>
-                                <View style = {{ width: 36, height: 36 }} className = 'overflow-hidden rounded-full bg-secondary'>
+                            <View style = {{ width: '25%', padding: 4 }}>
+                                <Pressable onPress = { () => toggleUser(item.id, item.username, item.avatarUrl) } className = { `items-center gap-1.5 rounded-2xl border py-3 active:scale-[0.98] active:opacity-75 ${selectedState ? 'border-[#C45135] bg-[#C45135]/5' : 'border-border bg-card'}` }>
                                     {item.avatarUrl ? (
-                                        <Image source = {{ uri: item.avatarUrl }} style = {{ width: 36, height: 36 }}/>
+                                        <Image source = {{ uri: item.avatarUrl }} style = {{ width: 56, height: 56, borderRadius: 28 }}/>
                                     ) : (
-                                        <View className = 'h-full w-full items-center justify-center'>
-                                            <UserIcon size = { 16 } color = '#736E65'/>
+                                        <View className = 'h-14 w-14 items-center justify-center rounded-full bg-secondary'>
+                                            <UserIcon size = { 22 } color = '#736E65'/>
                                         </View>
                                     )}
-                                </View>
-                                <Text className = 'flex-1 text-sm text-foreground'>{item.username}</Text>
-                            </Pressable>
+                                    <Text className = 'text-center text-sm font-medium text-foreground' numberOfLines = { 1 }>
+                                        {item.username}
+                                    </Text>
+                                </Pressable>
+                            </View>
                         )
                     }}
                     contentContainerStyle = {{ paddingBottom: 12 }} ListEmptyComponent = { !isLoading && debouncedSearch.length > 0 ? (<Text className = 'py-4 text-center text-sm text-muted-foreground'>Nessun utente trovato</Text> ) : null }

@@ -47,6 +47,7 @@ const GameDetailScreen = () => {
 	const contentHeight = useSharedValue(0);
 	const layoutHeight = useSharedValue(0);
 	const inlineTabBarY = useSharedValue(0);
+	const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState(insets.top + 56);
 
 	const queryClient = useQueryClient();
 	const { showToast } = useToast();
@@ -64,7 +65,7 @@ const GameDetailScreen = () => {
 	const [shouldFetchExpansions, setShouldFetchExpansions] = useState(false);
 	const [shouldFetchRules, setShouldFetchRules] = useState(false);
 
-	const HEADER_HEIGHT = insets.top + 56;
+	const HEADER_HEIGHT = measuredHeaderHeight;
 	const COLLAPSE_DISTANCE = IMAGE_HEIGHT - SHEET_OVERLAP - HEADER_HEIGHT;
 
 	const headerProgress = useDerivedValue(() =>
@@ -255,7 +256,7 @@ const GameDetailScreen = () => {
 					<SegmentedControl options = { TABS.map(t => ({ value: t.key, label: t.label })) } selected = { activeTab } onSelect = { handleTabPress }/>
 				</View>
 			</Animated.View>
-			<View style = {{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+			<View style = {{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }} onLayout = { e => setMeasuredHeaderHeight(e.nativeEvent.layout.height) }>
 				<ScreenHeader title = 'Dettagli Gioco' titleStyle = { titleColorStyle } renderBackground = { <Animated.View style = { [{ flex: 1 }, headerBackgroundStyle] } className = 'bg-background'/> } leftElement = { <BackButton progress = { headerProgress }/> }/>
 			</View>
 			<Animated.ScrollView ref = { mainScrollRef } onScroll = { scrollHandler } scrollEventThrottle = { 16 } contentContainerStyle = {{ paddingBottom: 60 }} onLayout = { e => { layoutHeight.value = e.nativeEvent.layout.height; } } onContentSizeChange = { (_, height) => { contentHeight.value = height; } }>

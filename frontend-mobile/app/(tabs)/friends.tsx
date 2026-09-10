@@ -1,11 +1,13 @@
 import { View } from 'react-native';
 
-import { Text } from '@/components/ui/text';
+import ScreenHeader from '@/components/common/screen-header';
+import ComingSoon from '@/components/common/cooming-soon';
 
 const FriendsScreen = () => {
 	return (
-		<View className = 'flex-1 items-center justify-center bg-background'>
-			<Text className = 'text-foreground'>Amici - in arrivo</Text>
+		<View className = 'flex-1 bg-background'>
+			<ScreenHeader title = 'Amici'/>
+			<ComingSoon title = 'Amici in arrivo' subtitle = 'Presto potrai aggiungere amici, vedere le loro collezioni e sfidarli a nuove partite.'/>
 		</View>
 	)
 }
