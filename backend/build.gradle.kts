@@ -96,7 +96,11 @@ jacoco {
 tasks.withType<Test> {
     useJUnitPlatform()
     systemProperty("spring.profiles.active", "test")
-    jvmArgs("-Xshare:off")
+    jvmArgs(
+        "-Xshare:off",
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        "--add-opens=java.base/java.util=ALL-UNNAMED"
+    )
     finalizedBy(tasks.jacocoTestReport)
 }
 
