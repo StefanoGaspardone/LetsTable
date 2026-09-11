@@ -5,9 +5,10 @@
 		"module": "es2022",
 		"strict": true,
 		"baseUrl": ".",
+		"types": ["jest"],
 		"paths": {
 			"@/*": ["*"]
 		}
 	},
-	"include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "nativewind-env.d.ts"]
+	"include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "nativewind-env.d.ts", "test/**/*.ts", "test/**/*.tsx"]
 }

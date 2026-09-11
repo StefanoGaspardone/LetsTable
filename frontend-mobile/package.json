@@ -8,9 +8,9 @@
 		"ios": "expo start -c --ios",
 		"web": "expo start -c --web",
 		"clean": "rm -rf .expo node_modules",
-		"test": "",
-		"test:run": "",
-		"test:coverage": ""
+		"test": "jest --watch",
+		"test:run": "jest",
+		"test:coverage": "jest --coverage"
 	},
 	"dependencies": {
 		"@expo-google-fonts/dm-serif-display": "^0.4.2",
@@ -89,8 +89,13 @@
 	},
 	"devDependencies": {
 		"@babel/core": "^7.26.0",
+		"@testing-library/react-native": "^14.0.1",
+		"@types/jest": "^30.0.0",
 		"@types/react": "~19.2.10",
 		"babel-preset-expo": "^57.0.10",
+		"jest": "^30.5.1",
+		"jest-expo": "^57.0.5",
+		"jest-junit": "^17.0.0",
 		"prettier": "^3.8.3",
 		"prettier-plugin-tailwindcss": "^0.8.0",
 		"typescript": "~6.0.3"
