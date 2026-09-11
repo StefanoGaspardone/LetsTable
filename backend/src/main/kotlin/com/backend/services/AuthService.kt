@@ -44,7 +44,7 @@ class AuthService(
     private val secureRandom = SecureRandom()
 
     companion object {
-        private const val DUMMY_PASSWORD_HASH = "\$2a\$10\$7EqJtq98hPqEX7fNZaFWoOhi5uac.Hs2HL8YXtxjKmlXXNzDmSw6C"
+        private const val DUMMY_PASSWORD_HASH = $$"$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5uac.Hs2HL8YXtxjKmlXXNzDmSw6C"
     }
 
     @Transactional
@@ -64,7 +64,7 @@ class AuthService(
             }
 
             val user = User(
-                username = normalizedUsername,
+                username = request.username,
                 email = normalizedEmail,
                 passwordHash = passwordEncoder.encode(request.password.trim())!!,
                 accountStatus = AccountStatus.INACTIVE,

@@ -14,6 +14,7 @@ class DataSeeder(
     private val collectionSeeder: CollectionSeeder,
     private val wishlistSeeder: WishlistSeeder,
     private val matchSeeder: MatchSeeder,
+    private val friendSeeder: FriendSeeder,
     @Value($$"${seeding.enabled}") private val seedingEnabled: Boolean,
 ): CommandLineRunner {
 
@@ -41,6 +42,9 @@ class DataSeeder(
             collectionSeeder.seed(users, games)
             wishlistSeeder.seed(users, games)
             matchSeeder.seed(users, games)
+            friendSeeder.seed(users)
+
+            logger.info("\n\t[INFO] [demo_data_seeder][run] Demo data seeding completed")
 
             logger.info("\n\t[INFO] [demo_data_seeder][run] Demo data seeding completed")
         } catch(e: Exception) {

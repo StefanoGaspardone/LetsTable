@@ -128,7 +128,7 @@ const CollectionScreen = () => {
 							<ActivityIndicator/>
 						</View>
 					) : (
-						<FlatList className = 'mt-3' key = { viewMode } data = { items } keyExtractor = { item => item.id } numColumns = { viewMode === 'grid' ? 2 : 1 } columnWrapperStyle = { viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined } contentContainerStyle = {{ paddingBottom: 100, flexGrow: 1 }}
+						<FlatList className = 'mt-3' key = { viewMode } data = { items } keyExtractor = { item => item.id } numColumns = { viewMode === 'grid' ? 2 : 1 } columnWrapperStyle = { viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined } contentContainerStyle = { viewMode === 'grid' ? { paddingBottom: 100, flexGrow: 1 } : { paddingHorizontal: 16, paddingBottom: 100, flexGrow: 1 } } ItemSeparatorComponent = { viewMode === 'list' ? () => <View className = 'h-2'/> : undefined }
 							renderItem = { ({ item }) =>
 								viewMode === 'list' ? (
 									<GameListItem game = { item.game } onPress = { () => router.push(`/game/${item.game.bggId}`) }/>

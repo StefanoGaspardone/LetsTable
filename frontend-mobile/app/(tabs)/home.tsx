@@ -12,7 +12,7 @@ import LatestMatchCard from '@/components/home/latest-match-card';
 import WishlistMiniCard from '@/components/home/wishlist-mini-card';
 import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/register-match-sheet';
 import WinRateCard from '@/components/home/win-rate-card';
-import RecentMatchCard from '@/components/home/recent-match-card';
+import MatchListItem from '@/components/common/match-list-item';
 
 import { useHomeStats } from '@/hooks/use-stat';
 import { useMatches } from '@/hooks/use-match';
@@ -71,7 +71,7 @@ const HomeScreen = () => {
 					<View className = 'gap-2'>
 						<LatestMatchCard match = { latestMatch }/>
 						{otherRecentMatches.map(match => (
-							<RecentMatchCard key = { match.id } match = { match }/>
+							<MatchListItem key = { match.id } match = { match }/>
 						))}
 					</View>
 				) : (

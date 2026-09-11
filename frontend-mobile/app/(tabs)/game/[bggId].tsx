@@ -321,7 +321,7 @@ const GameDetailScreen = () => {
 													<View className = 'flex-1 items-center px-2'>
 														<View className = 'mb-1 flex-row items-center gap-1.5'>
 															<Users size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-															<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+															<Text className = 'font-sans-bold text-xs uppercase tracking-wider text-muted-foreground'>
 																Giocatori
 															</Text>
 														</View>
@@ -335,7 +335,7 @@ const GameDetailScreen = () => {
 													<View className = 'flex-1 items-center px-2'>
 														<View className = 'mb-1 flex-row items-center gap-1.5'>
 															<Clock size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-															<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+															<Text className = 'font-sans-bold text-xs uppercase tracking-wider text-muted-foreground'>
 																Durata
 															</Text>
 														</View>
@@ -353,7 +353,7 @@ const GameDetailScreen = () => {
 													<View className = 'flex-1 items-center px-2'>
 														<View className = 'mb-1 flex-row items-center gap-1.5'>
 															<Calendar size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-															<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+															<Text className = 'font-sans-bold text-xs uppercase tracking-wider text-muted-foreground'>
 																Anno
 															</Text>
 														</View>
@@ -365,7 +365,7 @@ const GameDetailScreen = () => {
 													<View className = 'flex-1 items-center px-2'>
 														<View className = 'mb-1 flex-row items-center gap-1.5'>
 															<Gauge size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
-															<Text className = 'font-sans-bold text-[11px] uppercase tracking-wider text-muted-foreground'>
+															<Text className = 'font-sans-bold text-xs uppercase tracking-wider text-muted-foreground'>
 																Difficoltà
 															</Text>
 														</View>

@@ -11,7 +11,7 @@ const ICONS: Record<string, typeof Home> = {
 	collection: Dices,
 	matches: Trophy,
 	friends: Users,
-	profile: User,
+	'profile/index': User,
 }
 
 const LABELS: Record<string, string> = {
@@ -19,7 +19,7 @@ const LABELS: Record<string, string> = {
 	collection: 'Giochi',
 	matches: 'Partite',
 	friends: 'Amici',
-	profile: 'Profilo',
+	'profile/index': 'Profilo',
 }
 
 const PILL_WIDTH = 52;

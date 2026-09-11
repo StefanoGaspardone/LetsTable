@@ -83,7 +83,7 @@ const MatchesScreen = () => {
 						<ActivityIndicator color = '#C45135'/>
 					</View>
 				) : (
-					<FlatList data = { matches } keyExtractor = { item => item.id } renderItem = { ({ item }) => <MatchListItem match = { item }/> } contentContainerStyle = {{ paddingTop: 12, paddingBottom: 100, flexGrow: 1 }} onEndReached = { () => { if(hasNextPage && !isFetchingNextPage) fetchNextPage(); } } onEndReachedThreshold = { 0.4 }
+					<FlatList data = { matches } keyExtractor = { item => item.id } renderItem = { ({ item }) => <MatchListItem match = { item }/> } contentContainerStyle = {{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 100, flexGrow: 1 }} ItemSeparatorComponent = { () => <View className = 'h-2'/> } onEndReached = { () => { if(hasNextPage && !isFetchingNextPage) fetchNextPage(); } } onEndReachedThreshold = { 0.4 }
 						ListFooterComponent = {
 							isFetchingNextPage ? (
 								<View className = 'py-6'>
@@ -135,7 +135,7 @@ const MatchesScreen = () => {
 										<ActivityIndicator color = '#C45135'/>
 									</View>
 								) : selectedDayMatches && selectedDayMatches.content.length > 0 ? (
-									<FlatList data = { selectedDayMatches.content } keyExtractor = { item => item.id } renderItem = { ({ item }) => <MatchListItem match = { item }/> } contentContainerStyle = {{ paddingBottom: 100 }}/>
+									<FlatList data = { selectedDayMatches.content } keyExtractor = { item => item.id } renderItem = { ({ item }) => <MatchListItem match = { item }/> } contentContainerStyle = {{ paddingHorizontal: 16, paddingBottom: 100 }} ItemSeparatorComponent = { () => <View className = 'h-2'/> }/>
 								) : (
 									<Text className = 'py-4 text-center text-sm text-muted-foreground'>
 										Nessuna partita in questo giorno

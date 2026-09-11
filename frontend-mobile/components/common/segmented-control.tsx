@@ -7,6 +7,7 @@ import { Text } from '@/components/ui/text';
 export interface SegmentOption {
 	value: string;
 	label: string;
+	badge?: number;
 }
 
 interface SegmentedControlProps {
@@ -42,10 +43,15 @@ const SegmentedControl = ({ options, selected, onSelect }: SegmentedControlProps
 				const isSelected = option.value === selected;
 
 				return (
-					<Pressable key = { option.value } onPress = { () => onSelect(option.value) } className = 'flex-1 items-center py-2'>
+					<Pressable key = { option.value } onPress = { () => onSelect(option.value) } className = 'flex-1 flex-row items-center justify-center gap-1.5 py-2'>
 						<Text className = { `text-sm font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}` }>
 							{option.label}
 						</Text>
+						{!!option.badge && option.badge > 0 && (
+							<View className = 'h-5 min-w-5 items-center justify-center rounded-full bg-[#C45135] px-1'>
+								<Text className = 'text-xs font-bold text-white'>{option.badge > 99 ? '99+' : option.badge}</Text>
+							</View>
+						)}
 					</Pressable>
 				)
 			})}

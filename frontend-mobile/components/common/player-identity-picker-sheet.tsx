@@ -1,7 +1,6 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { View, Pressable, TextInput } from 'react-native';
 import { BottomSheetModal, BottomSheetFlatList } from '@gorhom/bottom-sheet';
-import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { Search, User as UserIcon, Plus, ChevronLeft, X } from 'lucide-react-native';
 
@@ -10,8 +9,7 @@ import { Button } from '@/components/ui/button';
 import AppBottomSheet from '@/components/common/app-bottom-sheet';
 
 import { useDebounce } from '@/hooks/use-debounce';
-
-import { searchUser } from '@/api/user';
+import { useUserSearch } from '@/hooks/use-user';
 
 export interface PickedIdentity {
 	userId: string | null;
@@ -53,11 +51,7 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
         dismiss: () => sheetRef.current?.dismiss(),
     }));
 
-    const { data: users, isLoading } = useQuery({
-        queryKey: ['users', 'search', debouncedSearch],
-        queryFn: () => searchUser(debouncedSearch),
-        enabled: debouncedSearch.length > 0,
-    });
+    const { data: users, isLoading } = useUserSearch(debouncedSearch);
 
     const visibleUsers = (users ?? []).filter(u => !excludeUserIds.includes(u.id));
 

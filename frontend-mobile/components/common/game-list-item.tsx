@@ -14,9 +14,13 @@ interface GameListItemProps {
 
 const GameListItem = ({ game, onPress, showRank }: GameListItemProps) => {
 	return (
-		<Pressable onPress = { onPress } className = 'flex-row items-center gap-3 border-b border-border px-4 py-3 active:bg-[#DDD8CE]'>
-			{game.rank != null && showRank && (
-				<Text className = 'font-display text-lg text-primary'>{game.rank}</Text>
+		<Pressable onPress = { onPress } className = 'flex-row items-center gap-3 rounded-2xl border border-border bg-card p-2 active:scale-[0.98] active:opacity-75'>
+			{showRank && (
+				<View style = {{ width: 28 }} className = 'items-center justify-center'>
+					{game.rank != null && (
+						<Text className = 'font-display text-lg text-primary'>{game.rank}</Text>
+					)}
+				</View>
 			)}
 			<View style = {{ width: 56, height: 56 }} className = 'overflow-hidden rounded-xl bg-secondary'>
 				{game.thumbnailUrl ? (
@@ -27,7 +31,7 @@ const GameListItem = ({ game, onPress, showRank }: GameListItemProps) => {
 					</View>
 				)}
 			</View>
-			<View className = 'flex-1 gap-1'>
+			<View className = 'flex-1 justify-center gap-1'>
 				<View className = 'flex-row items-center justify-between gap-2'>
 					<View className = 'flex-1 flex-row items-center gap-1.5'>
 						<Text className = 'shrink text-base font-semibold text-foreground' numberOfLines = { 2 }>
@@ -69,7 +73,9 @@ const GameListItem = ({ game, onPress, showRank }: GameListItemProps) => {
 					)}
 				</View>
 			</View>
-			<ChevronRight size = { 18 } color = '#736E65'/>
+			<View className = 'justify-center'>
+				<ChevronRight size = { 18 } color = '#736E65'/>
+			</View>
 		</Pressable>
 	)
 }
