@@ -4,9 +4,8 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
-import org.testcontainers.containers.GenericContainer
+import org.testcontainers.containers.MinIOContainer
 import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.utility.DockerImageName
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -18,11 +17,9 @@ abstract class AbstractIntegrationTest {
             .withUsername("test")
             .withPassword("test")
 
-        private val minio: GenericContainer<*> = GenericContainer(DockerImageName.parse("minio/minio:RELEASE.2024-01-16T16-07-38Z"))
-            .withEnv("MINIO_ROOT_USER", "test-key")
-            .withEnv("MINIO_ROOT_PASSWORD", "test-secret")
-            .withCommand("server /data")
-            .withExposedPorts(9000)
+        private val minio: MinIOContainer = MinIOContainer("minio/minio:latest")
+            .withUserName("test-key")
+            .withPassword("test-secret")
 
         init {
             postgres.start()
@@ -36,9 +33,9 @@ abstract class AbstractIntegrationTest {
             registry.add("spring.datasource.username") { postgres.username }
             registry.add("spring.datasource.password") { postgres.password }
 
-            registry.add("minio.url") { "http://${minio.host}:${minio.getMappedPort(9000)}" }
-            registry.add("minio.access-key") { "test-key" }
-            registry.add("minio.secret-key") { "test-secret" }
+            registry.add("minio.url") { minio.s3URL }
+            registry.add("minio.access-key") { minio.userName }
+            registry.add("minio.secret-key") { minio.password }
         }
     }
 }
