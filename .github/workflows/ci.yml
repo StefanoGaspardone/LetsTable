@@ -64,7 +64,7 @@ jobs:
           name: backend-coverage
           path: backend/build/reports/jacoco/test/jacocoTestReport.xml
 
-# ============================================================
+  # ============================================================
   # 3. FRONTEND TESTS & COVERAGE
   # ============================================================
   frontend-test:
@@ -80,7 +80,6 @@ jobs:
         uses: pnpm/action-setup@v3
         with:
           version: 9
-          run_install: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -90,16 +89,13 @@ jobs:
           cache-dependency-path: frontend-mobile/pnpm-lock.yaml
 
       - name: Install Frontend Dependencies
-        run: pnpm install --frozen-lockfile
-        working-directory: frontend-mobile
+        run: pnpm install --frozen-lockfile --dir frontend-mobile
 
       - name: Type Check (TypeScript)
-        run: pnpm exec tsc --noEmit
-        working-directory: frontend-mobile
+        run: pnpm --filter ./frontend-mobile exec tsc --noEmit
 
       - name: Run Frontend Coverage Script
-        run: pnpm test:coverage
-        working-directory: frontend-mobile
+        run: pnpm --filter ./frontend-mobile test:coverage
 
       - name: Upload Frontend Coverage Artifact
         uses: actions/upload-artifact@v4
