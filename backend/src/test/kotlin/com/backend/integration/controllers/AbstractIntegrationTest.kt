@@ -17,7 +17,7 @@ abstract class AbstractIntegrationTest {
             .withUsername("test")
             .withPassword("test")
 
-        private val minio: MinIOContainer = MinIOContainer("minio/minio:latest")
+        private val minio: MinIOContainer = MinIOContainer("quay.io/minio/minio:latest")
             .withUserName("test-key")
             .withPassword("test-secret")
 
