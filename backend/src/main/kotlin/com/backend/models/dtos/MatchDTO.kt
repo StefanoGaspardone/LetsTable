@@ -278,7 +278,7 @@ data class MatchDTO(
 }
 
 @Schema(description = "Number of matches played on a specific day")
-data class MatchDayCountResponse(
+data class MatchDayCountDTO(
     @field:Schema(description = "The day")
     val date: LocalDate,
 

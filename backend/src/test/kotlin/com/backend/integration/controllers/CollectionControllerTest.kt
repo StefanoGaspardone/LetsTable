@@ -19,7 +19,6 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.time.Instant
-import java.time.LocalDate
 import java.util.*
 
 @AutoConfigureMockMvc
@@ -84,7 +83,7 @@ class CollectionControllerTest : AbstractIntegrationTest() {
             Match(
                 game = game,
                 createdBy = user,
-                playedAt = LocalDate.now(),
+                playedAt = Instant.now(),
             )
         )
 
@@ -93,7 +92,7 @@ class CollectionControllerTest : AbstractIntegrationTest() {
             Match(
                 game = game,
                 createdBy = creator,
-                playedAt = LocalDate.now(),
+                playedAt = Instant.now(),
             )
         )
         matchPlayerRepository.saveAndFlush(

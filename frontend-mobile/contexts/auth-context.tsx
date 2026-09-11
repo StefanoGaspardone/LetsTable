@@ -13,6 +13,7 @@ interface AuthContextValue {
 	isAuthenticated: boolean;
 	login: (accessToken: string, refreshToken: string, user: User) => Promise<void>;
 	logout: () => Promise<void>;
+	updateUser: (updatedUser: User) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -69,11 +70,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		}
 	}
 
+	const updateUser = (updatedUser: User) => {
+		setUser(updatedUser);
+	}
+
 	return (
-		<AuthContext.Provider value = {{ user, isLoading, isAuthenticated: !!user, login, logout }}>
+		<AuthContext.Provider value = {{ user, isLoading, isAuthenticated: !!user, login, logout, updateUser }}>
 			{children}
 		</AuthContext.Provider>
-	);
+	)
 }
 
 export function useAuth() {

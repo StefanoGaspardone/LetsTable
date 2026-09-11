@@ -4,4 +4,10 @@ export interface User {
 	email: string;
 	role: string;
 	avatarUrl: string;
+	notificationsEnabled: boolean;
+}
+
+export interface UpdateUserPayload {
+	username?: string | null;
+	notificationsEnabled?: boolean | null;
 }

@@ -36,6 +36,14 @@ class Match(
     @Column(name = "notes", nullable = true, columnDefinition = "TEXT")
     var notes: String? = null,
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "match_expansions",
+        joinColumns = [JoinColumn(name = "match_id")],
+        inverseJoinColumns = [JoinColumn(name = "expansion_game_id")],
+    )
+    var expansionsUsed: MutableSet<Game> = mutableSetOf(),
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),

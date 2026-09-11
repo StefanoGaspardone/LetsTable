@@ -3,6 +3,7 @@ package com.backend.controllers
 import com.backend.models.dtos.DeleteAccountDTO
 import com.backend.models.dtos.UserDTO
 import com.backend.exceptions.ErrorResponse
+import com.backend.models.dtos.UpdateUserRequest
 import com.backend.security.CurrentUser
 import com.backend.services.UserService
 import io.swagger.v3.oas.annotations.Operation
@@ -12,6 +13,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
+import org.simpleframework.xml.core.Validate
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
@@ -84,4 +86,29 @@ class UserController(
     )
     @GetMapping("/me")
     fun getMyProfile(): UserDTO = userService.getUserById(CurrentUser.id())
+
+    @Operation(summary = "Update my profile", description = "Update the current user's username and/or notifications preference. Fields left null in the request are not modified.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Updated profile",
+                content = [Content(schema = Schema(implementation = UserDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "409", description = "Conflict - Username already taken",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "UsernameTakenExample",
+                        summary = "Username already taken example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"Username already taken: marco2\"}"
+                    )]
+                )]
+            ),
+        ]
+    )
+    @PatchMapping("/me")
+    fun updateMyProfile(@Validate @RequestBody request: UpdateUserRequest): UserDTO =
+        userService.updateProfile(CurrentUser.id(), request)
 }

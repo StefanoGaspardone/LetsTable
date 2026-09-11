@@ -6,6 +6,8 @@ import com.backend.models.entities.*
 import com.backend.models.projections.MatchDayCountProjection
 import com.backend.repositories.*
 import com.backend.services.MatchService
+import io.mockk.every
+import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -17,12 +19,15 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
+import org.mockito.kotlin.any as kAny
+import org.mockito.kotlin.eq as kEq
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.Mockito.*
 import org.mockito.junit.jupiter.MockitoExtension
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.util.*
@@ -80,6 +85,7 @@ class MatchServiceTest {
 
         @Test
         fun `should create individual match successfully`() {
+            val today = LocalDate.now()
             val playerRequest = MatchIndividualPlayerRequest(
                 userId = userId,
                 guestName = null,
@@ -91,7 +97,7 @@ class MatchServiceTest {
             val request = CreateMatchRequest(
                 gameId = gameId,
                 isTeamBased = false,
-                playedAt = LocalDate.now(),
+                playedAt = today,
                 place = "Home",
                 notes = "Fun game",
                 durationMinutes = 60,
@@ -104,7 +110,7 @@ class MatchServiceTest {
                 game = sampleGame,
                 createdBy = sampleUser,
                 isTeamBased = false,
-                playedAt = request.playedAt,
+                playedAt = Instant.now(),
                 place = request.place,
                 notes = request.notes,
                 durationMinutes = 60
@@ -132,6 +138,7 @@ class MatchServiceTest {
 
         @Test
         fun `should create team-based match successfully`() {
+            val today = LocalDate.now()
             val identityRequest = MatchPlayerIdentityRequest(userId = userId, guestName = null)
             val teamRequest = CreateMatchTeamRequest(
                 name = "Team A",
@@ -144,7 +151,7 @@ class MatchServiceTest {
             val request = CreateMatchRequest(
                 gameId = gameId,
                 isTeamBased = true,
-                playedAt = LocalDate.now(),
+                playedAt = today,
                 place = "Club",
                 notes = "Tournament",
                 durationMinutes = 120,
@@ -157,7 +164,7 @@ class MatchServiceTest {
                 game = sampleGame,
                 createdBy = sampleUser,
                 isTeamBased = true,
-                playedAt = request.playedAt,
+                playedAt = Instant.now(),
                 place = request.place,
                 notes = request.notes,
                 durationMinutes = 120
@@ -363,20 +370,22 @@ class MatchServiceTest {
 
         @Test
         fun `should update match and calculate duration when durationMinutes is null`() {
+            val today = LocalDate.now()
+            val now = Instant.now()
             val existingMatch = Match(
                 id = matchId,
                 game = sampleGame,
                 createdBy = sampleUser,
                 isTeamBased = false,
-                playedAt = LocalDate.now().minusDays(1),
-                createdAt = Instant.now().minusSeconds(3600),
+                playedAt = now.minus(Duration.ofDays(1)),
+                createdAt = now.minusSeconds(3600),
                 durationMinutes = null
             )
 
             val updateRequest = UpdateMatchRequest(
                 gameId = gameId,
                 isTeamBased = false,
-                playedAt = LocalDate.now(),
+                playedAt = today,
                 place = "Updated Place",
                 notes = "Updated Notes",
                 teams = null,
@@ -409,7 +418,7 @@ class MatchServiceTest {
                 game = sampleGame,
                 createdBy = sampleUser,
                 isTeamBased = false,
-                playedAt = LocalDate.now()
+                playedAt = Instant.now()
             )
 
             val updateRequest = UpdateMatchRequest(
@@ -445,6 +454,87 @@ class MatchServiceTest {
             assertThatThrownBy { matchService.updateMatch(userId, matchId, updateRequest) }
                 .isInstanceOf(MatchNotFoundException::class.java)
         }
+
+        @Test
+        fun `should throw InvalidMatchTeamsException when update payload is invalid for team-based match`() {
+            val existingMatch = Match(id = matchId, game = sampleGame, createdBy = sampleUser, playedAt = Instant.now())
+
+            val updateRequest = UpdateMatchRequest(
+                gameId = gameId,
+                isTeamBased = true,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                teams = emptyList(),
+                players = null
+            )
+
+            `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
+
+            assertThatThrownBy { matchService.updateMatch(userId, matchId, updateRequest) }
+                .isInstanceOf(InvalidMatchTeamsException::class.java)
+        }
+
+        @Test
+        fun `should throw InvalidMatchPlayersException when update payload is invalid for individual match`() {
+            val existingMatch = Match(id = matchId, game = sampleGame, createdBy = sampleUser, playedAt = Instant.now())
+
+            val updateRequest = UpdateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                teams = null,
+                players = emptyList()
+            )
+
+            `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
+
+            assertThatThrownBy { matchService.updateMatch(userId, matchId, updateRequest) }
+                .isInstanceOf(InvalidMatchPlayersException::class.java)
+        }
+
+        @Test
+        fun `should throw InvalidMatchPlayerIdentityException when a player identity is invalid on update`() {
+            val existingMatch = Match(id = matchId, game = sampleGame, createdBy = sampleUser, playedAt = Instant.now())
+
+            val updateRequest = UpdateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                teams = null,
+                players = listOf(MatchIndividualPlayerRequest(userId, "GuestName", "Red", 0, false, 1))
+            )
+
+            `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
+
+            assertThatThrownBy { matchService.updateMatch(userId, matchId, updateRequest) }
+                .isInstanceOf(InvalidMatchPlayerIdentityException::class.java)
+        }
+
+        @Test
+        fun `should throw GameNotFoundException when updating match with non-existent game`() {
+            val existingMatch = Match(id = matchId, game = sampleGame, createdBy = sampleUser, playedAt = Instant.now())
+
+            val updateRequest = UpdateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                teams = null,
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1))
+            )
+
+            `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
+            `when`(gameRepository.findById(gameId)).thenReturn(Optional.empty())
+
+            assertThatThrownBy { matchService.updateMatch(userId, matchId, updateRequest) }
+                .isInstanceOf(GameNotFoundException::class.java)
+        }
     }
 
     @Nested
@@ -453,7 +543,7 @@ class MatchServiceTest {
 
         @Test
         fun `should delete match successfully`() {
-            val match = Match(id = matchId, game = sampleGame, createdBy = sampleUser, playedAt = LocalDate.now())
+            val match = Match(id = matchId, game = sampleGame, createdBy = sampleUser, playedAt = Instant.now())
 
             `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(match))
 
@@ -464,7 +554,7 @@ class MatchServiceTest {
 
         @Test
         fun `should throw NotMatchCreatorException when deleting match created by another user`() {
-            val match = Match(id = matchId, game = sampleGame, createdBy = sampleUser, playedAt = LocalDate.now())
+            val match = Match(id = matchId, game = sampleGame, createdBy = sampleUser, playedAt = Instant.now())
 
             `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(match))
 
@@ -493,7 +583,7 @@ class MatchServiceTest {
                 id = matchId,
                 game = sampleGame,
                 createdBy = sampleUser,
-                playedAt = LocalDate.now(),
+                playedAt = Instant.now(),
                 durationMinutes = 45,
                 isTeamBased = false
             )
@@ -513,7 +603,7 @@ class MatchServiceTest {
                 id = matchId,
                 game = sampleGame,
                 createdBy = sampleUser,
-                playedAt = LocalDate.now(),
+                playedAt = Instant.now(),
                 durationMinutes = null
             )
 
@@ -529,7 +619,7 @@ class MatchServiceTest {
                 id = matchId,
                 game = sampleGame,
                 createdBy = sampleUser,
-                playedAt = LocalDate.now(),
+                playedAt = Instant.now(),
                 durationMinutes = 60,
                 isTeamBased = true
             )
@@ -579,7 +669,7 @@ class MatchServiceTest {
                 id = matchId,
                 game = sampleGame,
                 createdBy = sampleUser,
-                playedAt = LocalDate.now(),
+                playedAt = Instant.now(),
                 durationMinutes = 30,
                 isTeamBased = false
             )
@@ -622,20 +712,77 @@ class MatchServiceTest {
         fun `should return counts per day for month`() {
             val year = 2026
             val month = 3
-            val fromDate = LocalDate.of(2026, 3, 1)
-            val toDate = LocalDate.of(2026, 3, 31)
+            val sampleDate = LocalDate.of(2026, 3, 15)
 
-            val dayProjection = mock(MatchDayCountProjection::class.java)
-            `when`(dayProjection.playedAt).thenReturn(LocalDate.of(2026, 3, 15))
-            `when`(dayProjection.matchCount).thenReturn(3L)
+            val dayProjection = mockk<MatchDayCountProjection>()
+            every { dayProjection.playedAt } returns sampleDate
+            every { dayProjection.matchCount } returns 3L
 
-            `when`(matchRepository.countMatchesByDay(userId, fromDate, toDate)).thenReturn(listOf(dayProjection))
+            `when`(matchRepository.countMatchesByDay(kAny(), kAny(), kAny()))
+                .thenReturn(listOf(dayProjection))
 
             val result = matchService.getMatchCalendar(userId, year, month)
 
             assertThat(result).hasSize(1)
-            assertThat(result[0].date).isEqualTo(LocalDate.of(2026, 3, 15))
+            assertThat(result[0].date).isEqualTo(sampleDate)
             assertThat(result[0].count).isEqualTo(3L)
+        }
+    }
+
+    @Nested
+    @DisplayName("getRecentGames")
+    inner class GetRecentGamesTests {
+
+        @Test
+        fun `should return distinct games from recent matches, most recent first`() {
+            val otherGame = Game(id = UUID.randomUUID(), bggId = 999L, name = "Ark Nova")
+
+            val match1 = Match(id = UUID.randomUUID(), game = sampleGame, createdBy = sampleUser, playedAt = Instant.now(), durationMinutes = 60)
+            val match2 = Match(id = UUID.randomUUID(), game = sampleGame, createdBy = sampleUser, playedAt = Instant.now(), durationMinutes = 60)
+            val match3 = Match(id = UUID.randomUUID(), game = otherGame, createdBy = sampleUser, playedAt = Instant.now(), durationMinutes = 60)
+
+            `when`(matchRepository.findRecentForUser(kEq(userId), kAny())).thenReturn(listOf(match1, match2, match3))
+
+            val result = matchService.getRecentGames(userId)
+
+            assertThat(result).hasSize(2)
+            assertThat(result.map { it.id }).containsExactly(sampleGame.id, otherGame.id)
+        }
+
+        @Test
+        fun `should return empty list when user has no matches`() {
+            `when`(matchRepository.findRecentForUser(kEq(userId), kAny())).thenReturn(emptyList())
+
+            val result = matchService.getRecentGames(userId)
+
+            assertThat(result).isEmpty()
+        }
+    }
+
+    @Nested
+    @DisplayName("getWinStats")
+    inner class GetWinStatsTests {
+
+        @Test
+        fun `should return total matches and wins for user`() {
+            `when`(matchRepository.countCompletedMatchesForUser(userId)).thenReturn(10L)
+            `when`(matchRepository.countWonMatchesForUser(userId)).thenReturn(4L)
+
+            val result = matchService.getWinStats(userId)
+
+            assertThat(result.totalMatches).isEqualTo(10L)
+            assertThat(result.totalWins).isEqualTo(4L)
+        }
+
+        @Test
+        fun `should return zero stats when user has no matches`() {
+            `when`(matchRepository.countCompletedMatchesForUser(userId)).thenReturn(0L)
+            `when`(matchRepository.countWonMatchesForUser(userId)).thenReturn(0L)
+
+            val result = matchService.getWinStats(userId)
+
+            assertThat(result.totalMatches).isEqualTo(0L)
+            assertThat(result.totalWins).isEqualTo(0L)
         }
     }
 }

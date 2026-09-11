@@ -1,11 +1,11 @@
 package com.backend.controllers
 
 import com.backend.models.dtos.CreateMatchRequest
-import com.backend.models.dtos.MatchDayCountResponse
 import com.backend.models.dtos.MatchDTO
 import com.backend.models.dtos.PageDTO
 import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.GameDTO
+import com.backend.models.dtos.MatchDayCountDTO
 import com.backend.models.dtos.MatchWinStatsDTO
 import com.backend.models.dtos.UpdateMatchRequest
 import com.backend.security.CurrentUser
@@ -236,7 +236,7 @@ class MatchController(
         value = [
             ApiResponse(
                 responseCode = "200", description = "Ok - Match counts per day",
-                content = [Content(schema = Schema(implementation = MatchDayCountResponse::class))]
+                content = [Content(schema = Schema(implementation = MatchDayCountDTO::class))]
             ),
         ]
     )
@@ -244,7 +244,7 @@ class MatchController(
     fun getMatchCalendar(
         @Parameter(description = "Calendar year", example = "2026") @RequestParam year: Int,
         @Parameter(description = "Calendar month, 1-12", example = "8") @RequestParam month: Int,
-    ): List<MatchDayCountResponse> =
+    ): List<MatchDayCountDTO> =
         matchService.getMatchCalendar(CurrentUser.id(), year, month)
 
     @Operation(summary = "Recent games", description = "Distinct games played in the user's last 10 matches (created or participated), most recent first. Not paginated.")

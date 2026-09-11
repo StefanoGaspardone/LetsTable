@@ -26,12 +26,13 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.Duration
 import java.time.Instant
-import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.UUID
 
 @AutoConfigureMockMvc
-class MatchControllerTest : AbstractIntegrationTest() {
+class MatchControllerTest: AbstractIntegrationTest() {
 
     @Autowired
     private lateinit var mockMvc: MockMvc
@@ -75,7 +76,7 @@ class MatchControllerTest : AbstractIntegrationTest() {
         game: Game,
         createdBy: User,
         isTeamBased: Boolean = false,
-        playedAt: LocalDate = LocalDate.now(),
+        playedAt: Instant = Instant.now(),
         durationMinutes: Int? = 30,
     ): Match =
         matchRepository.saveAndFlush(
@@ -120,10 +121,11 @@ class MatchControllerTest : AbstractIntegrationTest() {
         fun `should create an individual match with a registered user and a guest`() {
             val creator = persistUser(username = "creator")
             val game = persistGame()
+            val now = Instant.now()
             val payload = """
                 {
                     "gameId": "${game.id}",
-                    "playedAt": "${LocalDate.now()}",
+                    "playedAt": "$now",
                     "isTeamBased": false,
                     "players": [
                         { "userId": "${creator.id}", "color": "red", "score": 10, "isWinner": true },
@@ -151,10 +153,11 @@ class MatchControllerTest : AbstractIntegrationTest() {
             val creator = persistUser(username = "creator")
             val teammate = persistUser(username = "teammate")
             val game = persistGame()
+            val now = Instant.now()
             val payload = """
                 {
                     "gameId": "${game.id}",
-                    "playedAt": "${LocalDate.now()}",
+                    "playedAt": "$now",
                     "isTeamBased": true,
                     "teams": [
                         {
@@ -194,7 +197,7 @@ class MatchControllerTest : AbstractIntegrationTest() {
             val payload = """
                 {
                     "gameId": "${game.id}",
-                    "playedAt": "${LocalDate.now()}",
+                    "playedAt": "${Instant.now()}",
                     "isTeamBased": true
                 }
             """.trimIndent()
@@ -214,7 +217,7 @@ class MatchControllerTest : AbstractIntegrationTest() {
             val payload = """
                 {
                     "gameId": "${game.id}",
-                    "playedAt": "${LocalDate.now()}",
+                    "playedAt": "${Instant.now()}",
                     "isTeamBased": false,
                     "players": [
                         { "userId": "${creator.id}", "guestName": "Also a guest", "color": "red" }
@@ -236,7 +239,7 @@ class MatchControllerTest : AbstractIntegrationTest() {
             val payload = """
                 {
                     "gameId": "${UUID.randomUUID()}",
-                    "playedAt": "${LocalDate.now()}",
+                    "playedAt": "${Instant.now()}",
                     "isTeamBased": false,
                     "players": [{ "userId": "${creator.id}", "color": "red" }]
                 }
@@ -269,7 +272,7 @@ class MatchControllerTest : AbstractIntegrationTest() {
             val payload = """
                 {
                     "gameId": "${game.id}",
-                    "playedAt": "${LocalDate.now()}",
+                    "playedAt": "${Instant.now()}",
                     "place": "New Place",
                     "isTeamBased": false,
                     "players": [{ "guestName": "New Guest", "color": "green", "score": 99, "isWinner": true }]
@@ -300,7 +303,7 @@ class MatchControllerTest : AbstractIntegrationTest() {
             val payload = """
                 {
                     "gameId": "${game.id}",
-                    "playedAt": "${LocalDate.now()}",
+                    "playedAt": "${Instant.now()}",
                     "isTeamBased": false,
                     "players": [{ "userId": "${otherUser.id}", "color": "red" }]
                 }
@@ -321,7 +324,7 @@ class MatchControllerTest : AbstractIntegrationTest() {
             val payload = """
                 {
                     "gameId": "${game.id}",
-                    "playedAt": "${LocalDate.now()}",
+                    "playedAt": "${Instant.now()}",
                     "isTeamBased": false,
                     "players": [{ "userId": "${user.id}", "color": "red" }]
                 }
@@ -344,7 +347,7 @@ class MatchControllerTest : AbstractIntegrationTest() {
             val payload = """
                 {
                     "gameId": "${game.id}",
-                    "playedAt": "${LocalDate.now()}",
+                    "playedAt": "${Instant.now()}",
                     "isTeamBased": false,
                     "players": [{ "userId": "${creator.id}", "color": "red" }]
                 }
@@ -551,14 +554,18 @@ class MatchControllerTest : AbstractIntegrationTest() {
         fun `should filter by date range`() {
             val user = persistUser()
             val game = persistGame()
-            persistMatch(game, user, playedAt = LocalDate.now().minusDays(10))
-            persistMatch(game, user, playedAt = LocalDate.now())
+            val now = Instant.now()
+            persistMatch(game, user, playedAt = now.minus(Duration.ofDays(10)))
+            persistMatch(game, user, playedAt = now)
+
+            val fromDate = now.minus(Duration.ofDays(1)).atZone(ZoneOffset.UTC).toLocalDate().toString()
+            val toDate = now.plus(Duration.ofDays(1)).atZone(ZoneOffset.UTC).toLocalDate().toString()
 
             mockMvc.perform(
                 get("/api/v1/matches")
                     .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .param("fromDate", LocalDate.now().minusDays(1).toString())
-                    .param("toDate", LocalDate.now().toString())
+                    .param("fromDate", fromDate)
+                    .param("toDate", toDate)
             )
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.content.length()").value(1))
@@ -603,22 +610,27 @@ class MatchControllerTest : AbstractIntegrationTest() {
         fun `should return match counts grouped by day within the month`() {
             val user = persistUser()
             val game = persistGame()
-            val today = LocalDate.now().withDayOfMonth(5)
+            val today = Instant.now()
+            val tomorrow = today.plus(Duration.ofDays(1))
+
             persistMatch(game, user, playedAt = today)
             persistMatch(game, user, playedAt = today)
-            persistMatch(game, user, playedAt = today.plusDays(1))
+            persistMatch(game, user, playedAt = tomorrow)
+
+            val targetYear = today.atZone(ZoneOffset.UTC).year
+            val targetMonth = today.atZone(ZoneOffset.UTC).monthValue
 
             mockMvc.perform(
                 get("/api/v1/matches/calendar")
                     .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .param("year", today.year.toString())
-                    .param("month", today.monthValue.toString())
+                    .param("year", targetYear.toString())
+                    .param("month", targetMonth.toString())
             )
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].date").value(today.toString()))
+                .andExpect(jsonPath("$[0].date").value(today.atZone(ZoneOffset.UTC).toLocalDate().toString()))
                 .andExpect(jsonPath("$[0].count").value(2))
-                .andExpect(jsonPath("$[1].date").value(today.plusDays(1).toString()))
+                .andExpect(jsonPath("$[1].date").value(tomorrow.atZone(ZoneOffset.UTC).toLocalDate().toString()))
                 .andExpect(jsonPath("$[1].count").value(1))
         }
 
@@ -640,8 +652,12 @@ class MatchControllerTest : AbstractIntegrationTest() {
         fun `should not include matches outside the requested month`() {
             val user = persistUser()
             val game = persistGame()
-            persistMatch(game, user, playedAt = LocalDate.of(2026, 1, 15))
-            persistMatch(game, user, playedAt = LocalDate.of(2026, 2, 15))
+
+            val janMatchTime = Instant.parse("2026-01-15T12:00:00Z")
+            val febMatchTime = Instant.parse("2026-02-15T12:00:00Z")
+
+            persistMatch(game, user, playedAt = janMatchTime)
+            persistMatch(game, user, playedAt = febMatchTime)
 
             mockMvc.perform(
                 get("/api/v1/matches/calendar")
@@ -651,6 +667,191 @@ class MatchControllerTest : AbstractIntegrationTest() {
             )
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.length()").value(1))
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // GET /api/v1/matches/recent-games
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("GET /api/v1/matches/recent-games")
+    inner class GetRecentGamesTests {
+
+        @Test
+        fun `should return distinct games from the user's last matches, most recent first`() {
+            val user = persistUser()
+            val gameA = persistGame(name = "Game A")
+            val gameB = persistGame(name = "Game B")
+            val now = Instant.now()
+
+            persistMatch(gameA, user, playedAt = now.minus(Duration.ofDays(2)))
+            persistMatch(gameA, user, playedAt = now.minus(Duration.ofDays(1)))
+            persistMatch(gameB, user, playedAt = now)
+
+            mockMvc.perform(
+                get("/api/v1/matches/recent-games")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].name").value("Game B"))
+                .andExpect(jsonPath("$[1].name").value("Game A"))
+        }
+
+        @Test
+        fun `should include matches where the user is a player but not the creator`() {
+            val creator = persistUser(username = "creator")
+            val participant = persistUser(username = "participant")
+            val game = persistGame()
+            val match = persistMatch(game, creator)
+            persistIndividualPlayer(match, user = participant)
+
+            mockMvc.perform(
+                get("/api/v1/matches/recent-games")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(participant))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.length()").value(1))
+        }
+
+        @Test
+        fun `should return an empty list when the user has no matches`() {
+            val user = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/matches/recent-games")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.length()").value(0))
+        }
+
+        @Test
+        fun `should not be paginated`() {
+            val user = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/matches/recent-games")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content").doesNotExist())
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // GET /api/v1/matches/win-stats
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("GET /api/v1/matches/win-stats")
+    inner class GetWinStatsTests {
+
+        @Test
+        fun `should count individual match wins`() {
+            val user = persistUser()
+            val game = persistGame()
+            val wonMatch = persistMatch(game, user)
+            val lostMatch = persistMatch(game, user)
+
+            val winPlayer = MatchPlayer(match = wonMatch, user = user, color = "red", isWinner = true)
+            matchPlayerRepository.saveAndFlush(winPlayer)
+
+            val losePlayer = MatchPlayer(match = lostMatch, user = user, color = "blue", isWinner = false)
+            matchPlayerRepository.saveAndFlush(losePlayer)
+
+            val allPlayers = matchPlayerRepository.findAll()
+            println("DEBUG: saved players = ${allPlayers.map { "user=${it.user?.id} isWinner=${it.isWinner} match=${it.match.id}" }}")
+
+            val directCount = matchRepository.countWonMatchesForUser(user.id!!)
+            println("DEBUG: direct repository count = $directCount")
+
+            mockMvc.perform(
+                get("/api/v1/matches/win-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.totalMatches").value(2))
+                .andExpect(jsonPath("$.totalWins").value(1))
+        }
+
+        @Test
+        fun `should count a win when the user's team wins`() {
+            val user = persistUser()
+            val game = persistGame()
+            val match = persistMatch(game, user)
+            val winningTeam = matchTeamRepository.saveAndFlush(MatchTeam(match = match, color = "red", isWinner = true))
+            matchPlayerRepository.saveAndFlush(MatchPlayer(match = match, team = winningTeam, user = user))
+
+            mockMvc.perform(
+                get("/api/v1/matches/win-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.totalMatches").value(1))
+                .andExpect(jsonPath("$.totalWins").value(1))
+        }
+
+        @Test
+        fun `should not count a win when the user's team loses`() {
+            val user = persistUser()
+            val game = persistGame()
+            val match = persistMatch(game, user)
+            val losingTeam = matchTeamRepository.saveAndFlush(MatchTeam(match = match, color = "red", isWinner = false))
+            matchPlayerRepository.saveAndFlush(MatchPlayer(match = match, team = losingTeam, user = user))
+
+            mockMvc.perform(
+                get("/api/v1/matches/win-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.totalMatches").value(1))
+                .andExpect(jsonPath("$.totalWins").value(0))
+        }
+
+        @Test
+        fun `should not count in-progress matches`() {
+            val user = persistUser()
+            val game = persistGame()
+            val inProgressMatch = persistMatch(game, user, durationMinutes = null)
+            matchPlayerRepository.saveAndFlush(MatchPlayer(match = inProgressMatch, user = user, color = "red", isWinner = true))
+
+            mockMvc.perform(
+                get("/api/v1/matches/win-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.totalMatches").value(0))
+                .andExpect(jsonPath("$.totalWins").value(0))
+        }
+
+        @Test
+        fun `should not count matches only created by the user without being a player`() {
+            val user = persistUser()
+            val game = persistGame()
+            persistMatch(game, user)
+
+            mockMvc.perform(
+                get("/api/v1/matches/win-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.totalMatches").value(1))
+                .andExpect(jsonPath("$.totalWins").value(0))
+        }
+
+        @Test
+        fun `should return zero stats for a user with no matches`() {
+            val user = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/matches/win-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.totalMatches").value(0))
+                .andExpect(jsonPath("$.totalWins").value(0))
         }
     }
 }

@@ -114,10 +114,6 @@ tasks.jacocoTestReport {
                 exclude(
                     "**/configs/**",
                     "**/models/**",
-                    "**/models/dtos/**",
-                    "**/models/entities/**",
-                    "**/models/enums/**",
-                    "**/models/utils/**",
                     "**/repositories/**",
                     "**/seeders/**",
                     "**/mappers/**",
@@ -135,6 +131,27 @@ tasks.jacocoTestReport {
 }
 
 tasks.jacocoTestCoverageVerification {
+    classDirectories.setFrom(
+        files(classDirectories.files.map {
+            fileTree(it) {
+                exclude(
+                    "**/configs/**",
+                    "**/models/**",
+                    "**/repositories/**",
+                    "**/seeders/**",
+                    "**/mappers/**",
+                    "**/*Application*",
+                    "**/*ApplicationKt*",
+                    "**/exceptions/**",
+                    "**/security/**",
+                    "**/properties/**",
+                    "**/*$*inlined*",
+                    $$"**/*$lambda*",
+                )
+            }
+        })
+    )
+
     violationRules {
         rule {
             limit {

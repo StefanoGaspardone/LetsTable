@@ -4,7 +4,7 @@ import com.backend.exceptions.*
 import com.backend.models.dtos.CreateMatchRequest
 import com.backend.models.dtos.GameDTO
 import com.backend.models.dtos.MatchDTO
-import com.backend.models.dtos.MatchDayCountResponse
+import com.backend.models.dtos.MatchDayCountDTO
 import com.backend.models.dtos.MatchIndividualPlayerRequest
 import com.backend.models.dtos.MatchPlayerDTO
 import com.backend.models.dtos.MatchPlayerIdentityRequest
@@ -228,7 +228,7 @@ class MatchService(
     }
 
     @Transactional
-    fun getMatchCalendar(userId: UUID, year: Int, month: Int): List<MatchDayCountResponse> {
+    fun getMatchCalendar(userId: UUID, year: Int, month: Int): List<MatchDayCountDTO> {
         logger.debug("\n\t[DEBUG] [match_service][get_match_calendar] Retrieving calendar\n\tuserId={}\n\tyear={}\n\tmonth={}", userId, year, month)
 
         try {
@@ -237,7 +237,7 @@ class MatchService(
             val to = yearMonth.atEndOfMonth().plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant()
 
             val counts = matchRepository.countMatchesByDay(userId, from, to)
-                .map { MatchDayCountResponse(date = it.playedAt, count = it.matchCount) }
+                .map { MatchDayCountDTO(date = it.playedAt, count = it.matchCount) }
 
             logger.info("\n\t[INFO] [match_service][get_match_calendar] Retrieved {} days with matches for user {}", counts.size, userId)
             return counts

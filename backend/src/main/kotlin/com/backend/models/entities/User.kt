@@ -32,6 +32,9 @@ class User(
     @Column(name = "account_status", nullable = false, length = 20)
     var accountStatus: AccountStatus = AccountStatus.INACTIVE,
 
+    @Column(name = "notifications_enabled", nullable = false)
+    var notificationsEnabled: Boolean = true,
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),

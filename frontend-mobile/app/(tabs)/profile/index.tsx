@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { View, ScrollView, Pressable, Switch } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
@@ -14,9 +14,10 @@ import { useTheme } from '@/contexts/theme-context';
 
 import { useHomeStats } from '@/hooks/use-stat';
 import { useFriends } from '@/hooks/use-friend';
+import { useUpdateMe } from '@/hooks/use-user';
 
 const ProfileScreen = () => {
-	const { user, logout } = useAuth();
+	const { user, logout, updateUser } = useAuth();
 	const { confirm } = useConfirmDialog();
 	const { themePreference } = useTheme();
 	const themeSheetRef = useRef<ThemePickerSheetRef>(null);
@@ -24,7 +25,12 @@ const ProfileScreen = () => {
 	const { totalMatches, totalWins } = useHomeStats();
 	const { data: friends } = useFriends();
 
-	const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+	const updateMe = useUpdateMe(updateUser);
+	const notificationsEnabled = user?.notificationsEnabled ?? true;
+
+	const handleToggleNotifications = (value: boolean) => {
+		updateMe.mutate({ notificationsEnabled: value });
+	}
 
 	const initial = user?.username ? user.username.charAt(0).toUpperCase() : '?';
 
@@ -48,17 +54,17 @@ const ProfileScreen = () => {
 		<View className = 'flex-1 bg-background'>
 			<ScreenHeader title = 'Profilo'/>
 			<ScrollView showsVerticalScrollIndicator = { false } contentContainerStyle = {{ paddingBottom: 40 }} className = 'flex-1 px-4 pt-2'>
-				<View className = 'items-center justify-center py-4'>
+				<View className = 'items-center justify-center pb-4'>
 					<View className = 'relative mb-3'>
-						<View className = 'h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-border/40 bg-secondary shadow-sm'>
+						<View className = 'h-28 w-28 items-center justify-center overflow-hidden rounded-full border-2 border-border/50 bg-secondary shadow-sm'>
 							{user?.avatarUrl ? (
-								<Image source = {{ uri: user.avatarUrl }} style = {{ width: 96, height: 96 }} contentFit = 'cover'/>
+								<Image source = {{ uri: user?.avatarUrl }} style = {{ width: 112, height: 112 }} contentFit = 'cover'/>
 							) : (
-								<Text className = 'text-3xl font-bold text-muted-foreground'>{initial}</Text>
+								<Text className = 'text-4xl font-bold text-muted-foreground'>{initial}</Text>
 							)}
 						</View>
-						<Pressable className = 'absolute bottom-0 right-0 h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-[#C45135] shadow-sm active:opacity-80'>
-							<Camera size = { 14 } color = '#FFFFFF'/>
+						<Pressable onPress = { () => {} } className = 'absolute bottom-0 right-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-[#C45135] shadow-md active:opacity-80'>
+							<Camera size = { 16 } color = '#FFFFFF'/>
 						</Pressable>
 					</View>
 					<Text className = 'text-xl font-bold text-foreground'>{user?.username}</Text>
@@ -131,7 +137,7 @@ const ProfileScreen = () => {
 							</View>
 							<Text className = 'text-sm font-medium text-foreground'>Notifiche Push</Text>
 						</View>
-						<Switch value = { notificationsEnabled } onValueChange = { setNotificationsEnabled } trackColor = {{ false: '#DDD8CE', true: '#F2EFE9' }} thumbColor = { notificationsEnabled ? '#C45135' : '#f4f3f4' } ios_backgroundColor = '#DDD8CE'/>
+						<Switch value = { notificationsEnabled } onValueChange = { handleToggleNotifications } trackColor = {{ false: '#DDD8CE', true: '#F2EFE9' }} thumbColor = { notificationsEnabled ? '#C45135' : '#f4f3f4' } ios_backgroundColor = '#DDD8CE'/>
 					</View>
 					<Pressable onPress = { () => themeSheetRef.current?.present() } className = 'flex-row items-center justify-between p-3.5 active:bg-secondary/40'>
 						<View className = 'flex-row items-center gap-3'>

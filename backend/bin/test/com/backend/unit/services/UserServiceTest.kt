@@ -1,10 +1,15 @@
 package com.backend.unit.services
 
 import com.backend.exceptions.UserNotFoundException
+import com.backend.exceptions.UsernameAlreadyTakenException
+import com.backend.models.dtos.UpdateUserRequest
 import com.backend.models.entities.*
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.UserRole
-import com.backend.repositories.*
+import com.backend.repositories.MatchPlayerRepository
+import com.backend.repositories.MatchRepository
+import com.backend.repositories.RefreshTokenRepository
+import com.backend.repositories.UserRepository
 import com.backend.services.UserService
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -14,16 +19,12 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
-import org.mockito.Mockito.never
-import org.mockito.Mockito.times
-import org.mockito.Mockito.verify
+import org.mockito.Mockito.*
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import java.time.Instant
-import java.time.LocalDate
-import java.util.Optional
-import java.util.UUID
+import java.util.*
 
 @ExtendWith(MockitoExtension::class)
 class UserServiceTest {
@@ -70,7 +71,7 @@ class UserServiceTest {
         id = id,
         game = buildGame(),
         createdBy = createdBy,
-        playedAt = LocalDate.now(),
+        playedAt = Instant.now(),
     )
 
     private fun buildMatchPlayer(match: Match, user: User? = null, guestName: String? = null) = MatchPlayer(
@@ -416,6 +417,143 @@ class UserServiceTest {
             assertThatThrownBy {
                 userService.deleteAccount(currentUserId)
             }.isInstanceOf(RuntimeException::class.java)
+
+            verify(userRepository, never()).save(any())
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // updateProfile
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("updateProfile")
+    inner class UpdateProfileTests {
+
+        @Test
+        fun `should update only username when only username is provided`() {
+            val user = buildUser(id = currentUserId, username = "oldname")
+            val request = UpdateUserRequest(username = "newname", notificationsEnabled = null)
+
+            whenever(userRepository.findById(currentUserId)).thenReturn(Optional.of(user))
+            whenever(userRepository.existsByUsernameIgnoreCase("newname")).thenReturn(false)
+            whenever(userRepository.save(any())).thenAnswer { it.arguments[0] }
+
+            val result = userService.updateProfile(currentUserId, request)
+
+            assertThat(result.username).isEqualTo("newname")
+            assertThat(user.notificationsEnabled).isTrue()
+            verify(userRepository).save(user)
+        }
+
+        @Test
+        fun `should update only notificationsEnabled when only that is provided`() {
+            val user = buildUser(id = currentUserId, username = "stefano")
+            val request = UpdateUserRequest(username = null, notificationsEnabled = false)
+
+            whenever(userRepository.findById(currentUserId)).thenReturn(Optional.of(user))
+            whenever(userRepository.save(any())).thenAnswer { it.arguments[0] }
+
+            val result = userService.updateProfile(currentUserId, request)
+
+            assertThat(result.notificationsEnabled).isFalse()
+            assertThat(user.username).isEqualTo("stefano")
+            verify(userRepository, never()).existsByUsernameIgnoreCase(any())
+        }
+
+        @Test
+        fun `should update both username and notificationsEnabled when both are provided`() {
+            val user = buildUser(id = currentUserId, username = "oldname")
+            val request = UpdateUserRequest(username = "newname", notificationsEnabled = false)
+
+            whenever(userRepository.findById(currentUserId)).thenReturn(Optional.of(user))
+            whenever(userRepository.existsByUsernameIgnoreCase("newname")).thenReturn(false)
+            whenever(userRepository.save(any())).thenAnswer { it.arguments[0] }
+
+            val result = userService.updateProfile(currentUserId, request)
+
+            assertThat(result.username).isEqualTo("newname")
+            assertThat(result.notificationsEnabled).isFalse()
+        }
+
+        @Test
+        fun `should not check uniqueness or change username when it is unchanged`() {
+            val user = buildUser(id = currentUserId, username = "stefano")
+            val request = UpdateUserRequest(username = "stefano", notificationsEnabled = null)
+
+            whenever(userRepository.findById(currentUserId)).thenReturn(Optional.of(user))
+            whenever(userRepository.save(any())).thenAnswer { it.arguments[0] }
+
+            userService.updateProfile(currentUserId, request)
+
+            verify(userRepository, never()).existsByUsernameIgnoreCase(any())
+        }
+
+        @Test
+        fun `should not check uniqueness when only the casing of the username differs`() {
+            val user = buildUser(id = currentUserId, username = "Stefano")
+            val request = UpdateUserRequest(username = "stefano", notificationsEnabled = null)
+
+            whenever(userRepository.findById(currentUserId)).thenReturn(Optional.of(user))
+            whenever(userRepository.save(any())).thenAnswer { it.arguments[0] }
+
+            userService.updateProfile(currentUserId, request)
+
+            verify(userRepository, never()).existsByUsernameIgnoreCase(any())
+        }
+
+        @Test
+        fun `should trim whitespace from the new username`() {
+            val user = buildUser(id = currentUserId, username = "oldname")
+            val request = UpdateUserRequest(username = "  newname  ", notificationsEnabled = null)
+
+            whenever(userRepository.findById(currentUserId)).thenReturn(Optional.of(user))
+            whenever(userRepository.existsByUsernameIgnoreCase("newname")).thenReturn(false)
+            whenever(userRepository.save(any())).thenAnswer { it.arguments[0] }
+
+            val result = userService.updateProfile(currentUserId, request)
+
+            assertThat(result.username).isEqualTo("newname")
+        }
+
+        @Test
+        fun `should throw UsernameAlreadyTakenException when the new username is already taken`() {
+            val user = buildUser(id = currentUserId, username = "oldname")
+            val request = UpdateUserRequest(username = "taken", notificationsEnabled = null)
+
+            whenever(userRepository.findById(currentUserId)).thenReturn(Optional.of(user))
+            whenever(userRepository.existsByUsernameIgnoreCase("taken")).thenReturn(true)
+
+            assertThatThrownBy {
+                userService.updateProfile(currentUserId, request)
+            }.isInstanceOf(UsernameAlreadyTakenException::class.java)
+
+            verify(userRepository, never()).save(any())
+        }
+
+        @Test
+        fun `should not modify anything when both fields are null`() {
+            val user = buildUser(id = currentUserId, username = "stefano")
+            val request = UpdateUserRequest(username = null, notificationsEnabled = null)
+
+            whenever(userRepository.findById(currentUserId)).thenReturn(Optional.of(user))
+            whenever(userRepository.save(any())).thenAnswer { it.arguments[0] }
+
+            val result = userService.updateProfile(currentUserId, request)
+
+            assertThat(result.username).isEqualTo("stefano")
+            assertThat(result.notificationsEnabled).isTrue()
+        }
+
+        @Test
+        fun `should throw UserNotFoundException when user does not exist`() {
+            whenever(userRepository.findById(currentUserId)).thenReturn(Optional.empty())
+
+            val request = UpdateUserRequest(username = "newname", notificationsEnabled = null)
+
+            assertThatThrownBy {
+                userService.updateProfile(currentUserId, request)
+            }.isInstanceOf(UserNotFoundException::class.java)
 
             verify(userRepository, never()).save(any())
         }

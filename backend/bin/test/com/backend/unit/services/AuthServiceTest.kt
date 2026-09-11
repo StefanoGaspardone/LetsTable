@@ -162,7 +162,7 @@ class AuthServiceTest {
 
             // Assert sull'utente passato a wishlistService
             assertThat(userSlot.captured.email).isEqualTo("test@example.com")
-            assertThat(userSlot.captured.username).isEqualTo("testuser")
+            assertThat(userSlot.captured.username).isEqualTo("TestUser")
         }
 
         @Test

@@ -1,17 +1,9 @@
 package com.backend.integration.controllers
 
-import com.backend.models.entities.Game
-import com.backend.models.entities.Match
-import com.backend.models.entities.MatchPlayer
-import com.backend.models.entities.RefreshToken
-import com.backend.models.entities.User
+import com.backend.models.entities.*
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.UserRole
-import com.backend.repositories.GameRepository
-import com.backend.repositories.MatchPlayerRepository
-import com.backend.repositories.MatchRepository
-import com.backend.repositories.RefreshTokenRepository
-import com.backend.repositories.UserRepository
+import com.backend.repositories.*
 import com.backend.services.JwtService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -26,9 +18,10 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delet
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.http.MediaType
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import java.time.Instant
-import java.time.LocalDate
-import java.util.UUID
+import java.util.*
 
 @AutoConfigureMockMvc
 class UserControllerTest : AbstractIntegrationTest() {
@@ -72,7 +65,7 @@ class UserControllerTest : AbstractIntegrationTest() {
         gameRepository.saveAndFlush(Game(bggId = bggId, name = "Test Game", lastSyncedAt = Instant.now()))
 
     private fun persistMatch(game: Game, createdBy: User): Match =
-        matchRepository.saveAndFlush(Match(game = game, createdBy = createdBy, playedAt = LocalDate.now()))
+        matchRepository.saveAndFlush(Match(game = game, createdBy = createdBy, playedAt = Instant.now()))
 
     private fun persistPlayer(match: Match, user: User? = null, guestName: String? = null): MatchPlayer =
         matchPlayerRepository.saveAndFlush(MatchPlayer(match = match, user = user, guestName = guestName))
@@ -288,6 +281,89 @@ class UserControllerTest : AbstractIntegrationTest() {
             )
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.message").value("Your account has been deleted"))
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // PATCH /api/v1/users/me
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("PATCH /api/v1/users/me")
+    inner class PatchMyProfileTests {
+
+        @Test
+        fun `should update the username`() {
+            val user = persistUser(username = "oldname")
+
+            mockMvc.perform(
+                patch("/api/v1/users/me")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"username": "newname"}""")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.username").value("newname"))
+
+            val updated = userRepository.findById(user.id!!).orElseThrow()
+            assertThat(updated.username).isEqualTo("newname")
+        }
+
+        @Test
+        fun `should update notificationsEnabled`() {
+            val user = persistUser()
+
+            mockMvc.perform(
+                patch("/api/v1/users/me")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"notificationsEnabled": false}""")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.notificationsEnabled").value(false))
+
+            val updated = userRepository.findById(user.id!!).orElseThrow()
+            assertThat(updated.notificationsEnabled).isFalse()
+        }
+
+        @Test
+        fun `should not change fields left null in the request`() {
+            val user = persistUser(username = "unchanged")
+
+            mockMvc.perform(
+                patch("/api/v1/users/me")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{}""")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.username").value("unchanged"))
+                .andExpect(jsonPath("$.notificationsEnabled").value(true))
+        }
+
+        @Test
+        fun `should return 409 when the username is already taken by another user`() {
+            val user = persistUser(username = "requester")
+            persistUser(username = "taken")
+
+            mockMvc.perform(
+                patch("/api/v1/users/me")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"username": "taken"}""")
+            ).andExpect(status().isConflict)
+
+            val unchanged = userRepository.findById(user.id!!).orElseThrow()
+            assertThat(unchanged.username).isEqualTo("requester")
+        }
+
+        @Test
+        fun `should return 403 when no auth header is provided`() {
+            mockMvc.perform(
+                patch("/api/v1/users/me")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"username": "newname"}""")
+            ).andExpect(status().isForbidden)
         }
     }
 }

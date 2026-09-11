@@ -2,6 +2,7 @@ package com.backend.services
 
 import com.backend.exceptions.*
 import com.backend.models.dtos.DeleteAccountDTO
+import com.backend.models.dtos.UpdateUserRequest
 import com.backend.models.dtos.UserDTO
 import com.backend.models.enums.AccountStatus
 import com.backend.repositories.*
@@ -97,6 +98,43 @@ class UserService(
             throw e
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [user_service][delete_account] Error deleting account {}: {}", userId, e.message)
+            throw e
+        }
+    }
+
+    @Transactional
+    fun updateProfile(userId: UUID, request: UpdateUserRequest): UserDTO {
+        logger.debug("\n\t[DEBUG] [user_service][update_profile] Updating profile for user {}", userId)
+
+        try {
+            val user = userRepository.findById(userId)
+                .orElseThrow { UserNotFoundException(userId) }
+
+            request.username?.let { newUsername ->
+                val trimmed = newUsername.trim()
+                val normalized = trimmed.lowercase()
+
+                if(normalized != user.username.lowercase()) {
+                    if(userRepository.existsByUsernameIgnoreCase(normalized)) {
+                        throw UsernameAlreadyTakenException(normalized)
+                    }
+
+                    user.username = trimmed
+                }
+            }
+
+            request.notificationsEnabled?.let { user.notificationsEnabled = it }
+
+            val saved = userRepository.save(user)
+            val response = UserDTO.from(saved)
+
+            logger.info("\n\t[INFO] [user_service][update_profile] Profile updated for user {}", userId)
+            return response
+        } catch(e: UsernameAlreadyTakenException) {
+            logger.warn("\n\t[WARN] [user_service][update_profile] Username already taken for user {}: {}", userId, request.username)
+            throw e
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [user_service][update_profile] Error updating profile for user {}: {}", userId, e.message)
             throw e
         }
     }

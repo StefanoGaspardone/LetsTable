@@ -7,11 +7,13 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import org.springframework.stereotype.Repository
 import java.time.Instant
 import java.time.LocalDate
 import java.util.*
 
-interface MatchRepository : JpaRepository<Match, UUID>, JpaSpecificationExecutor<Match> {
+@Repository
+interface MatchRepository: JpaRepository<Match, UUID>, JpaSpecificationExecutor<Match> {
 
     @Query(
         """
@@ -61,11 +63,12 @@ interface MatchRepository : JpaRepository<Match, UUID>, JpaSpecificationExecutor
     @Query(
         """
         SELECT COUNT(DISTINCT m.id) FROM Match m
-        LEFT JOIN MatchPlayer mp ON mp.match = m
+        LEFT JOIN MatchPlayer mp ON mp.match = m AND mp.user.id = :userId
+        LEFT JOIN MatchTeam mt ON mp.team = mt
         WHERE m.durationMinutes IS NOT NULL
         AND (
-            (mp.user.id = :userId AND mp.isWinner = true)
-            OR (mp.user.id = :userId AND mp.team.id IS NOT NULL AND mp.team.isWinner = true)
+            mp.isWinner = true
+            OR mt.isWinner = true
         )
         """
     )

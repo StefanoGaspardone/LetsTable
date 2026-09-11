@@ -64,7 +64,7 @@ class AuthService(
             }
 
             val user = User(
-                username = request.username,
+                username = request.username.trim(),
                 email = normalizedEmail,
                 passwordHash = passwordEncoder.encode(request.password.trim())!!,
                 accountStatus = AccountStatus.INACTIVE,

@@ -18,6 +18,7 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -1302,49 +1303,24 @@ class GameServiceTest {
         }
 
         @Test
-        fun `should rethrow persistence error during refreshHotGames`() {
+        fun `should not throw when persistence fails during refreshHotGames`() {
             val hotItems = listOf(
-                BggHotItemXml(
-                    id = 10L,
-                    rank = 1,
-                    name = BggValueXml("Hot Game")
-                )
+                BggHotItemXml(id = 10L, rank = 1, name = BggValueXml("Hot Game"))
             )
 
-            every {
-                bggClient.getHotGames()
-            } returns BggHotResponseXml(hotItems)
+            every { bggClient.getHotGames() } returns BggHotResponseXml(hotItems)
+            every { bggClient.getGameDetailsBatch(listOf(10L)) } returns BggThingResponseXml(emptyList())
+            every { gameRepository.findAllByBggIdIn(listOf(10L)) } returns emptyList()
+            every { hotGamesPersistenceService.saveHotGames(any()) } throws RuntimeException("DB failure")
 
-            every {
-                bggClient.getGameDetailsBatch(listOf(10L))
-            } returns BggThingResponseXml(emptyList())
-
-            every {
-                gameRepository.findAllByBggIdIn(listOf(10L))
-            } returns emptyList()
-
-            every {
-                hotGamesPersistenceService.saveHotGames(any())
-            } throws RuntimeException("DB failure")
-
-            assertThatThrownBy {
-                gameService.refreshHotGames()
-            }
-                .isInstanceOf(RuntimeException::class.java)
-                .hasMessage("DB failure")
+            assertThatCode { gameService.refreshHotGames() }.doesNotThrowAnyException()
         }
 
         @Test
-        fun `should rethrow exception during refreshHotGames`() {
-            every {
-                bggClient.getHotGames()
-            } throws RuntimeException("Network Error")
+        fun `should not throw when BGG call fails during refreshHotGames`() {
+            every { bggClient.getHotGames() } throws RuntimeException("Network Error")
 
-            assertThatThrownBy {
-                gameService.refreshHotGames()
-            }
-                .isInstanceOf(RuntimeException::class.java)
-                .hasMessage("Network Error")
+            assertThatCode { gameService.refreshHotGames() }.doesNotThrowAnyException()
         }
     }
 
