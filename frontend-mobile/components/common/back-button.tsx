@@ -10,7 +10,7 @@ interface BackButtonProps {
 }
 
 const BackButton = ({ variant = 'onLight', progress }: BackButtonProps) => {
-	const [isPressed, setIsPressed] = useState(false);
+  	const [isPressed, setIsPressed] = useState(false);
 
 	const backgroundStyle = useAnimatedStyle(() => {
 		const restOnDark = 'rgba(255,255,255,0.16)';
@@ -21,47 +21,67 @@ const BackButton = ({ variant = 'onLight', progress }: BackButtonProps) => {
 		if(!progress) {
 			const isDark = variant === 'onDark';
 			
-			return {
-				backgroundColor: isPressed
-					? isDark
-						? pressedOnDark
-						: pressedOnLight
-					: isDark
-						? restOnDark
-						: restOnLight,
-			}
+			if(isPressed) return { backgroundColor: isDark ? pressedOnDark : pressedOnLight };
+			return { backgroundColor: isDark ? restOnDark : restOnLight };
 		}
 
-		const inputRange = isPressed ? [0, 1] : [0, 1];
 		const colors = isPressed
 			? [pressedOnDark, pressedOnLight]
 			: [restOnDark, restOnLight];
 
 		return {
-			backgroundColor: interpolateColor(progress.value, inputRange, colors),
+			backgroundColor: interpolateColor(progress.value, [0, 1], colors),
 		}
-	});
+  })
 
-	const darkBgIconStyle = useAnimatedStyle(() => ({
-		opacity: progress
-			? interpolate(progress.value, [0, 1], [1, 0], Extrapolation.CLAMP)
-			: variant === 'onDark'
-				? 1
-				: 0,
-	}));
+	const darkBgIconStyle = useAnimatedStyle(() => {
+		if(progress) {
+			return {
+				opacity: interpolate(
+					progress.value,
+					[0, 1],
+					[1, 0],
+					Extrapolation.CLAMP
+				),
+			}
+		}
 
-	const lightBgIconStyle = useAnimatedStyle(() => ({
-		opacity: progress
-			? interpolate(progress.value, [0, 1], [0, 1], Extrapolation.CLAMP)
-			: variant === 'onLight'
-				? 1
-				: 0,
-	}));
+		return {
+			opacity: variant === 'onDark' ? 1 : 0,
+		}
+	})
+
+	const lightBgIconStyle = useAnimatedStyle(() => {
+		if(progress) {
+			return {
+				opacity: interpolate(
+					progress.value,
+					[0, 1],
+					[0, 1],
+					Extrapolation.CLAMP
+				),
+			}
+		}
+
+		return {
+			opacity: variant === 'onLight' ? 1 : 0,
+		}
+	})
 
 	return (
 		<Pressable onPress = { () => router.back() } onPressIn = { () => setIsPressed(true) } onPressOut = { () => setIsPressed(false) } hitSlop = { 8 } style = {{ height: 36, width: 36 }}>
 			<Animated.View
-				style = { [{ height: 36, width: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center' }, backgroundStyle ] }>
+				style = {[
+					{
+						height: 36,
+						width: 36,
+						borderRadius: 999,
+						alignItems: 'center',
+						justifyContent: 'center',
+					},
+					backgroundStyle,
+				]}
+			>
 				<Animated.View style = { [{ position: 'absolute' }, darkBgIconStyle] }>
 					<ChevronLeft size = { 20 } color = '#FFFFFF'/>
 				</Animated.View>
