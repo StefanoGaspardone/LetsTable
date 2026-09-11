@@ -6,6 +6,7 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.MinIOContainer
 import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.utility.DockerImageName
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -17,7 +18,10 @@ abstract class AbstractIntegrationTest {
             .withUsername("test")
             .withPassword("test")
 
-        private val minio: MinIOContainer = MinIOContainer("quay.io/minio/minio:latest")
+        private val minio: MinIOContainer = MinIOContainer(
+            DockerImageName.parse("pgsty/minio:latest")
+                .asCompatibleSubstituteFor("minio/minio")
+        )
             .withUserName("test-key")
             .withPassword("test-secret")
 
