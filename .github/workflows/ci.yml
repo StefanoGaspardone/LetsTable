@@ -27,7 +27,7 @@ jobs:
               - '.github/workflows/ci.yml'
               - 'sonar-project.properties'
             frontend:
-              - 'frontend/**'
+              - 'frontend-mobile/**'
               - '.github/workflows/ci.yml'
               - 'sonar-project.properties'
 
