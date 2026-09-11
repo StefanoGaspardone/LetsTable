@@ -64,8 +64,8 @@ jobs:
           name: backend-coverage
           path: backend/build/reports/jacoco/test/jacocoTestReport.xml
 
-  # ============================================================
-  # 3. FRONTEND TESTS & COVERAGE (pnpm)
+# ============================================================
+  # 3. FRONTEND TESTS & COVERAGE
   # ============================================================
   frontend-test:
     name: Frontend - Test & Coverage (pnpm)
@@ -80,31 +80,32 @@ jobs:
         uses: pnpm/action-setup@v3
         with:
           version: 9
+          run_install: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: frontend-mobile/pnpm-lock.yaml
 
       - name: Install Frontend Dependencies
         run: pnpm install --frozen-lockfile
-        working-directory: frontend
+        working-directory: frontend-mobile
 
       - name: Type Check (TypeScript)
         run: pnpm exec tsc --noEmit
-        working-directory: frontend
+        working-directory: frontend-mobile
 
       - name: Run Frontend Coverage Script
         run: pnpm test:coverage
-        working-directory: frontend
+        working-directory: frontend-mobile
 
       - name: Upload Frontend Coverage Artifact
         uses: actions/upload-artifact@v4
         with:
           name: frontend-coverage
-          path: frontend/coverage/lcov.info
+          path: frontend-mobile/coverage/lcov.info
 
   # ============================================================
   # 4. SONARCLOUD SCAN (Aggregated)
