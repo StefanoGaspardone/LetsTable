@@ -104,7 +104,7 @@ jobs:
           path: frontend-mobile/coverage/lcov.info
 
   # ============================================================
-  # 4. SONARCLOUD SCAN (Aggregated)
+  # 4. SONARCLOUD SCAN
   # ============================================================
   sonarcloud:
     name: SonarCloud Analysis
@@ -122,14 +122,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: backend-coverage
-          path: backend/build/reports/jacoco/test/
+          path: backend/build/reports/jacoco/test
 
       - name: Download Frontend Coverage Artifact
         if: ${{ needs.changes.outputs.frontend == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: frontend-coverage
-          path: frontend/coverage/
+          path: frontend-mobile/coverage
 
       - name: Run SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
