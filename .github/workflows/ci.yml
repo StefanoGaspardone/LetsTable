@@ -68,7 +68,7 @@ jobs:
   # 3. FRONTEND TESTS & COVERAGE
   # ============================================================
   frontend-test:
-    name: Frontend - Test & Coverage (pnpm)
+    name: Frontend - Test & Coverage
     needs: changes
     if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
