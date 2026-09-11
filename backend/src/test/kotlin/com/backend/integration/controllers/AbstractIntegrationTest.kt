@@ -26,6 +26,7 @@ abstract class AbstractIntegrationTest {
             minio.start()
         }
 
+
         @JvmStatic
         @DynamicPropertySource
         fun overrideProperties(registry: DynamicPropertyRegistry) {
