@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import axios from 'axios';
 
 import { apiClient } from '@/api/client';
 
 import { tokenStorage } from '@/lib/token-storage';
-import axios from 'axios';
+import { requestAndRegisterPushToken, unregisterCurrentPushToken } from '@/lib/push-notifications';
 
 import { User } from '@/types/user';
 
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 			const { data } = await apiClient.get<User>('/users/me');
 			setUser(data);
+			requestAndRegisterPushToken();
 		} catch(error) {
 			console.log('RESTORE SESSION FAILED:', error);
 			if (axios.isAxiosError(error)) {
@@ -53,12 +55,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const login = async (accessToken: string, refreshToken: string, loggedInUser: User) => {
 		await tokenStorage.setTokens(accessToken, refreshToken);
 		setUser(loggedInUser);
+		requestAndRegisterPushToken();
 	}
 
 	const logout = async () => {
 		const refreshToken = await tokenStorage.getRefreshToken();
-		
-        try {
+
+		await unregisterCurrentPushToken();
+
+		try {
 			if(refreshToken) {
 				await apiClient.post('/auth/logout', { refreshToken });
 			}

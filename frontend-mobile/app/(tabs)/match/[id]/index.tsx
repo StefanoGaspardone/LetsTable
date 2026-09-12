@@ -12,6 +12,7 @@ import BackButton from '@/components/common/back-button';
 import FabMenu from '@/components/common/fab-menu';
 import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/register-match-sheet';
 import AppBottomSheet from '@/components/common/app-bottom-sheet';
+import MeepleIllustration from '@/components/common/meeple-illustration';
 
 import { getMatchById, deleteMatch } from '@/api/match';
 
@@ -58,6 +59,10 @@ const renderPodiumAvatar = (entry: any, size: number) => {
 		</View>
 	)
 }
+
+const renderPodiumMeeple = (entry: any, size: number) => (
+	<MeepleIllustration size = { size } color = { entry.color } outlined/>
+)
 
 const MatchDetailScreen = () => {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -262,9 +267,12 @@ const MatchDetailScreen = () => {
 									{secondPlace ? (
 										<Pressable onPress = { () => { if('members' in secondPlace) { setSelectedTeam(secondPlace); teamMembersSheetRef.current?.present(); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
 											{renderPodiumAvatar(secondPlace, 52)}
-											<Text className = 'text-center text-sm font-semibold text-foreground' numberOfLines = { 1 }>
-												{secondPlace.name}
-											</Text>
+											<View className = 'mt-1 flex-row items-center gap-1'>
+												{renderPodiumMeeple(secondPlace, 14)}
+												<Text className = 'text-center text-sm font-semibold text-foreground' numberOfLines = { 1 }>
+													{secondPlace.name}
+												</Text>
+											</View>
 											{'score' in secondPlace && secondPlace.score != null && (
 												<Text className = 'text-lg font-bold text-muted-foreground'>{secondPlace.score}</Text>
 											)}
@@ -281,9 +289,12 @@ const MatchDetailScreen = () => {
 								{firstPlace && (
 									<Pressable onPress = { () => { if('members' in firstPlace) { setSelectedTeam(firstPlace); teamMembersSheetRef.current?.present(); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
 										{renderPodiumAvatar(firstPlace, 64)}
-										<Text className = 'text-center text-base font-bold text-foreground' numberOfLines = { 1 }>
-											{firstPlace.name}
-										</Text>
+										<View className = 'mt-1 flex-row items-center gap-1'>
+											{renderPodiumMeeple(firstPlace, 16)}
+											<Text className = 'text-center text-base font-bold text-foreground' numberOfLines = { 1 }>
+												{firstPlace.name}
+											</Text>
+										</View>
 										{'score' in firstPlace && firstPlace.score != null && (
 											<Text className = 'text-xl font-black text-amber-600'>{firstPlace.score}</Text>
 										)}
@@ -297,9 +308,12 @@ const MatchDetailScreen = () => {
 								<View className = 'flex-1 items-center'>
 									<Pressable onPress = { () => { if('members' in secondPlace!) { setSelectedTeam(secondPlace); teamMembersSheetRef.current?.present(); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
 										{renderPodiumAvatar(secondPlace!, 52)}
-										<Text className = 'text-center text-sm font-semibold text-foreground' numberOfLines = { 1 }>
-											{secondPlace!.name}
-										</Text>
+										<View className = 'mt-1 flex-row items-center gap-1'>
+											{renderPodiumMeeple(secondPlace!, 14)}
+											<Text className = 'text-center text-sm font-semibold text-foreground' numberOfLines = { 1 }>
+												{secondPlace!.name}
+											</Text>
+										</View>
 										{'score' in secondPlace! && secondPlace!.score != null && (
 											<Text className = 'text-lg font-bold text-muted-foreground'>{secondPlace!.score}</Text>
 										)}
@@ -314,9 +328,12 @@ const MatchDetailScreen = () => {
 									{thirdPlace ? (
 										<Pressable onPress = { () => { if('members' in thirdPlace) { setSelectedTeam(thirdPlace); teamMembersSheetRef.current?.present(); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
 											{renderPodiumAvatar(thirdPlace, 52)}
-											<Text className = 'text-center text-sm font-semibold text-foreground' numberOfLines = { 1 }>
-												{thirdPlace.name}
-											</Text>
+											<View className = 'mt-1 flex-row items-center gap-1'>
+												{renderPodiumMeeple(thirdPlace, 14)}
+												<Text className = 'text-center text-sm font-semibold text-foreground' numberOfLines = { 1 }>
+													{thirdPlace.name}
+												</Text>
+											</View>
 											{'score' in thirdPlace && thirdPlace.score != null && (
 												<Text className = 'text-lg font-bold text-muted-foreground'>{thirdPlace.score}</Text>
 											)}
@@ -345,13 +362,16 @@ const MatchDetailScreen = () => {
 											<Text className = 'text-sm font-bold text-muted-foreground'>{rank}°</Text>
 										</View>
 									)}
-                                   <View style = {{ width: 32, height: 32, borderRadius: 16, backgroundColor: entry.color }} className = 'items-center justify-center'>
+                                   	<View style = {{ width: 32, height: 32, borderRadius: 16, backgroundColor: entry.color }} className = 'items-center justify-center'>
 										<Text className = 'text-sm font-bold text-white'>{entry.name.charAt(0).toUpperCase()}</Text>
 									</View>
-                                    <View className = 'flex-1'>
-                                        <Text className = 'text-sm font-semibold text-foreground' numberOfLines = { 1 }>{entry.name}</Text>
-                                        <Text className = 'text-xs text-muted-foreground'>{entry.members.length} membri</Text>
-                                    </View>
+									<View className = 'flex-1'>
+										<View className = 'flex-row items-center gap-1.5'>
+											<MeepleIllustration size = { 16 } color = { entry.color } outlined/>
+											<Text className = 'text-sm font-semibold text-foreground' numberOfLines = { 1 }>{entry.name}</Text>
+										</View>
+										<Text className = 'text-xs text-muted-foreground'>{entry.members.length} membri</Text>
+									</View>
                                     {!isInProgress && entry.score && (
 									<View className = 'h-8 w-8 items-center justify-center rounded-full bg-secondary'>
 										<Text className = 'text-sm font-bold text-muted-foreground'>{entry.score}</Text>

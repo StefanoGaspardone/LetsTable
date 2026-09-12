@@ -2,6 +2,7 @@ package com.backend.services
 
 import com.backend.exceptions.PushNotificationSendException
 import com.backend.repositories.PushTokenRepository
+import com.backend.repositories.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
@@ -19,6 +20,7 @@ data class ExpoPushMessage(
 @Service
 class PushNotificationService(
     private val pushTokenRepository: PushTokenRepository,
+    private val userRepository: UserRepository,
     private val expoPushWebClient: WebClient,
 ) {
 
@@ -29,6 +31,13 @@ class PushNotificationService(
         logger.debug("\n\t[DEBUG] [push_notification_service][send_to_user] Sending push notification to user {}", userId)
 
         try {
+            val user = userRepository.findById(userId).orElse(null)
+
+            if(user == null || !user.notificationsEnabled) {
+                logger.info("\n\t[INFO] [push_notification_service][send_to_user] Skipping notification for user {} (not found or notifications disabled)", userId)
+                return
+            }
+
             val tokens = pushTokenRepository.findAllByUserId(userId)
 
             if(tokens.isEmpty()) {

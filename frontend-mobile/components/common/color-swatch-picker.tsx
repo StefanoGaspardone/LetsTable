@@ -5,6 +5,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { Check } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
+import MeepleIllustration from '@/components/common/meeple-illustration';
 
 import { PALETTE } from '@/lib/colors';
 
@@ -40,7 +41,9 @@ const ColorSwatchPicker = ({ value, onChange }: ColorSwatchPickerProps) => {
 
 	return (
 		<>
-			<Pressable onPress = { () => setIsOpen(true) } style = {{ backgroundColor: value }} className = 'h-7 w-7 items-center justify-center rounded-full border border-black shadow-sm active:scale-95'/>
+			<Pressable onPress = { () => setIsOpen(true) } className = 'h-9 w-9 items-center justify-center active:scale-95'>
+				<MeepleIllustration size = { 28 } color = { value } outlined/>
+			</Pressable>
 			<Modal visible = { isOpen } transparent animationType = 'fade' onRequestClose = { () => setIsOpen(false) }>
                 <GestureHandlerRootView style = {{ flex: 1 }}>
                     <Pressable className = 'flex-1 items-center justify-center bg-black/40' onPress = { () => setIsOpen(false) }>

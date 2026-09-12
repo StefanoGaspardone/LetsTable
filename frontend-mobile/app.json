@@ -37,7 +37,13 @@
       ],
       "expo-status-bar",
       "expo-secure-store",
-      "expo-image"
+      "expo-image",
+      [
+				"expo-notifications",
+				{
+					"color": "#C45135"
+				}
+			]
     ],
     "experiments": {
       "typedRoutes": true

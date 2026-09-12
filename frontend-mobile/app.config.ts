@@ -30,6 +30,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         resizeMode: "contain",
         backgroundColor: "#f1efe9"
       }
+    ],
+    [
+      "expo-notifications",
+      {
+        "color": "#C45135"
+      }
     ]
   ],
   experiments: {

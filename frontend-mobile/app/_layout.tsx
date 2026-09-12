@@ -3,7 +3,7 @@ import '@/lib/calendar';
 
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Stack, DefaultTheme, ThemeProvider } from 'expo-router';
+import { Stack, DefaultTheme, ThemeProvider, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -54,6 +54,24 @@ const RootLayoutNav = () => {
 
 const RootLayout = () => {
 	const { isHealthy, isChecking, retryNow } = useHealthCheck();
+
+	useEffect(() => {
+		let subscription: { remove: () => void } | undefined;
+
+		import('expo-notifications').then(Notifications => {
+			subscription = Notifications.addNotificationResponseReceivedListener(response => {
+				const data = response.notification.request.content.data;
+
+				if(data?.type === 'FRIEND_REQUEST' || data?.type === 'FRIEND_ACCEPTED') {
+					router.push('/(tabs)/friends');
+				}
+			});
+		}).catch(() => {
+			console.log('expo-notifications not available in this environment (Expo Go on Android)');
+		});
+
+		return () => subscription?.remove();
+	}, []);
 
 	return (
 		<GestureHandlerRootView style = {{ flex: 1 }}>
