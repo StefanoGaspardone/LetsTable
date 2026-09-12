@@ -111,8 +111,8 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
                 </View>
                 {selected.length > 0 && (
                     <View className = 'mb-3 flex-row flex-wrap'>
-                        {selected.map((identity, index) => (
-                            <View key = { index } style = {{ width: '25%', padding: 4 }}>
+                        {selected.map((identity) => (
+                            <View key = { identity.userId } style = {{ width: '25%', padding: 4 }}>
                                 <Pressable onPress = { () => removeSelected(identity) } className = 'items-center gap-1.5 rounded-2xl border border-[#C45135]/40 bg-[#C45135]/5 py-3 active:scale-[0.98] active:opacity-75'>
                                     <View className = 'relative'>
                                         {identity.avatarUrl ? (
