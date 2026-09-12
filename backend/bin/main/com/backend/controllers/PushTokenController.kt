@@ -62,7 +62,7 @@ class PushTokenController(
         ]
     )
     @PostMapping
-    fun register(@Valid @RequestBody request: RegisterPushTokenRequest): ResponseEntity<Void> {
+    fun register(@Valid @RequestBody request: RegisterPushTokenRequest): ResponseEntity<Unit> {
         pushTokenService.register(CurrentUser.id(), request)
         return ResponseEntity.status(201).build()
     }
@@ -80,7 +80,7 @@ class PushTokenController(
         ]
     )
     @DeleteMapping
-    fun unregister(@RequestParam @NotBlank token: String): ResponseEntity<Void> {
+    fun unregister(@RequestParam @NotBlank token: String): ResponseEntity<Unit> {
         pushTokenService.unregister(token)
         return ResponseEntity.noContent().build()
     }

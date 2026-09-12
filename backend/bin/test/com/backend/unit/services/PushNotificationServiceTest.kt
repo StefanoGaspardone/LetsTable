@@ -5,25 +5,27 @@ import com.backend.models.entities.PushToken
 import com.backend.models.entities.User
 import com.backend.models.enums.UserRole
 import com.backend.repositories.PushTokenRepository
+import com.backend.repositories.UserRepository
 import com.backend.services.ExpoPushMessage
 import com.backend.services.PushNotificationService
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.any
-import org.mockito.InjectMocks
 import org.mockito.Mock
-import org.mockito.Mockito.never
-import org.mockito.Mockito.verify
-import org.mockito.Mockito.`when`
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.any
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 import org.springframework.http.ResponseEntity
 import org.springframework.web.reactive.function.client.WebClient
 import reactor.core.publisher.Mono
+import java.util.Optional
 import java.util.UUID
 
 @ExtendWith(MockitoExtension::class)
@@ -31,6 +33,9 @@ class PushNotificationServiceTest {
 
     @Mock
     private lateinit var pushTokenRepository: PushTokenRepository
+
+    @Mock
+    private lateinit var userRepository: UserRepository
 
     @Mock
     private lateinit var expoPushWebClient: WebClient
@@ -44,7 +49,6 @@ class PushNotificationServiceTest {
     @Mock
     private lateinit var responseSpec: WebClient.ResponseSpec
 
-    @InjectMocks
     private lateinit var pushNotificationService: PushNotificationService
 
     private val userId: UUID = UUID.randomUUID()
@@ -53,15 +57,25 @@ class PushNotificationServiceTest {
         username = "stefano",
         email = "stefano@example.com",
         passwordHash = "hash",
-        role = UserRole.USER
+        role = UserRole.USER,
+        notificationsEnabled = true
     )
 
     private val tokenValue1 = "ExponentPushToken[xxxxxxxxxxxxxx]"
     private val tokenValue2 = "ExponentPushToken[yyyyyyyyyyyyyy]"
 
+    @BeforeEach
+    fun setUp() {
+        pushNotificationService = PushNotificationService(
+            pushTokenRepository = pushTokenRepository,
+            userRepository = userRepository,
+            expoPushWebClient = expoPushWebClient
+        )
+    }
+
     private fun setupWebClientMockChain() {
-        `when`(expoPushWebClient.post()).thenReturn(requestBodyUriSpec)
-        `when`(requestBodyUriSpec.uri("/send")).thenReturn(requestBodySpec)
+        whenever(expoPushWebClient.post()).thenReturn(requestBodyUriSpec)
+        whenever(requestBodyUriSpec.uri("/send")).thenReturn(requestBodySpec)
     }
 
     @Nested
@@ -69,11 +83,44 @@ class PushNotificationServiceTest {
     inner class SendToUserTests {
 
         @Test
-        fun `should do nothing when user has no registered tokens`() {
-            `when`(pushTokenRepository.findAllByUserId(userId)).thenReturn(emptyList())
+        fun `should do nothing when user is not found`() {
+            whenever(userRepository.findById(userId)).thenReturn(Optional.empty())
 
             pushNotificationService.sendToUser(userId, "Test Title", "Test Body")
 
+            verify(userRepository).findById(userId)
+            verify(pushTokenRepository, never()).findAllByUserId(any())
+            verify(expoPushWebClient, never()).post()
+        }
+
+        @Test
+        fun `should do nothing when user has notifications disabled`() {
+            val userWithDisabledNotifications = User(
+                id = userId,
+                username = "stefano",
+                email = "stefano@example.com",
+                passwordHash = "hash",
+                role = UserRole.USER,
+                notificationsEnabled = false
+            )
+
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(userWithDisabledNotifications))
+
+            pushNotificationService.sendToUser(userId, "Test Title", "Test Body")
+
+            verify(userRepository).findById(userId)
+            verify(pushTokenRepository, never()).findAllByUserId(any())
+            verify(expoPushWebClient, never()).post()
+        }
+
+        @Test
+        fun `should do nothing when user has no registered tokens`() {
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            whenever(pushTokenRepository.findAllByUserId(userId)).thenReturn(emptyList())
+
+            pushNotificationService.sendToUser(userId, "Test Title", "Test Body")
+
+            verify(userRepository).findById(userId)
             verify(pushTokenRepository).findAllByUserId(userId)
             verify(expoPushWebClient, never()).post()
         }
@@ -98,10 +145,11 @@ class PushNotificationServiceTest {
             @Suppress("UNCHECKED_CAST")
             val payloadCaptor = ArgumentCaptor.forClass(List::class.java) as ArgumentCaptor<List<ExpoPushMessage>>
 
-            `when`(pushTokenRepository.findAllByUserId(userId)).thenReturn(listOf(token1, token2))
-            `when`(requestBodySpec.bodyValue(payloadCaptor.capture())).thenReturn(requestBodySpec)
-            `when`(requestBodySpec.retrieve()).thenReturn(responseSpec)
-            `when`(responseSpec.toBodilessEntity()).thenReturn(Mono.just(ResponseEntity.ok().build()))
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            whenever(pushTokenRepository.findAllByUserId(userId)).thenReturn(listOf(token1, token2))
+            whenever(requestBodySpec.bodyValue(payloadCaptor.capture())).thenReturn(requestBodySpec)
+            whenever(requestBodySpec.retrieve()).thenReturn(responseSpec)
+            whenever(responseSpec.toBodilessEntity()).thenReturn(Mono.just(ResponseEntity.ok().build()))
 
             pushNotificationService.sendToUser(
                 userId = userId,
@@ -110,6 +158,7 @@ class PushNotificationServiceTest {
                 data = mapOf("matchId" to "12345")
             )
 
+            verify(userRepository).findById(userId)
             verify(pushTokenRepository).findAllByUserId(userId)
             verify(expoPushWebClient).post()
 
@@ -124,7 +173,7 @@ class PushNotificationServiceTest {
 
         @Test
         fun `should throw PushNotificationSendException when repository throws exception`() {
-            `when`(pushTokenRepository.findAllByUserId(userId)).thenThrow(RuntimeException("Database connection error"))
+            whenever(userRepository.findById(userId)).thenThrow(RuntimeException("Database connection error"))
 
             assertThatThrownBy {
                 pushNotificationService.sendToUser(userId, "Title", "Body")
@@ -141,10 +190,11 @@ class PushNotificationServiceTest {
                 token = tokenValue1
             )
 
-            `when`(pushTokenRepository.findAllByUserId(userId)).thenReturn(listOf(token))
-            `when`(requestBodySpec.bodyValue(any())).thenReturn(requestBodySpec)
-            `when`(requestBodySpec.retrieve()).thenReturn(responseSpec)
-            `when`(responseSpec.toBodilessEntity()).thenReturn(Mono.error(RuntimeException("HTTP 500 Internal Server Error")))
+            whenever(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            whenever(pushTokenRepository.findAllByUserId(userId)).thenReturn(listOf(token))
+            whenever(requestBodySpec.bodyValue(any())).thenReturn(requestBodySpec)
+            whenever(requestBodySpec.retrieve()).thenReturn(responseSpec)
+            whenever(responseSpec.toBodilessEntity()).thenReturn(Mono.error(RuntimeException("HTTP 500 Internal Server Error")))
 
             assertThatThrownBy {
                 pushNotificationService.sendToUser(userId, "Title", "Body")

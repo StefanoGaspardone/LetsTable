@@ -92,7 +92,7 @@ class WishlistController(
         ]
     )
     @DeleteMapping("/{wishlistId}")
-    fun deleteWishlist(@PathVariable wishlistId: UUID): ResponseEntity<Void> {
+    fun deleteWishlist(@PathVariable wishlistId: UUID): ResponseEntity<Unit> {
         wishlistService.deleteWishlist(CurrentUser.id(), wishlistId)
         return ResponseEntity.noContent().build()
     }
@@ -195,7 +195,7 @@ class WishlistController(
         ]
     )
     @DeleteMapping("/{wishlistId}/members/{memberUserId}")
-    fun removeMember(@PathVariable wishlistId: UUID, @PathVariable memberUserId: UUID): ResponseEntity<Void> {
+    fun removeMember(@PathVariable wishlistId: UUID, @PathVariable memberUserId: UUID): ResponseEntity<Unit> {
         wishlistService.removeMember(CurrentUser.id(), wishlistId, memberUserId)
         return ResponseEntity.noContent().build()
     }
@@ -222,7 +222,7 @@ class WishlistController(
         ]
     )
     @PostMapping("/{wishlistId}/leave")
-    fun leaveWishlist(@PathVariable wishlistId: UUID): ResponseEntity<Void> {
+    fun leaveWishlist(@PathVariable wishlistId: UUID): ResponseEntity<Unit> {
         wishlistService.leaveWishlist(CurrentUser.id(), wishlistId)
         return ResponseEntity.noContent().build()
     }
@@ -338,7 +338,7 @@ class WishlistController(
         ]
     )
     @DeleteMapping("/{wishlistId}/items/{itemId}")
-    fun removeItem(@PathVariable wishlistId: UUID, @PathVariable itemId: UUID): ResponseEntity<Void> {
+    fun removeItem(@PathVariable wishlistId: UUID, @PathVariable itemId: UUID): ResponseEntity<Unit> {
         wishlistService.removeItem(CurrentUser.id(), wishlistId, itemId)
         return ResponseEntity.noContent().build()
     }

@@ -152,7 +152,7 @@ class FriendController(
         ]
     )
     @PostMapping("/requests/{requestId}/reject")
-    fun rejectRequest(@PathVariable requestId: UUID): ResponseEntity<Void> {
+    fun rejectRequest(@PathVariable requestId: UUID): ResponseEntity<Unit> {
         friendService.rejectRequest(CurrentUser.id(), requestId)
         return ResponseEntity.noContent().build()
     }
@@ -191,7 +191,7 @@ class FriendController(
         ]
     )
     @DeleteMapping("/requests/{requestId}")
-    fun cancelRequest(@PathVariable requestId: UUID): ResponseEntity<Void> {
+    fun cancelRequest(@PathVariable requestId: UUID): ResponseEntity<Unit> {
         friendService.cancelRequest(CurrentUser.id(), requestId)
         return ResponseEntity.noContent().build()
     }
@@ -218,7 +218,7 @@ class FriendController(
         ]
     )
     @DeleteMapping("/{friendUserId}")
-    fun removeFriend(@PathVariable friendUserId: UUID): ResponseEntity<Void> {
+    fun removeFriend(@PathVariable friendUserId: UUID): ResponseEntity<Unit> {
         friendService.removeFriend(CurrentUser.id(), friendUserId)
         return ResponseEntity.noContent().build()
     }

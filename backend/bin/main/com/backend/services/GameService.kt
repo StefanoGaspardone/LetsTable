@@ -374,16 +374,12 @@ class GameService(
                 buildInCollectionMap(savedGameIds)
 
             val content = pageItems.map { item ->
-                val game = gamesByBggId[item.id]
-
-                if(game != null) {
+                gamesByBggId[item.id]?.let { game ->
                     GameDTO.from(
                         game,
                         inCollectionMap[game.id]
                     )
-                } else {
-                    GameDTO.fromSearchResult(item)
-                }
+                } ?: GameDTO.fromSearchResult(item)
             }
 
             val pageResult = PageImpl(

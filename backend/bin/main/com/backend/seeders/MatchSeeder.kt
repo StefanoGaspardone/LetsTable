@@ -19,6 +19,10 @@ class MatchSeeder(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    private val COLOR_1 = "#C45135"
+    private val COLOR_2 = "#3B6E91"
+    private val COLOR_3 = "#5C8A4F"
+
     fun seed(users: List<User>, games: List<Game>) {
         logger.debug("\n\t[DEBUG] [match_seeder][seed] Seeding demo matches")
 
@@ -42,9 +46,9 @@ class MatchSeeder(
                 )
             )
             listOf(
-                MatchPlayer(match = individualMatch, user = marco, color = "#C45135", score = 145, isWinner = true, startingPosition = 1),
-                MatchPlayer(match = individualMatch, user = anna, color = "#3B6E91", score = 132, isWinner = false, startingPosition = 2),
-                MatchPlayer(match = individualMatch, user = null, guestName = "Giulia", color = "#5C8A4F", score = 98, isWinner = false, startingPosition = 3),
+                MatchPlayer(match = individualMatch, user = marco, color = COLOR_1, score = 145, isWinner = true, startingPosition = 1),
+                MatchPlayer(match = individualMatch, user = anna, color = COLOR_2, score = 132, isWinner = false, startingPosition = 2),
+                MatchPlayer(match = individualMatch, user = null, guestName = "Giulia", color = COLOR_3, score = 98, isWinner = false, startingPosition = 3),
             ).forEach { matchPlayerRepository.save(it) }
 
             val teamMatch = matchRepository.save(
@@ -60,13 +64,13 @@ class MatchSeeder(
             )
 
             val teamA = matchTeamRepository.save(
-                MatchTeam(match = teamMatch, name = "Impero", color = "#C45135", score = 12, isWinner = true, startingPosition = 1)
+                MatchTeam(match = teamMatch, name = "Impero", color = COLOR_1, score = 12, isWinner = true, startingPosition = 1)
             )
             val teamB = matchTeamRepository.save(
-                MatchTeam(match = teamMatch, name = "Ribelli", color = "#3B6E91", score = 8, isWinner = false, startingPosition = 2)
+                MatchTeam(match = teamMatch, name = "Ribelli", color = COLOR_2, score = 8, isWinner = false, startingPosition = 2)
             )
             val teamC = matchTeamRepository.save(
-                MatchTeam(match = teamMatch, name = "Mercanti", color = "#5C8A4F", score = 6, isWinner = false, startingPosition = 3)
+                MatchTeam(match = teamMatch, name = "Mercanti", color = COLOR_3, score = 6, isWinner = false, startingPosition = 3)
             )
             val teamD = matchTeamRepository.save(
                 MatchTeam(match = teamMatch, name = "Nomadi", color = "#B08968", score = 9, isWinner = false, startingPosition = 4)
@@ -99,9 +103,9 @@ class MatchSeeder(
             )
 
             listOf(
-                MatchPlayer(match = inProgressMatch, user = anna, color = "#C45135", score = 0, isWinner = false),
-                MatchPlayer(match = inProgressMatch, user = luca, color = "#3B6E91", score = 0, isWinner = false),
-                MatchPlayer(match = inProgressMatch, user = elena, color = "#5C8A4F", score = 0, isWinner = false),
+                MatchPlayer(match = inProgressMatch, user = anna, color = COLOR_1, score = 0, isWinner = false),
+                MatchPlayer(match = inProgressMatch, user = luca, color = COLOR_2, score = 0, isWinner = false),
+                MatchPlayer(match = inProgressMatch, user = elena, color = COLOR_3, score = 0, isWinner = false),
             ).forEach { matchPlayerRepository.save(it) }
 
             logger.info("\n\t[INFO] [match_seeder][seed] 3 demo matches seeded (individual, team-based, in-progress)")
