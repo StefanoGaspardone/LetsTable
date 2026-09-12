@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, ScrollView, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Trophy, Users, Award, Star, User } from 'lucide-react-native';
+import { Trophy, Users, Award, Star } from 'lucide-react-native';
 import { Image } from 'expo-image';
 
 import { Text } from '@/components/ui/text';
@@ -14,12 +14,13 @@ import { getMatchById, updateMatch } from '@/api/match';
 
 import { useToast } from '@/contexts/toast-context';
 import { useAuth } from '@/contexts/auth-context';
+import { getAvatarUrl } from '@/lib/file';
 
 interface ScoreEntry {
 	id: string;
 	displayName: string;
 	color: string;
-	avatarUrl: string | null;
+	avatarId: string | null | undefined;
 	score: string;
 	isWinner: boolean;
 	userId: string | null;
@@ -62,7 +63,7 @@ const FinishMatchScreen = () => {
 					id: team.id,
 					displayName: team.name ?? 'Squadra senza nome',
 					color: team.color,
-					avatarUrl: null,
+					avatarId: null,
 					score: '',
 					isWinner: false,
 					userId: null,
@@ -75,7 +76,7 @@ const FinishMatchScreen = () => {
 					id: p.id,
 					displayName: p.user?.username ?? p.guestName ?? 'Sconosciuto',
 					color: p.color ?? '#C45135',
-					avatarUrl: p.user?.avatarUrl ?? null,
+					avatarId: p.user?.avatarId,
 					score: '',
 					isWinner: false,
 					userId: p.user?.id ?? null,
@@ -187,15 +188,7 @@ const FinishMatchScreen = () => {
 									<Pressable onPress = { () => handleSetStarting(entry.id) } hitSlop = { 8 }>
 										<Star size = { 18 } color = { startingId === entry.id ? '#C45135' : '#DDD8CE' } fill = { startingId === entry.id ? '#C45135' : 'transparent' }/>
 									</Pressable>
-									{!match.isTeamBased && (
-										entry.avatarUrl ? (
-											<Image source = {{ uri: entry.avatarUrl }} style = {{ width: 32, height: 32, borderRadius: 100 }}/>
-										) : (
-											<View className = 'h-7 w-7 items-center justify-center rounded-full bg-secondary'>
-												<User size = { 14 } color = '#736E65'/>
-											</View>
-										)
-									)}
+									<Image source = {{ uri: getAvatarUrl(entry.avatarId ?? null, entry.displayName ?? '') }} style = {{ width: 32, height: 32, borderRadius: 100 }} contentFit = 'cover'/>
 									<Text className = 'flex-1 font-medium text-base text-foreground' numberOfLines = { 1 }>
 										{entry.displayName}
 										{!match.isTeamBased && entry.userId === user?.id && (
