@@ -40,7 +40,7 @@ export const ConfirmDialogProvider = ({ children }: { children: ReactNode }) => 
 		<ConfirmDialogContext.Provider value = {{ confirm }}>
 			{children}
 			<Modal visible = { !!options } transparent animationType = 'fade' onRequestClose = { () => handleClose(false) }>
-				<Pressable className = 'flex-1 items-center justify-center bg-black/50 px-6' onPress = { () => handleClose(false)}>
+				<Pressable testID = 'confirm-dialog-backdrop' className = 'flex-1 items-center justify-center bg-black/50 px-6' onPress = { () => handleClose(false)}>
 					<Pressable className = 'w-full max-w-sm rounded-2xl bg-background p-5' onPress = { e => e.stopPropagation() }>
 						{options && (
 							<>

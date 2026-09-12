@@ -3,11 +3,13 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 
 import { registerPushToken, unregisterPushToken } from '@/api/push-token';
 
-const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-const isPushNotificationsSupported = !(isExpoGo && Platform.OS === 'android');
+const getIsPushNotificationsSupported = () => {
+	const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+	return !(isExpoGo && Platform.OS === 'android');
+}
 
 export const requestAndRegisterPushToken = async (): Promise<string | null> => {
-	if(!isPushNotificationsSupported) {
+	if(!getIsPushNotificationsSupported()) {
 		console.log('Push notifications are not supported in Expo Go on Android (SDK 53+). Use a development build to test them.');
 		return null;
 	}
@@ -71,7 +73,7 @@ export const requestAndRegisterPushToken = async (): Promise<string | null> => {
 }
 
 export const unregisterCurrentPushToken = async (): Promise<void> => {
-	if(!isPushNotificationsSupported) return;
+	if(!getIsPushNotificationsSupported()) return;
 
 	try {
 		const Notifications = await import('expo-notifications');
