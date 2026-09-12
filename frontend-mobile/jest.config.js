@@ -16,8 +16,11 @@ module.exports = {
 		'!**/babel.config.js',
 		'!**/jest.setup.js',
 		'!**/*.config.{js,ts}',
-		'!app/_layout.tsx',
+		'!**/*.d.ts',
+		'!app/**',
+		'!components/**',
 		'!test/**',
+		'!types/**'
 	],
 	coverageReporters: ['lcov', 'text', 'html'],
 }
