@@ -4,4 +4,5 @@ enum class AccountStatus {
     ACTIVE,
     INACTIVE,
     DELETED,
+    SUSPENDED,
 }

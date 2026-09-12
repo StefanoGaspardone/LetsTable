@@ -2,7 +2,7 @@ import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { View, Pressable, TextInput } from 'react-native';
 import { BottomSheetModal, BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { Image } from 'expo-image';
-import { Search, User as UserIcon, Plus, ChevronLeft, X } from 'lucide-react-native';
+import { Search, Plus, ChevronLeft, X } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -11,11 +11,13 @@ import AppBottomSheet from '@/components/common/app-bottom-sheet';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useUserSearch } from '@/hooks/use-user';
 
+import { getAvatarUrl } from '@/lib/file';
+
 export interface PickedIdentity {
 	userId: string | null;
 	guestName: string | null;
 	displayName: string;
-	avatarUrl: string | null;
+	avatarId: string | null;
 }
 
 export interface PlayerIdentityPickerSheetRef {
@@ -57,11 +59,11 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
 
     const isSelected = (userId: string) => selected.some(s => s.userId === userId);
 
-    const toggleUser = (userId: string, username: string, avatarUrl: string | null) => {
+    const toggleUser = (userId: string, username: string, avatarId: string | null) => {
         setSelected(prev =>
             prev.some(s => s.userId === userId)
                 ? prev.filter(s => s.userId !== userId)
-                : [...prev, { userId, guestName: null, displayName: username, avatarUrl }]
+                : [...prev, { userId, guestName: null, displayName: username, avatarId }]
         );
     }
 
@@ -83,7 +85,7 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
 
         setSelected(prev => [
             ...prev,
-            { userId: null, guestName: trimmed, displayName: trimmed, avatarUrl: null },
+            { userId: null, guestName: trimmed, displayName: trimmed, avatarId: null },
         ]);
         setGuestNameInput('');
         setIsAddingGuest(false);
@@ -115,13 +117,7 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
                             <View key = { identity.userId } style = {{ width: '25%', padding: 4 }}>
                                 <Pressable onPress = { () => removeSelected(identity) } className = 'items-center gap-1.5 rounded-2xl border border-[#C45135]/40 bg-[#C45135]/5 py-3 active:scale-[0.98] active:opacity-75'>
                                     <View className = 'relative'>
-                                        {identity.avatarUrl ? (
-                                            <Image source = {{ uri: identity.avatarUrl }} style = {{ width: 56, height: 56, borderRadius: 28 }}/>
-                                        ) : (
-                                            <View className = 'h-14 w-14 items-center justify-center rounded-full bg-secondary border border-primary'>
-                                                <UserIcon size = { 22 } color = '#736E65'/>
-                                            </View>
-                                        )}
+                                        <Image source = {{ uri: getAvatarUrl(identity.avatarId ?? null, identity.displayName ?? '') }} style = {{ width: 56, height: 56, borderRadius: 100 }} contentFit = 'cover'/>
                                         <View className = 'absolute -right-1 -top-1 h-5 w-5 items-center justify-center rounded-full bg-[#C45135]'>
                                             <X size = { 12 } color = '#FFFFFF' strokeWidth = { 3 }/>
                                         </View>
@@ -140,14 +136,8 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
 
                         return (
                             <View style = {{ width: '25%', padding: 4 }}>
-                                <Pressable onPress = { () => toggleUser(item.id, item.username, item.avatarUrl) } className = { `items-center gap-1.5 rounded-2xl border py-3 active:scale-[0.98] active:opacity-75 ${selectedState ? 'border-[#C45135] bg-[#C45135]/5' : 'border-border bg-card'}` }>
-                                    {item.avatarUrl ? (
-                                        <Image source = {{ uri: item.avatarUrl }} style = {{ width: 56, height: 56, borderRadius: 28 }}/>
-                                    ) : (
-                                        <View className = 'h-14 w-14 items-center justify-center rounded-full bg-secondary'>
-                                            <UserIcon size = { 22 } color = '#736E65'/>
-                                        </View>
-                                    )}
+                                <Pressable onPress = { () => toggleUser(item.id, item.username, item.avatarId) } className = { `items-center gap-1.5 rounded-2xl border py-3 active:scale-[0.98] active:opacity-75 ${selectedState ? 'border-[#C45135] bg-[#C45135]/5' : 'border-border bg-card'}` }>
+                                    <Image source = {{ uri: getAvatarUrl(item.avatarId ?? null, item.username ?? '') }} style = {{ width: 56, height: 56, borderRadius: 100 }} contentFit = 'cover'/>
                                     <Text className = 'text-center text-sm font-medium text-foreground' numberOfLines = { 1 }>
                                         {item.username}
                                     </Text>

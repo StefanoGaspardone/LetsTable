@@ -85,7 +85,7 @@ class GameRuleFileController(
     )
     @GetMapping("/{fileId}/download")
     fun downloadRuleFile(@Parameter(description = "Internal ID of the game") @PathVariable gameId: UUID, @Parameter(description = "ID of the uploaded file") @PathVariable fileId: UUID): ResponseEntity<Resource> {
-        val (resource, entity) = uploadedFileService.loadFileResource(FileOwnerType.GAME_RULE, gameId, fileId)
+        val (resource, entity) = uploadedFileService.loadFileResource(FileOwnerType.GAME_RULE, fileId)
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"${entity.fileName}\"")
             .contentType(MediaType.parseMediaType(entity.contentType))

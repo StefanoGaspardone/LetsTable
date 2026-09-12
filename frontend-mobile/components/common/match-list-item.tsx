@@ -1,13 +1,14 @@
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Dices, User, Users } from 'lucide-react-native';
+import { Dices } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 
 import { Match } from '@/types/match';
 
 import { formatRelativeDays } from '@/lib/date';
+import { getAvatarUrl } from '@/lib/file';
 
 interface MatchCardProps {
 	match: Match;
@@ -15,7 +16,7 @@ interface MatchCardProps {
 
 interface FlatPlayer {
 	name: string;
-	avatarUrl: string | null;
+	avatarId: string | null | undefined;
 	isWinner: boolean | null;
 }
 
@@ -28,7 +29,7 @@ interface FlatTeam {
 const flattenPlayers = (match: Match): FlatPlayer[] => {
 	return (match.players ?? []).map(p => ({
 		name: p.user?.username ?? p.guestName ?? 'Sconosciuto',
-		avatarUrl: p.user?.avatarUrl ?? null,
+		avatarId: p.user?.avatarId,
 		isWinner: p.isWinner,
 	}))
 }
@@ -52,14 +53,8 @@ const PlayerAvatarStack = ({ players }: { players: FlatPlayer[] }) => {
 	return (
 		<View className = 'flex-row items-center'>
 			{visiblePlayers.map((player, index) => (
-				<View key = { `${player.name}-${player.avatarUrl}` } style = {{ marginLeft: index === 0 ? 0 : -AVATAR_OVERLAP, zIndex: visiblePlayers.length - index }}>
-					{player.avatarUrl ? (
-						<Image source = {{ uri: player.avatarUrl }} style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 2, borderColor: '#F2EFE9' }}/>
-					) : (
-						<View style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 2, borderColor: '#F2EFE9' }} className = 'items-center justify-center bg-secondary'>
-							<User size = { 12 } className = 'text-muted-foreground'/>
-						</View>
-					)}
+				<View key = { `${player.name}-${player.avatarId}` } style = {{ marginLeft: index === 0 ? 0 : -AVATAR_OVERLAP, zIndex: visiblePlayers.length - index }}>
+					<Image source = {{ uri: getAvatarUrl(player?.avatarId ?? null, player?.name ?? '') }} style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 2, borderColor: '#F2EFE9' }} contentFit = 'cover'/>
 				</View>
 			))}
 			{remainingCount > 0 && (
@@ -79,9 +74,7 @@ const TeamDotStack = ({ teams }: { teams: FlatTeam[] }) => {
 		<View className = 'flex-row items-center'>
 			{visibleTeams.map((team, index) => (
 				<View key = { `${team.name}-${team.color}` } style = {{ marginLeft: index === 0 ? 0 : -AVATAR_OVERLAP, zIndex: visibleTeams.length - index }}>
-					<View style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, backgroundColor: team.color, borderWidth: 2, borderColor: '#F2EFE9' }} className = 'items-center justify-center'>
-						<Text className = 'text-xs font-bold text-white'>{team.name.charAt(0).toUpperCase()}</Text>
-					</View>
+					<Image source = {{ uri: getAvatarUrl(null, team.name ?? '') }} style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 2, borderColor: '#F2EFE9' }} contentFit = 'cover'/>
 				</View>
 			))}
 			{remainingCount > 0 && (
@@ -131,9 +124,7 @@ const MatchListItem = ({ match }: MatchCardProps) => {
 			) : match.isTeamBased ? (
 				winningTeam && (
 					<View className = 'items-center justify-center gap-1'>
-						<View style = {{ width: 39, height: 39, borderRadius: 20, backgroundColor: winningTeam.color }} className = 'items-center justify-center'>
-							<Users size = { 18 } color = '#FFFFFF'/>
-						</View>
+						<Image source = {{ uri: getAvatarUrl(null, winningTeam?.name ?? '') }} style = {{ width: 39, height: 39, borderRadius: 100 }} contentFit = 'cover'/>
 						<Text className = 'text-sm font-semibold text-foreground' numberOfLines = { 1 } style = {{ maxWidth: 60 }}>
 							{winningTeam.name}
 						</Text>
@@ -142,13 +133,7 @@ const MatchListItem = ({ match }: MatchCardProps) => {
 			) : (
 				winner && (
 					<View className = 'items-center justify-center gap-1'>
-						{winner.avatarUrl ? (
-							<Image source = {{ uri: winner.avatarUrl }} style = {{ width: 39, height: 39, borderRadius: 100 }}/>
-						) : (
-							<View className = 'h-9 w-9 items-center justify-center rounded-full bg-secondary'>
-								<User size = { 18 } className = 'text-muted-foreground'/>
-							</View>
-						)}
+						<Image source = {{ uri: getAvatarUrl(winner?.avatarId ?? null, winner?.name ?? '') }} style = {{ width: 39, height: 39, borderRadius: 100 }} contentFit = 'cover'/>
 						<Text className = 'text-sm font-semibold text-foreground' numberOfLines = { 1 } style = {{ maxWidth: 60 }}>
 							{winner.name}
 						</Text>

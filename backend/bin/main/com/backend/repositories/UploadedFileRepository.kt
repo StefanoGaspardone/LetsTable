@@ -13,4 +13,6 @@ interface UploadedFileRepository: JpaRepository<UploadedFile, UUID> {
     fun findAllByOwnerTypeAndOwnerIdOrderByCreatedAtDesc(ownerType: FileOwnerType, ownerId: UUID): List<UploadedFile>
 
     fun findByIdAndOwnerTypeAndOwnerId(id: UUID, ownerType: FileOwnerType, ownerId: UUID): Optional<UploadedFile>
+
+    fun findByIdAndOwnerType(id: UUID, ownerType: FileOwnerType): Optional<UploadedFile>
 }

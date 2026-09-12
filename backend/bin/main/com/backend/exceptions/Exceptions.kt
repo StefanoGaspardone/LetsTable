@@ -97,3 +97,7 @@ class InvalidFileTypeException(message: String) : RuntimeException(message)
 class StorageWriteException(objectKey: String) : RuntimeException("Failed to write object to storage: $objectKey")
 
 class StorageNotFoundException(objectKey: String) : RuntimeException("Object not found in storage: $objectKey")
+
+class CannotSuspendSelfException: RuntimeException("You cannot suspend your own account")
+
+class InvalidAccountStatusTransitionException(message: String): RuntimeException(message)

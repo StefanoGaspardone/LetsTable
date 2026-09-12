@@ -5,6 +5,7 @@ import com.backend.models.dtos.DeleteAccountDTO
 import com.backend.models.dtos.UpdateUserRequest
 import com.backend.models.dtos.UserDTO
 import com.backend.models.enums.AccountStatus
+import com.backend.models.enums.FileOwnerType
 import com.backend.repositories.*
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -17,6 +18,7 @@ class UserService(
     private val matchRepository: MatchRepository,
     private val matchPlayerRepository: MatchPlayerRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
+    private val uploadedFileRepository: UploadedFileRepository,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -124,6 +126,17 @@ class UserService(
             }
 
             request.notificationsEnabled?.let { user.notificationsEnabled = it }
+
+            if(request.removeAvatar == true) {
+                user.avatarId = null
+            } else {
+                request.avatarId?.let { avatarId ->
+                    val avatarFile = uploadedFileRepository.findByIdAndOwnerTypeAndOwnerId(avatarId, FileOwnerType.USER_AVATAR, userId)
+                        .orElseThrow { UploadedFileNotFoundException(avatarId) }
+
+                    user.avatarId = avatarFile.id
+                }
+            }
 
             val saved = userRepository.save(user)
             val response = UserDTO.from(saved)

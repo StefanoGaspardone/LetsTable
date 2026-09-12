@@ -282,6 +282,23 @@ class MatchService(
         }
     }
 
+    @Transactional
+    fun getRecentMatchesForUser(userId: UUID, limit: Int = 10): List<MatchDTO> {
+        logger.debug("\n\t[DEBUG] [match_service][get_recent_matches_for_user] Retrieving recent matches for user {}", userId)
+
+        try {
+            val pageable = PageRequest.of(0, limit)
+            val matches = matchRepository.findRecentForUser(userId, pageable)
+            val response = matches.map { mapMatchToResponse(it) }
+
+            logger.info("\n\t[INFO] [match_service][get_recent_matches_for_user] Retrieved {} matches for user {}", response.size, userId)
+            return response
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [match_service][get_recent_matches_for_user] Error retrieving matches for user {}: {}", userId, e.message)
+            throw e
+        }
+    }
+
     private fun validateRequest(request: MatchPlayersPayload) {
         val teams = request.teams
         val players = request.players

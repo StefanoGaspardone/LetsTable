@@ -81,17 +81,17 @@ class UploadedFileService(
     }
 
     @Transactional
-    fun loadFileResource(ownerType: FileOwnerType, ownerId: UUID, fileId: UUID): Pair<Resource, UploadedFile> {
-        logger.debug("\n\t[DEBUG] [uploaded_file_service][load_file_resource] Loading file resource\n\townerType={}\n\townerId={}\n\tfileId={}", ownerType, ownerId, fileId)
+    fun loadFileResource(ownerType: FileOwnerType, fileId: UUID): Pair<Resource, UploadedFile> {
+        logger.debug("\n\t[DEBUG] [uploaded_file_service][load_file_resource] Loading file resource\n\townerType={}\n\tfileId={}", ownerType, fileId)
 
         try {
-            val uploadedFile = uploadedFileRepository.findByIdAndOwnerTypeAndOwnerId(fileId, ownerType, ownerId)
+            val uploadedFile = uploadedFileRepository.findByIdAndOwnerType(fileId, ownerType)
                 .orElseThrow { UploadedFileNotFoundException(fileId) }
 
             val stream = storageService.getObject(uploadedFile.objectKey)
             return InputStreamResource(stream) to uploadedFile
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [uploaded_file_service][load_file_resource] Error loading file\n\townerType={}\n\townerId={}\n\tfileId={}\n\treason={}", ownerType, ownerId, fileId, e.message)
+            logger.error("\n\t[ERROR] [uploaded_file_service][load_file_resource] Error loading file\n\townerType={}\n\tfileId={}\n\treason={}", ownerType, fileId, e.message)
             throw e
         }
     }

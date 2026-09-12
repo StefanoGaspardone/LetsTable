@@ -35,6 +35,9 @@ class User(
     @Column(name = "notifications_enabled", nullable = false)
     var notificationsEnabled: Boolean = true,
 
+    @Column(name = "avatar_id", nullable = true)
+    var avatarId: UUID? = null,
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),

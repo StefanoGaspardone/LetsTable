@@ -1884,4 +1884,126 @@ class GameServiceTest {
                 .hasMessage("Unexpected error")
         }
     }
+
+    @Nested
+    @DisplayName("forceRefreshGame")
+    inner class ForceRefreshGame {
+
+        @Test
+        fun `should force sync from BGG even when existing game is fresh`() {
+            val freshGame = Game(
+                id = gameId,
+                bggId = bggId,
+                name = "Old Name",
+                lastSyncedAt = Instant.now()
+            )
+
+            val bggDetails = createSampleBggThingItem(primaryName = "Refreshed Name")
+
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(freshGame)
+            every { bggClient.getGameDetails(bggId) } returns BggThingResponseXml(listOf(bggDetails))
+            every { gameRepository.save(any<Game>()) } answers { firstArg() }
+            every { gameSleeveRepository.findAllByGameId(gameId) } returns emptyList()
+
+            val result = gameService.forceRefreshGame(bggId)
+
+            assertThat(result.name).isEqualTo("Refreshed Name")
+
+            verify(exactly = 1) { bggClient.getGameDetails(bggId) }
+            verify(exactly = 1) { gameRepository.save(any<Game>()) }
+        }
+
+        @Test
+        fun `should sync a new game when it does not exist yet`() {
+            val bggDetails = createSampleBggThingItem(primaryName = "New Game")
+
+            every { gameRepository.findByBggId(bggId) } returns Optional.empty()
+            every { bggClient.getGameDetails(bggId) } returns BggThingResponseXml(listOf(bggDetails))
+            every { gameRepository.save(any<Game>()) } answers {
+                val game = firstArg<Game>()
+                game.id = gameId
+                game
+            }
+            every { gameSleeveRepository.findAllByGameId(gameId) } returns emptyList()
+
+            val result = gameService.forceRefreshGame(bggId)
+
+            assertThat(result.bggId).isEqualTo(bggId)
+            assertThat(result.name).isEqualTo("New Game")
+        }
+
+        @Test
+        fun `should throw GameNotFoundOnBggException when game does not exist on BGG`() {
+            every { gameRepository.findByBggId(bggId) } returns Optional.empty()
+            every { bggClient.getGameDetails(bggId) } returns BggThingResponseXml(emptyList())
+
+            assertThatThrownBy {
+                gameService.forceRefreshGame(bggId)
+            }.isInstanceOf(GameNotFoundOnBggException::class.java)
+        }
+
+        @Test
+        fun `should rethrow unexpected exception during forceRefreshGame`() {
+            every { gameRepository.findByBggId(bggId) } throws RuntimeException("DB outage")
+
+            assertThatThrownBy {
+                gameService.forceRefreshGame(bggId)
+            }.isInstanceOf(RuntimeException::class.java)
+                .hasMessage("DB outage")
+        }
+    }
+
+    @Nested
+    @DisplayName("forceRefreshHotGames")
+    inner class ForceRefreshHotGames {
+
+        @Test
+        fun `should do nothing when hot games response from BGG is empty`() {
+            every { bggClient.getHotGames() } returns BggHotResponseXml(emptyList())
+
+            gameService.forceRefreshHotGames()
+
+            verify(exactly = 0) { hotGamesPersistenceService.saveHotGames(any()) }
+        }
+
+        @Test
+        fun `should refresh and save hot games successfully`() {
+            val hotItems = listOf(BggHotItemXml(id = 10L, rank = 1, name = BggValueXml("Hot Game")))
+            val details = createSampleBggThingItem(id = 10L, primaryName = "Hot Game Enriched")
+
+            every { bggClient.getHotGames() } returns BggHotResponseXml(hotItems)
+            every { bggClient.getGameDetailsBatch(listOf(10L)) } returns BggThingResponseXml(listOf(details))
+            every { gameRepository.findAllByBggIdIn(listOf(10L)) } returns emptyList()
+            every { hotGamesPersistenceService.saveHotGames(any()) } just Runs
+
+            gameService.forceRefreshHotGames()
+
+            verify(exactly = 1) { hotGamesPersistenceService.saveHotGames(any()) }
+        }
+
+        @Test
+        fun `should propagate exception when BGG call fails, unlike the scheduled refreshHotGames`() {
+            every { bggClient.getHotGames() } throws RuntimeException("Network error")
+
+            assertThatThrownBy {
+                gameService.forceRefreshHotGames()
+            }.isInstanceOf(RuntimeException::class.java)
+                .hasMessage("Network error")
+        }
+
+        @Test
+        fun `should propagate exception when persistence fails, unlike the scheduled refreshHotGames`() {
+            val hotItems = listOf(BggHotItemXml(id = 10L, rank = 1, name = BggValueXml("Hot Game")))
+
+            every { bggClient.getHotGames() } returns BggHotResponseXml(hotItems)
+            every { bggClient.getGameDetailsBatch(listOf(10L)) } returns BggThingResponseXml(emptyList())
+            every { gameRepository.findAllByBggIdIn(listOf(10L)) } returns emptyList()
+            every { hotGamesPersistenceService.saveHotGames(any()) } throws RuntimeException("DB failure")
+
+            assertThatThrownBy {
+                gameService.forceRefreshHotGames()
+            }.isInstanceOf(RuntimeException::class.java)
+                .hasMessage("DB failure")
+        }
+    }
 }

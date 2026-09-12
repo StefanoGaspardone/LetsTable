@@ -269,11 +269,13 @@ class UploadedFileServiceTest {
                 size = 500
             )
             val fakeStream: InputStream = "avatar binary stream".byteInputStream()
-            whenever(uploadedFileRepository.findByIdAndOwnerTypeAndOwnerId(fileId, FileOwnerType.USER_AVATAR, ownerId))
+
+            // Corretto: usa findByIdAndOwnerType (2 parametri) come atteso dal service
+            whenever(uploadedFileRepository.findByIdAndOwnerType(fileId, FileOwnerType.USER_AVATAR))
                 .thenReturn(Optional.of(uploadedFile))
             whenever(storageService.getObject(uploadedFile.objectKey)).thenReturn(fakeStream)
 
-            val (resource, entity) = uploadedFileService.loadFileResource(FileOwnerType.USER_AVATAR, ownerId, fileId)
+            val (resource, entity) = uploadedFileService.loadFileResource(FileOwnerType.USER_AVATAR, fileId)
 
             assertThat(resource).isNotNull
             assertThat(entity).isEqualTo(uploadedFile)
@@ -282,11 +284,12 @@ class UploadedFileServiceTest {
 
         @Test
         fun `should throw UploadedFileNotFoundException when file record not found in repository`() {
-            whenever(uploadedFileRepository.findByIdAndOwnerTypeAndOwnerId(fileId, ownerType, ownerId))
+            // Corretto: usa findByIdAndOwnerType (2 parametri)
+            whenever(uploadedFileRepository.findByIdAndOwnerType(fileId, ownerType))
                 .thenReturn(Optional.empty())
 
             assertThatThrownBy {
-                uploadedFileService.loadFileResource(ownerType, ownerId, fileId)
+                uploadedFileService.loadFileResource(ownerType, fileId)
             }.isInstanceOf(UploadedFileNotFoundException::class.java)
 
             verify(storageService, never()).getObject(any())

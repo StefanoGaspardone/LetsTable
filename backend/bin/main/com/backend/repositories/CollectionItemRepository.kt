@@ -17,4 +17,6 @@ interface CollectionItemRepository : JpaRepository<CollectionItem, UUID>, JpaSpe
 
     @Query("SELECT ci.game.id FROM CollectionItem ci WHERE ci.user.id = :userId AND ci.game.id IN :gameIds")
     fun findGameIdsInCollection(userId: UUID, gameIds: List<UUID>): Set<UUID>
+
+    fun countByUserId(userId: UUID): Long
 }

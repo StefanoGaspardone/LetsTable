@@ -233,4 +233,12 @@ class ExceptionsHandler {
     @ExceptionHandler(StorageNotFoundException::class)
     fun handleStorageNotFound(ex: StorageNotFoundException) =
         buildResponse(HttpStatus.NOT_FOUND, ex)
+
+    @ExceptionHandler(CannotSuspendSelfException::class)
+    fun handleCannotSuspendSelf(ex: CannotSuspendSelfException) =
+        buildResponse(HttpStatus.CONFLICT, ex)
+
+    @ExceptionHandler(InvalidAccountStatusTransitionException::class)
+    fun handleInvalidAccountStatusTransition(ex: InvalidAccountStatusTransitionException) =
+        buildResponse(HttpStatus.BAD_REQUEST, ex)
 }

@@ -13,22 +13,28 @@ import { Button } from '@/components/ui/button';
 
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
+import { useConfirmDialog } from '@/contexts/confirm-dialog-context';
 
 import { useUpdateMe } from '@/hooks/use-user';
+
+import { uploadAvatar, deleteAvatar } from '@/api/avatar';
+
+import { getAvatarUrl } from '@/lib/file';
 
 const AccountScreen = () => {
 	const { user, updateUser } = useAuth();
 	const { showToast } = useToast();
+	const { confirm } = useConfirmDialog();
 	const updateMe = useUpdateMe(updateUser);
 
 	const [username, setUsername] = useState(user?.username ?? '');
-	const [avatarUri, setAvatarUri] = useState<string | null>(user?.avatarUrl ?? null);
+	const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+	const [isRemovingAvatar, setIsRemovingAvatar] = useState(false);
 
 	useFocusEffect(
 		useCallback(() => {
 			setUsername(user?.username ?? '');
-			setAvatarUri(user?.avatarUrl ?? null);
-		}, [user?.username, user?.avatarUrl])
+		}, [user?.username])
 	);
 
 	const hasChanges = username.trim() !== user?.username;
@@ -48,14 +54,69 @@ const AccountScreen = () => {
 			quality: 0.8,
 		});
 
-		if(!result.canceled && result.assets[0]?.uri) {
-			setAvatarUri(result.assets[0].uri);
-			showToast('Caricamento avatar non ancora disponibile', 'info');
+		if(result.canceled) return;
+
+		const asset = result.assets[0];
+		setIsUploadingAvatar(true);
+
+		try {
+			const uploaded = await uploadAvatar(asset.uri, asset.fileName ?? 'avatar.jpg', asset.mimeType ?? 'image/jpeg');
+
+			updateMe.mutate(
+				{ avatarId: uploaded.id },
+				{
+					onSuccess: () => {
+						showToast('Avatar aggiornato', 'success');
+					},
+					onError: (error: any) => {
+						const message = error?.response?.data?.message ?? 'Errore durante l\'aggiornamento';
+						showToast(message, 'error');
+					},
+				}
+			);
+		} catch(error: any) {
+			const message = error?.response?.data?.message ?? 'Errore durante il caricamento dell\'immagine';
+			showToast(message, 'error');
+		} finally {
+			setIsUploadingAvatar(false);
 		}
 	}
 
-	const handleRemoveImage = () => {
-		setAvatarUri(null);
+	const handleRemoveImage = async () => {
+		if(!user?.avatarId) return;
+
+		const ok = await confirm({
+			title: 'Rimuovi avatar',
+			message: 'Vuoi rimuovere la tua immagine del profilo?',
+			confirmLabel: 'Rimuovi',
+			destructive: true,
+		});
+
+		if(!ok) return;
+
+		setIsRemovingAvatar(true);
+
+		try {
+			await deleteAvatar(user.avatarId);
+
+			updateMe.mutate(
+				{ removeAvatar: true },
+				{
+					onSuccess: () => {
+						showToast('Avatar rimosso', 'success');
+					},
+					onError: (error: any) => {
+						const message = error?.response?.data?.message ?? 'Errore durante l\'aggiornamento del profilo';
+						showToast(message, 'error');
+					},
+				}
+			);
+		} catch(error: any) {
+			const message = error?.response?.data?.message ?? 'Errore durante la rimozione dell\'avatar';
+			showToast(message, 'error');
+		} finally {
+			setIsRemovingAvatar(false);
+		}
 	}
 
 	const handleSave = () => {
@@ -80,8 +141,6 @@ const AccountScreen = () => {
 		);
 	}
 
-	const initial = username ? username.charAt(0).toUpperCase() : '?';
-
 	return (
 		<KeyboardAvoidingView behavior = { Platform.OS === 'ios' ? 'padding' : undefined } className = 'flex-1 bg-background'>
 			<ScreenHeader title = 'Modifica Profilo' leftElement = { <BackButton/> }/>
@@ -89,22 +148,25 @@ const AccountScreen = () => {
 				<View className = 'mb-8 items-center justify-center'>
 					<View className = 'relative'>
 						<View className = 'h-28 w-28 items-center justify-center overflow-hidden rounded-full border-2 border-border/50 bg-secondary shadow-sm'>
-							{avatarUri ? (
-								<Image source = {{ uri: avatarUri }} style = {{ width: 112, height: 112 }} contentFit = 'cover'/>
-							) : (
-								<Text className = 'text-4xl font-bold text-muted-foreground'>{initial}</Text>
-							)}
+							<Image source = {{ uri: getAvatarUrl(user?.avatarId ?? null, user?.username ?? '') }} style = {{ width: 112, height: 112 }} contentFit = 'cover'/>
 						</View>
-						<Pressable onPress = { handlePickImage } className = 'absolute bottom-0 right-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-[#C45135] shadow-md active:opacity-80'>
-							<Camera size = { 16 } color = '#FFFFFF'/>
+						<Pressable onPress = { handlePickImage } disabled = { isUploadingAvatar } className = 'absolute bottom-0 left-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-[#C45135] shadow-md active:opacity-80'>
+							{isUploadingAvatar ? (
+								<ActivityIndicator size = 'small' color = '#FFFFFF'/>
+							) : (
+								<Camera size = { 16 } color = '#FFFFFF'/>
+							)}
 						</Pressable>
+						{user?.avatarId && (
+							<Pressable onPress = { handleRemoveImage } disabled = { isRemovingAvatar } className = 'absolute bottom-0 right-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-red-500 shadow-md active:opacity-80'>
+								{isRemovingAvatar ? (
+									<ActivityIndicator size = 'small' color = '#FFFFFF'/>
+								) : (
+									<Trash2 size = { 16 } color = '#FFFFFF'/>
+								)}
+							</Pressable>
+						)}
 					</View>
-					{avatarUri && (
-						<Pressable onPress = { handleRemoveImage } className = 'mt-3 flex-row items-center gap-1.5 active:opacity-60'>
-							<Trash2 size = { 13 } color = '#EF4444'/>
-							<Text className = 'text-xs font-medium text-red-500'>Rimuovi foto</Text>
-						</Pressable>
-					)}
 				</View>
 				<Text className = 'mb-2 pl-1 text-xs font-bold uppercase tracking-wider text-muted-foreground'>
 					Informazioni Utente

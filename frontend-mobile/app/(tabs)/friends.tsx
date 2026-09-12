@@ -14,6 +14,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { useUserSearch } from '@/hooks/use-user';
 import {  useFriends, usePendingReceived, usePendingSent, useSendFriendRequest, useAcceptFriendRequest, useRejectFriendRequest, useCancelFriendRequest, useRemoveFriend } from '@/hooks/use-friend';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+import { getAvatarUrl } from '@/lib/file';
 
 const getViewOptions = (pendingRequestsCount: number) => [
     { value: 'friends', label: 'Amici' },
@@ -23,7 +24,7 @@ const getViewOptions = (pendingRequestsCount: number) => [
 interface UserItem {
     id: string;
     username: string;
-    avatarUrl: string | null;
+    avatarId: string | null;
 }
 
 const FriendsScreen = () => {
@@ -68,32 +69,24 @@ const FriendsScreen = () => {
 
     const visibleSearchResults = (searchResults ?? []).filter(u => !friendIds.has(u.id));
 
-    const renderUserCard = (user: UserItem, action: ReactNode, subtitle?: string) => {
-        const initial = user.username ? user.username.charAt(0).toUpperCase() : '?';
-
-        return (
-            <View key = { user.id } className = 'mb-2.5 flex-row items-center justify-between rounded-2xl bg-card p-3 mx-4 border border-border/50 shadow-sm'>
-                <View className = 'flex-row items-center gap-3 flex-1 mr-2'>
-                    <View className = 'h-12 w-12 overflow-hidden rounded-full bg-secondary items-center justify-center border border-border/30'>
-                        {user.avatarUrl ? (
-                            <Image source = {{ uri: user.avatarUrl }} style = {{ width: 48, height: 48 }}contentFit = 'cover' transition = { 200 }/>
-                        ) : (
-                            <Text className = 'text-base font-bold text-muted-foreground'>{initial}</Text>
-                        )}
-                    </View>
-					<View className = 'flex-1 justify-center'>
-                        <Text className = 'text-base font-semibold text-foreground' numberOfLines = { 1 }>
-                            {user.username}
-                        </Text>
-                        <Text className = 'text-xs text-muted-foreground' numberOfLines = { 1 }>
-                            {subtitle ?? `@${user.username.toLowerCase()}`}
-                        </Text>
-                    </View>
+    const renderUserCard = (user: UserItem, action: ReactNode, subtitle?: string) => (
+        <View key = { user.id } className = 'mb-2.5 flex-row items-center justify-between rounded-2xl bg-card p-3 mx-4 border border-border/50 shadow-sm'>
+            <View className = 'flex-row items-center gap-3 flex-1 mr-2'>
+                <View className = 'h-12 w-12 overflow-hidden rounded-full bg-secondary items-center justify-center border border-border/30'>
+                    <Image source = {{ uri: getAvatarUrl(user?.avatarId ?? null, user?.username ?? '') }} style = {{ width: 48, height: 48 }} contentFit = 'cover' transition = { 200 }/>
                 </View>
-				<View className = 'flex-row items-center'>{action}</View>
+                <View className = 'flex-1 justify-center'>
+                    <Text className = 'text-base font-semibold text-foreground' numberOfLines = { 1 }>
+                        {user.username}
+                    </Text>
+                    <Text className = 'text-xs text-muted-foreground' numberOfLines = { 1 }>
+                        {subtitle ?? `@${user.username.toLowerCase()}`}
+                    </Text>
+                </View>
             </View>
-        )
-    }
+            <View className = 'flex-row items-center'>{action}</View>
+        </View>
+    )
 
     return (
         <View className = 'flex-1 bg-background'>

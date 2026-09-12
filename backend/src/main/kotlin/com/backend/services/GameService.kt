@@ -491,6 +491,82 @@ class GameService(
         }
     }
 
+    fun forceRefreshGame(bggId: Long): GameDTO {
+        logger.debug("\n\t[DEBUG] [game_service][force_refresh_game] Forcing refresh for game with bggId {}", bggId)
+
+        try {
+            val existing = gameRepository.findByBggId(bggId).orElse(null)
+            val game = syncFromBgg(bggId, existing)
+
+            val sleevesList = game.id?.let { gameSleeveRepository.findAllByGameId(it) } ?: emptyList()
+            val sleevesDTO = sleevesList.map { GameSleeveDTO.from(it) }
+
+            logger.info("\n\t[INFO] [game_service][force_refresh_game] Refreshed game with bggId {}", bggId)
+            return GameDTO.from(game, sleeves = sleevesDTO)
+        } catch(e: GameNotFoundOnBggException) {
+            logger.warn("\n\t[WARN] [game_service][force_refresh_game] Game not found on BGG with id {}", bggId)
+            throw e
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [game_service][force_refresh_game] Error refreshing game with bggId {}: {}", bggId, e.message, e)
+            throw e
+        }
+    }
+
+    fun forceRefreshHotGames() {
+        logger.debug("\n\t[DEBUG] [game_service][force_refresh_hot_games] Forcing hot games cache refresh from BGG")
+
+        val hotItems = bggClient.getHotGames().items
+
+        if(hotItems.isEmpty()) {
+            logger.info("\n\t[INFO] [game_service][force_refresh_hot_games] No hot games returned from BGG")
+            return
+        }
+
+        val bggIds = hotItems.map { it.id }
+
+        val detailsByBggId = try {
+            bggClient
+                .getGameDetailsBatch(bggIds)
+                .items
+                .associateBy { it.id }
+        } catch(e: Exception) {
+            logger.warn("\n\t[WARN] [game_service][force_refresh_hot_games] Batch enrichment failed\n\treason={}", e.message)
+            emptyMap()
+        }
+
+        val existingGamesByBggId = gameRepository
+            .findAllByBggIdIn(bggIds)
+            .associateBy { it.bggId }
+
+        val gamesToSave = hotItems.map { item ->
+            val existing = existingGamesByBggId[item.id]
+            val details = detailsByBggId[item.id]
+
+            val game = if(details != null) {
+                applyBggDetails(
+                    existing ?: Game(bggId = item.id, name = "", lastSyncedAt = Instant.now()),
+                    details
+                )
+            } else {
+                existing ?: Game(
+                    bggId = item.id,
+                    name = item.name?.value ?: "Sconosciuto",
+                    thumbnailUrl = item.thumbnail?.value,
+                    yearPublished = item.yearPublished?.value?.toIntOrNull(),
+                    lastSyncedAt = Instant.EPOCH,
+                    isExpansion = false
+                )
+            }
+
+            game.rank = item.rank
+            game
+        }
+
+        hotGamesPersistenceService.saveHotGames(gamesToSave)
+
+        logger.info("\n\t[INFO] [game_service][force_refresh_hot_games] Hot games cache refreshed with {} entries", gamesToSave.size)
+    }
+
     private fun enrichWithBatchDetails(bggIds: List<Long>, existingGamesByBggId: Map<Long, Game>): Map<Long, Game> {
         if(bggIds.isEmpty()) {
             return emptyMap()

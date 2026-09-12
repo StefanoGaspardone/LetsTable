@@ -4,7 +4,7 @@ import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { Plus, X, Dices, User, Trash2, UserCheck } from 'lucide-react-native';
+import { Plus, X, Dices, Trash2, UserCheck } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import { getPlayerColor } from '@/lib/colors';
 
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
+import { getAvatarUrl } from '@/lib/file';
 
 interface PresetGame {
 	id: string;
@@ -34,7 +35,7 @@ interface LocalPlayer {
 	userId: string | null;
 	guestName: string | null;
 	displayName: string;
-	avatarUrl: string | null;
+	avatarId: string | null;
 	color: string;
 }
 
@@ -42,7 +43,7 @@ interface TeamPlayer {
 	userId: string | null;
 	guestName: string | null;
 	displayName: string;
-	avatarUrl: string | null;
+	avatarId: string | null;
 }
 
 interface LocalTeam {
@@ -87,7 +88,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 			setMode('individual');
 			setPlayers(
 				user
-					? [{ userId: user.id, guestName: null, displayName: user.username, avatarUrl: user.avatarUrl ?? null, color: getPlayerColor(0) }]
+					? [{ userId: user.id, guestName: null, displayName: user.username, avatarId: user.avatarId, color: getPlayerColor(0) }]
 					: []
 			);
             setTeams([]);
@@ -124,7 +125,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                     userId: identity.userId,
                     guestName: identity.guestName,
                     displayName: identity.displayName,
-                    avatarUrl: identity.avatarUrl,
+                    avatarId: identity.avatarId,
                     color: getPlayerColor(prev.length + index),
                 })),
             ]);
@@ -141,7 +142,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                         userId: identity.userId,
                                         guestName: identity.guestName,
                                         displayName: identity.displayName,
-                                        avatarUrl: identity.avatarUrl,
+                                        avatarId: identity.avatarId,
                                     })),
                                 ],
                             }
@@ -198,7 +199,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                         ...t,
                         players: alreadyIn
                             ? t.players.filter(p => p.userId !== user.id)
-                            : [...t.players, { userId: user.id, guestName: null, displayName: user.username, avatarUrl: user.avatarUrl ?? null }],
+                            : [...t.players, { userId: user.id, guestName: null, displayName: user.username, avatarId: user.avatarId }],
                     };
                 }
 
@@ -341,13 +342,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                             {players.map((player, index) => (
                                 <View key = { player.userId } className = 'flex-row items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5'>
                                     <View style = {{ width: 32, height: 32 }} className = 'overflow-hidden rounded-full bg-secondary'>
-                                        {player.avatarUrl ? (
-                                            <Image source = {{ uri: player.avatarUrl }} style = {{ width: 32, height: 32 }}/>
-                                        ) : (
-                                            <View className = 'h-full w-full items-center justify-center'>
-                                                <User size = { 14 } color = '#736E65'/>
-                                            </View>
-                                        )}
+                                        <Image source = {{ uri: getAvatarUrl(player.avatarId ?? null, player.displayName ?? '') }} style = {{ width: 32, height: 32 }} contentFit = 'cover'/>
                                     </View>
                                     <Text className = 'flex-1 text-sm text-foreground' numberOfLines = { 1 }>
                                         {player.displayName}
@@ -360,7 +355,6 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                                 <X size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65'}/>
                                             )}
                                         </Pressable>
-                                        
                                     )}
                                 </View>
                             ))}
@@ -393,13 +387,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                         {team.players.map((player, playerIndex) => (
                                             <View key = { player.userId } className = 'flex-row items-center gap-2 rounded-lg bg-secondary px-2.5 py-1.5'>
                                                 <View style = {{ width: 24, height: 24 }} className = 'overflow-hidden rounded-full bg-card'>
-                                                    {player.avatarUrl ? (
-                                                        <Image source = {{ uri: player.avatarUrl }} style = {{ width: 24, height: 24 }}/>
-                                                    ) : (
-                                                        <View className = 'h-full w-full items-center justify-center'>
-                                                            <User size = { 12 } color = '#736E65'/>
-                                                        </View>
-                                                    )}
+                                                    <Image source = {{ uri: getAvatarUrl(player.avatarId ?? null, player.displayName ?? '') }} style = {{ width: 24, height: 24 }} contentFit = 'cover'/>
                                                 </View>
                                                 <Text className = 'flex-1 text-xs text-foreground' numberOfLines = { 1 }>
                                                     {player.displayName}

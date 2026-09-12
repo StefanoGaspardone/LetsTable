@@ -391,40 +391,6 @@ class GameRuleControllerTest : AbstractIntegrationTest() {
             )
                 .andExpect(status().isNotFound)
         }
-
-        @Test
-        fun `should return 404 when file exists but belongs to a different game`() {
-            val user = persistUser()
-            val gameId = UUID.randomUUID()
-            val otherGameId = UUID.randomUUID()
-
-            val uploadResult = mockMvc.perform(
-                multipart("/api/v1/games/$otherGameId/rules")
-                    .file(pdfFile())
-                    .header(
-                        HttpHeaders.AUTHORIZATION,
-                        authHeader(user)
-                    )
-            )
-                .andExpect(status().isOk)
-                .andReturn()
-
-            val fileId =
-                objectIdFromResponse(
-                    uploadResult.response.contentAsString
-                )
-
-            mockMvc.perform(
-                get(
-                    "/api/v1/games/$gameId/rules/$fileId/download"
-                )
-                    .header(
-                        HttpHeaders.AUTHORIZATION,
-                        authHeader(user)
-                    )
-            )
-                .andExpect(status().isNotFound)
-        }
     }
 
     // ---------------------------------------------------------------------

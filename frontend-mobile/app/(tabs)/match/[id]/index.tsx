@@ -3,7 +3,7 @@ import { View, Pressable, ActivityIndicator, ScrollView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { Dices, Pencil, Trash2, MapPin, FileText, Trophy, Users, ChevronRight, User, Repeat, Clock, Calendar } from 'lucide-react-native';
+import { Dices, Pencil, Trash2, MapPin, FileText, Trophy, Users, ChevronRight, Repeat, Clock, Calendar } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import { useConfirmDialog } from '@/contexts/confirm-dialog-context';
 import { formatDuration } from '@/lib/time';
 
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+import { getAvatarUrl } from '@/lib/file';
 
 interface TeamEntry {
 	id: string;
@@ -33,7 +34,7 @@ interface TeamEntry {
 	members: {
 		id: string;
 		name: string;
-		avatarUrl: string | null | undefined;
+		avatarId: string | null | undefined;
 		userId: string | null;
 	}[];
 }
@@ -43,20 +44,12 @@ const renderPodiumAvatar = (entry: any, size: number) => {
 
 	if(isTeam) {
 		return (
-			<View style = {{ width: size, height: size, borderRadius: size / 2, backgroundColor: entry.color }} className = 'items-center justify-center'>
-				<Text style = {{ fontSize: Math.round(size * 0.4) }} className = 'font-bold text-white'>
-					{entry.name.charAt(0).toUpperCase()}
-				</Text>
-			</View>
+			<Image source = {{ uri: getAvatarUrl(null, entry.name ?? '') }} style = {{ width: size, height: size, borderRadius: size / 2, backgroundColor: entry.color }} contentFit = 'cover'/>
 		)
 	}
 
-	return entry.avatarUrl ? (
-		<Image source = {{ uri: entry.avatarUrl }} style = {{ width: size, height: size, borderRadius: size / 2 }}/>
-	) : (
-		<View style = {{ width: size, height: size, borderRadius: size / 2 }} className = 'items-center justify-center bg-secondary'>
-			<User size = { Math.round(size * 0.42) } color = '#736E65'/>
-		</View>
+	return (
+		<Image source = {{ uri: getAvatarUrl(entry.avatarId ?? null, entry.name ?? '') }} style = {{ width: size, height: size, borderRadius: size / 2 }} contentFit = 'cover' transition = { 200 }/>
 	)
 }
 
@@ -135,7 +128,7 @@ const MatchDetailScreen = () => {
                 members: team.players.map(p => ({
 					id: p.id,
 					name: p.user?.username ?? p.guestName ?? 'Sconosciuto',
-					avatarUrl: p.user?.avatarUrl,
+					avatarId: p.user?.avatarId,
 					userId: p.user?.id ?? null,
 				})),
             })) ?? [];
@@ -149,7 +142,7 @@ const MatchDetailScreen = () => {
             const players = match.players?.map(p => ({
 				id: p.id,
 				name: p.user?.username ?? p.guestName ?? 'Sconosciuto',
-				avatarUrl: p.user?.avatarUrl,
+				avatarId: p.user?.avatarId,
 				color: p.color,
 				score: p.score,
 				isWinner: p.isWinner,
@@ -370,9 +363,8 @@ const MatchDetailScreen = () => {
 											<Text className = 'text-sm font-bold text-muted-foreground'>{rank}°</Text>
 										</View>
 									)}
-                                   	<View style = {{ width: 32, height: 32, borderRadius: 16, backgroundColor: entry.color }} className = 'items-center justify-center'>
-										<Text className = 'text-sm font-bold text-white'>{entry.name.charAt(0).toUpperCase()}</Text>
-									</View>
+                                   	
+                                <Image source = {{ uri: getAvatarUrl(null, entry.name ?? '') }} style = {{ width: 36, height: 36, borderRadius: 100 }} contentFit = 'cover'/>
 									<View className = 'flex-1'>
 										<View className = 'flex-row items-center gap-1.5'>
 											<MeepleIllustration size = { 16 } color = { entry.color } outlined/>
@@ -398,13 +390,7 @@ const MatchDetailScreen = () => {
 									</View>
 								)}
                                 <View style = {{ backgroundColor: entry.color ?? '#DDD8CE' }} className = 'h-5 w-5 rounded-full border border-black'/>
-                                {'avatarUrl' in entry && entry.avatarUrl ? (
-                                    <Image source = {{ uri: entry.avatarUrl }} style = {{ width: 36, height: 36, borderRadius: 100 }}/>
-                                ) : (
-                                    <View className = 'h-9 w-9 items-center justify-center rounded-full bg-secondary'>
-                                        <User size = { 20 } color = '#736E65'/>
-                                    </View>
-                                )}
+                                <Image source = {{ uri: getAvatarUrl(entry.avatarId ?? null, entry.name ?? '') }} style = {{ width: 36, height: 36, borderRadius: 100 }} contentFit = 'cover'/>
                                 <Text className = 'flex-1 text-sm font-medium text-foreground' numberOfLines = { 1 }>
 									{entry.name}
 									{'userId' in entry && entry.userId === user?.id && (
@@ -477,13 +463,7 @@ const MatchDetailScreen = () => {
 								{selectedTeam.members.map((member: any) => (
 									<View key = { member.id } style = {{ width: '25%', padding: 4 }}>
 										<View className = 'items-center gap-1.5 py-3 rounded-2xl border border-border bg-card active:scale-[0.98] active:opacity-75'>
-											{member.avatarUrl ? (
-												<Image source = {{ uri: member.avatarUrl }} style = {{ width: 56, height: 56, borderRadius: 28 }}/>
-											) : (
-												<View className = 'h-14 w-14 items-center justify-center rounded-full bg-secondary'>
-													<User size = { 22 } color = '#736E65'/>
-												</View>
-											)}
+											<Image source = {{ uri: getAvatarUrl(member.avatarId ?? null, member.name ?? '') }} style = {{ width: 56, height: 56, borderRadius: 28 }} contentFit = 'cover'/>
 											<Text className = 'text-center text-sm font-medium text-foreground' numberOfLines = { 1 }>
 												{member.name}
 												{member.userId === user?.id && (

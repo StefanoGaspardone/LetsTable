@@ -273,7 +273,7 @@ class UploadedFileServiceTest {
                 .thenReturn(Optional.of(uploadedFile))
             whenever(storageService.getObject(uploadedFile.objectKey)).thenReturn(fakeStream)
 
-            val (resource, entity) = uploadedFileService.loadFileResource(FileOwnerType.USER_AVATAR, ownerId, fileId)
+            val (resource, entity) = uploadedFileService.loadFileResource(FileOwnerType.USER_AVATAR, fileId)
 
             assertThat(resource).isNotNull
             assertThat(entity).isEqualTo(uploadedFile)
@@ -286,7 +286,7 @@ class UploadedFileServiceTest {
                 .thenReturn(Optional.empty())
 
             assertThatThrownBy {
-                uploadedFileService.loadFileResource(ownerType, ownerId, fileId)
+                uploadedFileService.loadFileResource(ownerType, fileId)
             }.isInstanceOf(UploadedFileNotFoundException::class.java)
 
             verify(storageService, never()).getObject(any())

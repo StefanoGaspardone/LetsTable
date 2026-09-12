@@ -1,13 +1,14 @@
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Crown, User } from 'lucide-react-native';
+import { Crown } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 
 import { Match } from '@/types/match';
 
 import { formatRelativeDays } from '@/lib/date';
+import { getAvatarUrl } from '@/lib/file';
 
 interface LatestMatchCardProps {
 	match: Match;
@@ -16,7 +17,7 @@ interface LatestMatchCardProps {
 interface FlatPlayer {
 	userId: string | null;
 	name: string;
-	avatarUrl: string | null;
+	avatarId: string | null | undefined;
 	isWinner: boolean | null;
 }
 
@@ -26,7 +27,7 @@ const flattenPlayers = (match: Match): FlatPlayer[] => {
 			team.players.map(p => ({
 				userId: p.user?.id ?? null,
 				name: p.user?.username ?? p.guestName ?? 'Sconosciuto',
-				avatarUrl: p.user?.avatarUrl ?? null,
+				avatarId: p.user?.avatarId,
 				isWinner: team.isWinner,
 			}))
 		)
@@ -35,7 +36,7 @@ const flattenPlayers = (match: Match): FlatPlayer[] => {
 	return (match.players ?? []).map(p => ({
 		userId: p.user?.id ?? null,
 		name: p.user?.username ?? p.guestName ?? 'Sconosciuto',
-		avatarUrl: p.user?.avatarUrl ?? null,
+		avatarId: p.user?.avatarId,
 		isWinner: p.isWinner,
 	}))
 }
@@ -54,14 +55,8 @@ const LatestMatchCard = ({ match }: LatestMatchCardProps) => {
                     {match.game.name}
                 </Text>
                 {winner && (
-                    <View className = 'mt-3 flex-row items-center gap-1.5 px-3 py-1 rounded-full'>
-                        {winner.avatarUrl ? (
-                            <Image source = {{ uri: winner.avatarUrl }} style = {{ width: 36, height: 36, borderRadius: 100 }}/>
-                        ) : (
-                            <View className = 'h-6 w-6 items-center justify-center rounded-full bg-white/20'>
-                                <User size = { 14 } color = '#FFFFFF'/>
-                            </View>
-                        )}
+                    <View className = 'mt-3 flex-row items-center gap-1.5 px-3 py-1'>
+                        <Image source = {{ uri: getAvatarUrl(winner.avatarId ?? null, winner.name ?? '') }}  style = {{ width: 36, height: 36, borderRadius: 100 }} contentFit = 'cover'/>
                         <Text className = 'text-lg font-semibold tracking-wide text-white' numberOfLines  = { 1}>
                             {winner.name}
                         </Text>

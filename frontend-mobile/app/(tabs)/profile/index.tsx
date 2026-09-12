@@ -1,8 +1,9 @@
-import { useRef } from 'react';
-import { View, ScrollView, Pressable, Switch } from 'react-native';
+import { useRef, useState } from 'react';
+import { View, ScrollView, Pressable, Switch, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
-import { Bell, Moon, Shield, LogOut, ChevronRight, Camera, Users, Trophy, Gamepad2, Edit3 } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Bell, Moon, Shield, LogOut, ChevronRight, Camera, Users, Trophy, Gamepad2, Edit3, Trash2 } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import ScreenHeader from '@/components/common/screen-header';
@@ -11,15 +12,22 @@ import ThemePickerSheet, { ThemePickerSheetRef } from '@/components/common/theme
 import { useAuth } from '@/contexts/auth-context';
 import { useConfirmDialog } from '@/contexts/confirm-dialog-context';
 import { useTheme } from '@/contexts/theme-context';
+import { useToast } from '@/contexts/toast-context';
 
 import { useHomeStats } from '@/hooks/use-stat';
 import { useFriends } from '@/hooks/use-friend';
 import { useUpdateMe } from '@/hooks/use-user';
 
+import { getAvatarUrl } from '@/lib/file';
+
+import { deleteAvatar, uploadAvatar } from '@/api/avatar';
+
 const ProfileScreen = () => {
 	const { user, logout, updateUser } = useAuth();
 	const { confirm } = useConfirmDialog();
 	const { themePreference } = useTheme();
+	const { showToast } = useToast();
+
 	const themeSheetRef = useRef<ThemePickerSheetRef>(null);
 
 	const { totalMatches, totalWins } = useHomeStats();
@@ -28,11 +36,86 @@ const ProfileScreen = () => {
 	const updateMe = useUpdateMe(updateUser);
 	const notificationsEnabled = user?.notificationsEnabled ?? true;
 
+	const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+	const [isRemovingAvatar, setIsRemovingAvatar] = useState(false);
+
+	const handleRemoveAvatar = async () => {
+		if(!user?.avatarId) return;
+
+		const ok = await confirm({
+			title: 'Rimuovi avatar',
+			message: 'Vuoi rimuovere la tua immagine del profilo?',
+			confirmLabel: 'Rimuovi',
+			destructive: true,
+		});
+
+		if(!ok) return;
+
+		setIsRemovingAvatar(true);
+
+		try {
+			await deleteAvatar(user.avatarId);
+
+			updateMe.mutate(
+				{ removeAvatar: true },
+				{
+					onError: (error: any) => {
+						const message = error?.response?.data?.message ?? 'Errore durante l\'aggiornamento del profilo';
+						showToast(message, 'error');
+					},
+				}
+			);
+		} catch(error: any) {
+			const message = error?.response?.data?.message ?? 'Errore durante la rimozione dell\'avatar';
+			showToast(message, 'error');
+		} finally {
+			setIsRemovingAvatar(false);
+		}
+	}
+
+	const handleChangeAvatar = async () => {
+		const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+		if(!permissionResult.granted) {
+			showToast('Serve l\'accesso alla galleria per cambiare l\'avatar', 'error');
+			return;
+		}
+
+		const result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: ['images'],
+			allowsEditing: true,
+			aspect: [1, 1],
+			quality: 0.8,
+		});
+
+		if(result.canceled) return;
+
+		const asset = result.assets[0];
+		setIsUploadingAvatar(true);
+
+		try {
+			const uploaded = await uploadAvatar(asset.uri, asset.fileName ?? 'avatar.jpg', asset.mimeType ?? 'image/jpeg');
+
+			updateMe.mutate(
+				{ avatarId: uploaded.id },
+				{
+					onError: (error: any) => {
+						const message = error?.response?.data?.message ?? 'Errore durante l\'aggiornamento dell\'avatar';
+						showToast(message, 'error');
+					},
+				}
+			);
+		} catch(error: any) {
+			const message = error?.response?.data?.message ?? 'Errore durante il caricamento dell\'immagine';
+			showToast(message, 'error');
+		} finally {
+			setIsUploadingAvatar(false);
+		}
+	}
+
 	const handleToggleNotifications = (value: boolean) => {
 		updateMe.mutate({ notificationsEnabled: value });
 	}
-
-	const initial = user?.username ? user.username.charAt(0).toUpperCase() : '?';
 
 	const handleLogout = async () => {
 		const ok = await confirm({
@@ -57,15 +140,24 @@ const ProfileScreen = () => {
 				<View className = 'items-center justify-center pb-4'>
 					<View className = 'relative mb-3'>
 						<View className = 'h-28 w-28 items-center justify-center overflow-hidden rounded-full border-2 border-border/50 bg-secondary shadow-sm'>
-							{user?.avatarUrl ? (
-								<Image source = {{ uri: user?.avatarUrl }} style = {{ width: 112, height: 112 }} contentFit = 'cover'/>
-							) : (
-								<Text className = 'text-4xl font-bold text-muted-foreground'>{initial}</Text>
-							)}
+							<Image source = {{ uri: getAvatarUrl(user?.avatarId ?? null, user?.username ?? '') }} style = {{ width: 112, height: 112 }} contentFit = 'cover'/>
 						</View>
-						<Pressable onPress = { () => {} } className = 'absolute bottom-0 right-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-[#C45135] shadow-md active:opacity-80'>
-							<Camera size = { 16 } color = '#FFFFFF'/>
+						<Pressable onPress = { handleChangeAvatar } disabled = { isUploadingAvatar } className = 'absolute bottom-0 left-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-[#C45135] shadow-md active:opacity-80'>
+							{isUploadingAvatar ? (
+								<ActivityIndicator size = 'small' color = '#FFFFFF'/>
+							) : (
+								<Camera size = { 16 } color = '#FFFFFF'/>
+							)}
 						</Pressable>
+						{user?.avatarId && (
+							<Pressable onPress = { handleRemoveAvatar } disabled = { isRemovingAvatar } className = 'absolute bottom-0 right-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-red-500 shadow-md active:opacity-80'>
+								{isRemovingAvatar ? (
+									<ActivityIndicator size = 'small' color = '#FFFFFF'/>
+								) : (
+									<Trash2 size = { 16 } color = '#FFFFFF'/>
+								)}
+							</Pressable>
+						)}
 					</View>
 					<Text className = 'text-xl font-bold text-foreground'>{user?.username}</Text>
 					<Text className = 'text-xs text-muted-foreground'>{user?.email}</Text>

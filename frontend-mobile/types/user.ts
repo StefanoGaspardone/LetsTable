@@ -3,11 +3,13 @@ export interface User {
 	username: string;
 	email: string;
 	role: string;
-	avatarUrl: string;
+	avatarId: string | null;
 	notificationsEnabled: boolean;
 }
 
 export interface UpdateUserPayload {
 	username?: string | null;
 	notificationsEnabled?: boolean | null;
+	avatarId?: string | null;
+	removeAvatar?: boolean;
 }

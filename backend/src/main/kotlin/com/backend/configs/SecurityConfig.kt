@@ -28,7 +28,8 @@ class SecurityConfig(
                     .requestMatchers("/terms.html").permitAll()
                     .requestMatchers("/api/v1/auth/**").permitAll()
                     .requestMatchers("/api/v1/health").permitAll()
-                    .requestMatchers("/api/v1/auth/**").hasRole("ADMIN")
+                    .requestMatchers("/api/v1/avatars/**").permitAll()
+                    .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                     .anyRequest().authenticated()
             }
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
