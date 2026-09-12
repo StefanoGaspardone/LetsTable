@@ -38,9 +38,13 @@ const CollectionScreen = () => {
 	
 	const debouncedSearch = useDebounce(search);
 
-	const playedFilter = selectedFilter === 'played' ? true : selectedFilter === 'new' ? false : undefined;
+	const getPlayedFilter = (filter: string): boolean | undefined => {
+		if(filter === 'played') return true;
+		if(filter === 'new') return false;
+		return undefined;
+	}
 
-	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useCollection(debouncedSearch, playedFilter);
+	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useCollection(debouncedSearch, getPlayedFilter(selectedFilter));
 	useRefetchOnFocus(['collection']);
 
 	const items = data?.pages.flatMap((page) => page.content) ?? [];

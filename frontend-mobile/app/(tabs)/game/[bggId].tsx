@@ -113,7 +113,7 @@ const GameDetailScreen = () => {
 				flags: 1,
 				type: 'application/pdf',
 			});
-		} catch(error) {
+		} catch {
 			showToast('Impossibile aprire il file', 'error');
 		}
 	}
@@ -406,7 +406,7 @@ const GameDetailScreen = () => {
 											</View>
 											<View className = 'gap-2'>
 												{game.sleeves.map((sleeve, index) => (
-													<View key = { index } className = 'flex-row items-center gap-2 rounded-xl bg-background px-3 py-2.5 border border-border'>
+													<View key = { `${sleeve.name}-${sleeve.width}-${sleeve.height}` } className = 'flex-row items-center gap-2 rounded-xl bg-background px-3 py-2.5 border border-border'>
 														<Ruler size = { 14 } color = '#736E65'/>
 														<View className = 'flex-1'>
 															<Text className = 'text-sm text-foreground'>

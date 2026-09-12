@@ -94,7 +94,9 @@ const HueSlider = ({ hue, onChange }: HueSliderProps) => {
 	const [width, setWidth] = useState(0);
 
 	const updateHue = (x: number) => {
-		if(width <= 0) return;
+		if(width <= 0) {
+			return;
+		}
 		
         const clamped = Math.max(0, Math.min(width, x));
 		onChange(Math.round((clamped / width) * 360));
@@ -133,14 +135,29 @@ const hslToRgb = (h: number, s: number, l: number): string => {
 		r = g = b = l;
 	} else {
 		const hue2rgb = (p: number, q: number, t: number) => {
-			if(t < 0) t += 1;
-			if(t > 1) t -= 1;
-			
-            if(t < 1 / 6) return p + (q - p) * 6 * t;
-			if(t < 1 / 2) return q;
-			if(t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-			
-            return p;
+			let tempT = t;
+
+			if(tempT < 0) {
+				tempT += 1;
+			}
+
+			if(tempT > 1) {
+				tempT -= 1;
+			}
+
+			if(tempT < 1 / 6) {
+				return p + (q - p) * 6 * tempT;
+			}
+
+			if(tempT < 1 / 2) {
+				return q;
+			}
+
+			if(tempT < 2 / 3) {
+				return p + (q - p) * (2 / 3 - tempT) * 6;
+			}
+
+			return p;
 		}
 
 		const q = l < 0.5 ? l * (1 + s) : l + s - l * s;

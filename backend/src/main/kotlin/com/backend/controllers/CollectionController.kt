@@ -100,7 +100,7 @@ class CollectionController(
         ]
     )
     @DeleteMapping("/{itemId}")
-    fun removeFromCollection(@PathVariable itemId: UUID): ResponseEntity<Void> {
+    fun removeFromCollection(@PathVariable itemId: UUID): ResponseEntity<Unit> {
         collectionService.removeFromCollection(CurrentUser.id(), itemId)
         return ResponseEntity.noContent().build()
     }

@@ -162,7 +162,7 @@ class MatchController(
         ]
     )
     @DeleteMapping("/{matchId}")
-    fun deleteMatch(@PathVariable matchId: UUID): ResponseEntity<Void> {
+    fun deleteMatch(@PathVariable matchId: UUID): ResponseEntity<Unit> {
         matchService.deleteMatch(CurrentUser.id(), matchId)
         return ResponseEntity.noContent().build()
     }

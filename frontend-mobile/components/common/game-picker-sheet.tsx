@@ -60,7 +60,9 @@ const GamePickerSheet = forwardRef<GamePickerSheetRef, GamePickerSheetProps>(({ 
 	const isLoading = isSearching ? searchQuery.isLoading : collectionQuery.isLoading;
 
 	const handleSelect = (game: { id: string | null; name: string; thumbnailUrl: string | null }) => {
-		if(!game.id) return;
+		if(!game.id) {
+			return;
+		}
 		
         onSelect({ id: game.id, name: game.name, thumbnailUrl: game.thumbnailUrl });
 		sheetRef.current?.dismiss();

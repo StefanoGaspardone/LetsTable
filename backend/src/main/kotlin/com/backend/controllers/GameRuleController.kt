@@ -111,7 +111,7 @@ class GameRuleFileController(
         ]
     )
     @DeleteMapping("/{fileId}")
-    fun deleteRuleFile(@Parameter(description = "Internal ID of the game") @PathVariable gameId: UUID, @Parameter(description = "ID of the uploaded file") @PathVariable fileId: UUID): ResponseEntity<Void> {
+    fun deleteRuleFile(@Parameter(description = "Internal ID of the game") @PathVariable gameId: UUID, @Parameter(description = "ID of the uploaded file") @PathVariable fileId: UUID): ResponseEntity<Unit> {
         uploadedFileService.deleteFile(FileOwnerType.GAME_RULE, gameId, fileId)
         return ResponseEntity.noContent().build()
     }

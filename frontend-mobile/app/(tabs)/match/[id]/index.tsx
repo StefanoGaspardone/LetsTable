@@ -95,7 +95,9 @@ const MatchDetailScreen = () => {
             destructive: true,
         });
         
-		if(!ok) return;
+		if(!ok) {
+			return;
+		}
 
         setIsDeleting(true);
         
@@ -175,6 +177,12 @@ const MatchDetailScreen = () => {
         month: 'long',
         year: 'numeric',
     });
+
+	const getSectionTitle = () => {
+		if(!isInProgress) return 'Classifica';
+
+		return match.isTeamBased ? 'Squadre' : 'Giocatori';
+	}
 
     const firstPlace = sortedEntries[0];
     const secondPlace = sortedEntries[1];
@@ -256,7 +264,7 @@ const MatchDetailScreen = () => {
 				<View className = 'mb-3 mt-6 flex-row items-center gap-2'>
                     {match.isTeamBased ? <Users size = { 18 } color = '#736E65'/> : <Trophy size = { 18 } color = '#736E65'/>}
                     <Text className = 'text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
-                        {isInProgress ? (match.isTeamBased ? 'Squadre' : 'Giocatori') : 'Classifica'}
+                        {getSectionTitle()}
                     </Text>
                 </View>
 				{!isInProgress && sortedEntries.length > 0 && (

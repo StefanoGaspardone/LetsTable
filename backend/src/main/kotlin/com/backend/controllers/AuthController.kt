@@ -121,7 +121,7 @@ class AuthController(
         ]
     )
     @PostMapping("/activate")
-    fun activate(@Valid @RequestBody request: ActivateAccountRequest): ResponseEntity<Void> {
+    fun activate(@Valid @RequestBody request: ActivateAccountRequest): ResponseEntity<Unit> {
         authService.activateAccount(request)
         return ResponseEntity.noContent().build()
     }
@@ -160,7 +160,7 @@ class AuthController(
         ]
     )
     @PostMapping("/activate/resend")
-    fun resendActivationOtp(@Valid @RequestBody request: ResendOtpRequest): ResponseEntity<Void> {
+    fun resendActivationOtp(@Valid @RequestBody request: ResendOtpRequest): ResponseEntity<Unit> {
         authService.resendActivationOtp(request)
         return ResponseEntity.noContent().build()
     }
@@ -249,7 +249,7 @@ class AuthController(
         ]
     )
     @PostMapping("/logout")
-    fun logout(@Valid @RequestBody request: RefreshTokenRequest): ResponseEntity<Void> {
+    fun logout(@Valid @RequestBody request: RefreshTokenRequest): ResponseEntity<Unit> {
         authService.logout(request.refreshToken)
         return ResponseEntity.noContent().build()
     }
@@ -276,7 +276,7 @@ class AuthController(
         ]
     )
     @PostMapping("/password/forgot")
-    fun forgotPassword(@Valid @RequestBody request: ForgotPasswordRequest): ResponseEntity<Void> {
+    fun forgotPassword(@Valid @RequestBody request: ForgotPasswordRequest): ResponseEntity<Unit> {
         authService.forgotPassword(request)
         return ResponseEntity.noContent().build()
     }
@@ -327,7 +327,7 @@ class AuthController(
         ]
     )
     @PostMapping("/password/reset")
-    fun resetPassword(@Valid @RequestBody request: ResetPasswordRequest): ResponseEntity<Void> {
+    fun resetPassword(@Valid @RequestBody request: ResetPasswordRequest): ResponseEntity<Unit> {
         authService.resetPassword(request)
         return ResponseEntity.noContent().build()
     }

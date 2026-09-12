@@ -339,7 +339,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 					{mode === 'individual' && (
                         <View className = 'mb-4 gap-2'>
                             {players.map((player, index) => (
-                                <View key = { index } className = 'flex-row items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5'>
+                                <View key = { player.userId } className = 'flex-row items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5'>
                                     <View style = {{ width: 32, height: 32 }} className = 'overflow-hidden rounded-full bg-secondary'>
                                         {player.avatarUrl ? (
                                             <Image source = {{ uri: player.avatarUrl }} style = {{ width: 32, height: 32 }}/>
@@ -379,7 +379,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 					{mode === 'team' && (
                         <View className = 'mb-4 gap-3'>
                             {teams.map((team, teamIndex) => (
-                                <View key = { teamIndex } className = 'rounded-xl border border-border bg-card p-3'>
+                                <View key = { `${team.color}-${team.name}-${team.players.length}` } className = 'rounded-xl border border-border bg-card p-3'>
                                     <View className = 'mb-2 flex-row items-center gap-2'>
                                         <ColorSwatchPicker value = { team.color } onChange = { color => handleTeamColorChange(teamIndex, color) }/>
                                         <Input value = { team.name } onChangeText = { name => handleTeamNameChange(teamIndex, name) } placeholder = { `Squadra ${teamIndex + 1}` } className = 'h-9 flex-1'/>
@@ -391,7 +391,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                     </View>
                                     <View className = 'gap-1.5'>
                                         {team.players.map((player, playerIndex) => (
-                                            <View key = { playerIndex } className = 'flex-row items-center gap-2 rounded-lg bg-secondary px-2.5 py-1.5'>
+                                            <View key = { player.userId } className = 'flex-row items-center gap-2 rounded-lg bg-secondary px-2.5 py-1.5'>
                                                 <View style = {{ width: 24, height: 24 }} className = 'overflow-hidden rounded-full bg-card'>
                                                     {player.avatarUrl ? (
                                                         <Image source = {{ uri: player.avatarUrl }} style = {{ width: 24, height: 24 }}/>
@@ -412,14 +412,23 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                     </View>
                                     <View className='mt-2 flex-row gap-1.5'>
                                         <Pressable onPress = { () => handleToggleSelfInTeam(teamIndex) } className = { `flex-1 flex-row items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 border ${isSelfInTeam(teamIndex) ? 'border-solid bg-[#C45135]' : 'border-dashed border-border'} active:border-solid active:bg-primary/90 active:border-primary/90` }>
-                                            {({ pressed }) => (
-                                                <>
-                                                    <UserCheck size={14} color = { pressed ? '#FFFFFF' : isSelfInTeam(teamIndex) ? '#FFFFFF' : '#736E65' }/>
-                                                    <Text className = { `text-sm ${pressed ? 'text-white' : isSelfInTeam(teamIndex) ? 'text-white' : 'text-muted-foreground'}` }>
-                                                        {isSelfInTeam(teamIndex) ? 'Sei in questa squadra' : 'Sono qui'}
-                                                    </Text>
-                                                </>
-                                            )}
+                                            {({ pressed }) => {
+                                                const isInTeam = isSelfInTeam(teamIndex);
+                                                const isHighlighted = pressed || isInTeam;
+
+                                                const iconColor = isHighlighted ? '#FFFFFF' : '#736E65';
+                                                const textClassName = `text-sm ${isHighlighted ? 'text-white' : 'text-muted-foreground'}`;
+                                                const buttonText = isInTeam ? 'Sei in questa squadra' : 'Sono qui';
+
+                                                return (
+                                                    <>
+                                                        <UserCheck size={14} color = { iconColor }/>
+                                                        <Text className = { textClassName }>
+                                                            {buttonText}
+                                                        </Text>
+                                                    </>
+                                                )
+                                            }}
                                         </Pressable>
                                        <Pressable onPress = { () => handleOpenIdentityPicker(teamIndex) } className = 'flex-row flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90'>
                                             {({ pressed }) => (
