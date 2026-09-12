@@ -19,14 +19,14 @@ export const uploadGameRule = async (gameId: string, fileUri: string, fileName: 
 	} as any);
 
 	try {
-	const { data } = await apiClient.post<UploadedFile>(`/games/${gameId}/rules`, formData, {
-	headers: { 'Content-Type': 'multipart/form-data' },
-});
-	return data;
-} catch (error) {
-	console.log('UPLOAD ERROR:', JSON.stringify(error, null, 2));
-	throw error;
-}
+		const { data } = await apiClient.post<UploadedFile>(`/games/${gameId}/rules`, formData, {
+		headers: { 'Content-Type': 'multipart/form-data' },
+	});
+		return data;
+	} catch (error) {
+		console.log('UPLOAD ERROR:', JSON.stringify(error, null, 2));
+		throw error;
+	}
 }
 
 export const deleteGameRule = async (gameId: string, fileId: string): Promise<void> => {
