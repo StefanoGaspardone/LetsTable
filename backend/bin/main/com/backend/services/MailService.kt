@@ -2,19 +2,20 @@ package com.backend.services
 
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.mail.javamail.JavaMailSender
-import org.springframework.mail.javamail.MimeMessageHelper
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
+import org.springframework.web.reactive.function.client.WebClient
 import org.thymeleaf.TemplateEngine
 import org.thymeleaf.context.Context
 
 @Service
 class MailService(
-    private val mailSender: JavaMailSender,
+    private val brevoWebClient: WebClient,
     private val templateEngine: TemplateEngine,
     @Value($$"${mail.from-address}") private val fromAddress: String,
     @Value($$"${mail.from-name}") private val fromName: String,
+    @Value($$"${brevo.api-key}") private val brevoApiKey: String,
+    @Value($$"${mail.enabled:true}") private val mailEnabled: Boolean,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -45,15 +46,25 @@ class MailService(
         try {
             val htmlBody = templateEngine.process(template, context)
 
-            val message = mailSender.createMimeMessage()
-            val helper = MimeMessageHelper(message, false, "UTF-8")
+            if(!mailEnabled) {
+                logger.info("\n\t[INFO] [mail_service][send] Mail sending disabled, skipping\n\tto={}\n\tsubject={}\n\tbody={}", to, subject, htmlBody)
+                return
+            }
 
-            helper.setTo(to)
-            helper.setSubject(subject)
-            helper.setFrom(fromAddress, fromName)
-            helper.setText(htmlBody, true)
+            val payload = mapOf(
+                "sender" to mapOf("name" to fromName, "email" to fromAddress),
+                "to" to listOf(mapOf("email" to to)),
+                "subject" to subject,
+                "htmlContent" to htmlBody,
+            )
 
-            mailSender.send(message)
+            brevoWebClient.post()
+                .uri("/smtp/email")
+                .header("api-key", brevoApiKey)
+                .bodyValue(payload)
+                .retrieve()
+                .toBodilessEntity()
+                .block()
 
             logger.info("\n\t[INFO] [mail_service][send] Email sent\n\tto={}\n\ttemplate={}", to, template)
         } catch (e: Exception) {

@@ -26,21 +26,13 @@ spring:
   # ============================================================
   # MAIL CONFIGURATION
   # ============================================================
-  mail:
-    host: ${SMTP_HOST:localhost}
-    port: ${SMTP_PORT:1025}
-    username: ${SMTP_USERNAME}
-    password: ${SMTP_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: ${SMTP_AUTH:false}
-          starttls:
-            enable: ${SMTP_STARTTLS:false}
-
 mail:
   from-address: ${MAIL_FROM_ADDRESS:noreply@letstable.com}
   from-name: "Let's Table"
+  enabled: ${MAIL_ENABLED:true}
+
+brevo:
+  api-key: ${BREVO_API_KEY:}
 
 # ============================================================
 # SWAGGER CONFIGURATION

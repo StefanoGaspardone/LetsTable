@@ -38,4 +38,13 @@ class WebClientConfig {
             .defaultHeader("Accept", "application/json")
             .build()
     }
+
+    @Bean
+    fun brevoWebClient(): WebClient {
+        return WebClient.builder()
+            .baseUrl("https://api.brevo.com/v3")
+            .defaultHeader("Content-Type", "application/json")
+            .defaultHeader("Accept", "application/json")
+            .build()
+    }
 }
