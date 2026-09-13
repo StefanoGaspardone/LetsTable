@@ -10,6 +10,7 @@ interface ConfirmOptions {
 	confirmLabel?: string;
 	cancelLabel?: string;
 	destructive?: boolean;
+	infoOnly?: boolean;
 }
 
 interface ConfirmDialogContextValue {
@@ -49,9 +50,11 @@ export const ConfirmDialogProvider = ({ children }: { children: ReactNode }) => 
 									<Text className = 'mb-5 text-sm text-muted-foreground'>{options.message}</Text>
 								)}
 								<View className = 'flex-row gap-3'>
-									<Button variant = 'outline' className = 'flex-1' onPress = { () => handleClose(false) }>
-										<Text>{options.cancelLabel ?? 'Annulla'}</Text>
-									</Button>
+									{!options.infoOnly && (
+										<Button variant = 'outline' className = 'flex-1' onPress = { () => handleClose(false) }>
+											<Text>{options.cancelLabel ?? 'Annulla'}</Text>
+										</Button>
+									)}
 									<Button className = { `flex-1 ${options.destructive && 'bg-destructive'}`} onPress = { () => handleClose(true) }>
 										<Text className = { options.destructive ? 'text-destructive-foreground' : '' }>
 											{options.confirmLabel ?? 'Conferma'}

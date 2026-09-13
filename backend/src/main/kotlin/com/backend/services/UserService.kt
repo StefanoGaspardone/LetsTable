@@ -4,6 +4,7 @@ import com.backend.exceptions.*
 import com.backend.models.dtos.DeleteAccountDTO
 import com.backend.models.dtos.UpdateUserRequest
 import com.backend.models.dtos.UserDTO
+import com.backend.models.dtos.UserProfileDTO
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.FileOwnerType
 import com.backend.repositories.*
@@ -19,6 +20,8 @@ class UserService(
     private val matchPlayerRepository: MatchPlayerRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val uploadedFileRepository: UploadedFileRepository,
+    private val matchService: MatchService,
+    private val friendService: FriendService,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -148,6 +151,37 @@ class UserService(
             throw e
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [user_service][update_profile] Error updating profile for user {}: {}", userId, e.message)
+            throw e
+        }
+    }
+
+    fun getUserProfile(currentUserId: UUID, targetUserId: UUID): UserProfileDTO {
+        logger.debug("\n\t[DEBUG] [user_service][get_public_profile] Retrieving public profile for user {}", targetUserId)
+
+        try {
+            val user = userRepository.findById(targetUserId)
+                .orElseThrow { UserNotFoundException(targetUserId) }
+
+            val totalMatches = matchRepository.countCompletedMatchesForUser(targetUserId)
+            val totalWins = matchRepository.countWonMatchesForUser(targetUserId)
+            val recentMatches = matchService.getRecentMatchesForUser(targetUserId, 10)
+            val friendshipStatus = friendService.getFriendshipStatus(currentUserId, targetUserId)
+
+            val response = UserProfileDTO(
+                user = UserDTO.from(user),
+                friendshipStatus = friendshipStatus.name,
+                totalMatches = totalMatches,
+                totalWins = totalWins,
+                recentMatches = recentMatches,
+            )
+
+            logger.info("\n\t[INFO] [user_service][get_public_profile] Retrieved public profile for user {}", targetUserId)
+            return response
+        } catch(e: UserNotFoundException) {
+            logger.warn("\n\t[WARN] [user_service][get_public_profile] User {} not found", targetUserId)
+            throw e
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [user_service][get_public_profile] Error retrieving public profile for user {}: {}", targetUserId, e.message)
             throw e
         }
     }

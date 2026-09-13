@@ -1,6 +1,6 @@
 import { apiClient } from '@/api/client';
 
-import { UpdateUserPayload, User } from '@/types/user';
+import { UpdateUserPayload, User, UserProfile } from '@/types/user';
 
 export const searchUser = async (query: string): Promise<User[]> => {
     const { data } = await apiClient.get<User[]>('/users/search', { params: { query } });
@@ -20,4 +20,9 @@ export const getById = async (userId: string): Promise<User> => {
 export const updateMe = async (payload: UpdateUserPayload): Promise<User> => {
 	const { data } = await apiClient.patch<User>('/users/me', payload);
 	return data;
+}
+
+export const getUserProfile = async (userId: string): Promise<UserProfile> => {
+    const { data } = await apiClient.get<UserProfile>(`/users/${userId}/profile`);
+    return data;
 }

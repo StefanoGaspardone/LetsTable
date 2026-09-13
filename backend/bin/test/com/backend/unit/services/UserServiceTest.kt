@@ -5,8 +5,11 @@ import com.backend.exceptions.UsernameAlreadyTakenException
 import com.backend.models.dtos.UpdateUserRequest
 import com.backend.models.entities.*
 import com.backend.models.enums.AccountStatus
+import com.backend.models.enums.FriendshipStatus
 import com.backend.models.enums.UserRole
 import com.backend.repositories.*
+import com.backend.services.FriendService
+import com.backend.services.MatchService
 import com.backend.services.UserService
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -40,6 +43,12 @@ class UserServiceTest {
 
     @Mock
     private lateinit var uploadedFileRepository: UploadedFileRepository
+
+    @Mock
+    private lateinit var matchService: MatchService
+
+    @Mock
+    private lateinit var friendService: FriendService
 
     private lateinit var userService: UserService
 
@@ -95,7 +104,9 @@ class UserServiceTest {
             matchRepository = matchRepository,
             matchPlayerRepository = matchPlayerRepository,
             refreshTokenRepository = refreshTokenRepository,
-            uploadedFileRepository = uploadedFileRepository
+            uploadedFileRepository = uploadedFileRepository,
+            matchService = matchService,
+            friendService = friendService
         )
     }
 
@@ -566,6 +577,91 @@ class UserServiceTest {
             }.isInstanceOf(UserNotFoundException::class.java)
 
             verify(userRepository, never()).save(any())
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // getPublicProfile
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("getPublicProfile")
+    inner class GetPublicProfileTests {
+
+        private val targetUserId: UUID = UUID.randomUUID()
+
+        @Test
+        fun `should return public profile with stats, recent matches, and friendship status`() {
+            val user = buildUser(id = targetUserId, username = "stefano")
+
+            whenever(userRepository.findById(targetUserId)).thenReturn(Optional.of(user))
+            whenever(matchRepository.countCompletedMatchesForUser(targetUserId)).thenReturn(15L)
+            whenever(matchRepository.countWonMatchesForUser(targetUserId)).thenReturn(6L)
+            whenever(matchService.getRecentMatchesForUser(targetUserId, 10)).thenReturn(emptyList())
+            whenever(friendService.getFriendshipStatus(currentUserId, targetUserId)).thenReturn(FriendshipStatus.FRIENDS)
+
+            val result = userService.getUserProfile(currentUserId, targetUserId)
+
+            assertThat(result.user.id).isEqualTo(targetUserId)
+            assertThat(result.user.username).isEqualTo("stefano")
+            assertThat(result.totalMatches).isEqualTo(15L)
+            assertThat(result.totalWins).isEqualTo(6L)
+            assertThat(result.recentMatches).isEmpty()
+            assertThat(result.friendshipStatus).isEqualTo("FRIENDS")
+        }
+
+        @Test
+        fun `should return zero stats for a user with no matches`() {
+            val user = buildUser(id = targetUserId)
+
+            whenever(userRepository.findById(targetUserId)).thenReturn(Optional.of(user))
+            whenever(matchRepository.countCompletedMatchesForUser(targetUserId)).thenReturn(0L)
+            whenever(matchRepository.countWonMatchesForUser(targetUserId)).thenReturn(0L)
+            whenever(matchService.getRecentMatchesForUser(targetUserId, 10)).thenReturn(emptyList())
+            whenever(friendService.getFriendshipStatus(currentUserId, targetUserId)).thenReturn(FriendshipStatus.NONE)
+
+            val result = userService.getUserProfile(currentUserId, targetUserId)
+
+            assertThat(result.totalMatches).isEqualTo(0L)
+            assertThat(result.totalWins).isEqualTo(0L)
+        }
+
+        @Test
+        fun `should return SELF as friendship status when viewing your own profile`() {
+            val user = buildUser(id = currentUserId)
+
+            whenever(userRepository.findById(currentUserId)).thenReturn(Optional.of(user))
+            whenever(matchRepository.countCompletedMatchesForUser(currentUserId)).thenReturn(0L)
+            whenever(matchRepository.countWonMatchesForUser(currentUserId)).thenReturn(0L)
+            whenever(matchService.getRecentMatchesForUser(currentUserId, 10)).thenReturn(emptyList())
+            whenever(friendService.getFriendshipStatus(currentUserId, currentUserId)).thenReturn(FriendshipStatus.SELF)
+
+            val result = userService.getUserProfile(currentUserId, currentUserId)
+
+            assertThat(result.friendshipStatus).isEqualTo("SELF")
+        }
+
+        @Test
+        fun `should throw UserNotFoundException when the target user does not exist`() {
+            whenever(userRepository.findById(targetUserId)).thenReturn(Optional.empty())
+
+            assertThatThrownBy {
+                userService.getUserProfile(currentUserId, targetUserId)
+            }.isInstanceOf(UserNotFoundException::class.java)
+
+            verify(matchRepository, never()).countCompletedMatchesForUser(any())
+            verify(matchService, never()).getRecentMatchesForUser(any(), any())
+            verify(friendService, never()).getFriendshipStatus(any(), any())
+        }
+
+        @Test
+        fun `should rethrow generic exception when a repository call fails unexpectedly`() {
+            whenever(userRepository.findById(targetUserId))
+                .thenThrow(RuntimeException("Database error"))
+
+            assertThatThrownBy {
+                userService.getUserProfile(currentUserId, targetUserId)
+            }.isInstanceOf(RuntimeException::class.java)
         }
     }
 }

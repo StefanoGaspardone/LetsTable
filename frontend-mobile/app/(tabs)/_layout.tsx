@@ -26,6 +26,7 @@ const TabsLayout = () => {
             <Tabs.Screen name = 'wishlist/[id]' options = {{ href: null }}/>
 			<Tabs.Screen name = 'profile/account' options = {{ href: null }}/>
 			<Tabs.Screen name = 'profile/security' options = {{ href: null }}/>
+			<Tabs.Screen name = 'user/[id]' options = {{ href: null }}/>
 		</Tabs>
 	)
 }

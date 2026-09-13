@@ -14,6 +14,7 @@ import com.backend.models.dtos.UserDTO
 import com.backend.models.entities.FriendRequest
 import com.backend.models.entities.User
 import com.backend.models.enums.FriendRequestStatus
+import com.backend.models.enums.FriendshipStatus
 import com.backend.repositories.FriendRequestRepository
 import com.backend.repositories.UserRepository
 import org.slf4j.LoggerFactory
@@ -255,5 +256,27 @@ class FriendService(
             logger.error("\n\t[ERROR] [friend_service][list_pending_sent] Error listing pending requests sent by user {}: {}", userId, e.message)
             throw e
         }
+    }
+
+    fun getFriendshipStatus(currentUserId: UUID, otherUserId: UUID): FriendshipStatus {
+        logger.debug("\n\t[DEBUG] [friend_service][get_friendship_status] Checking friendship status between {} and {}", currentUserId, otherUserId)
+
+        if(currentUserId == otherUserId) {
+            return FriendshipStatus.SELF
+        }
+
+        if(friendRequestRepository.findFriendshipBetween(currentUserId, otherUserId).isPresent) {
+            return FriendshipStatus.FRIENDS
+        }
+
+        if(friendRequestRepository.findBySenderIdAndReceiverId(currentUserId, otherUserId).isPresent) {
+            return FriendshipStatus.REQUEST_SENT
+        }
+
+        if(friendRequestRepository.findBySenderIdAndReceiverId(otherUserId, currentUserId).isPresent) {
+            return FriendshipStatus.REQUEST_RECEIVED
+        }
+
+        return FriendshipStatus.NONE
     }
 }

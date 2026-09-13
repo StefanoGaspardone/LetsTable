@@ -237,6 +237,158 @@ class MatchServiceTest {
             assertThatThrownBy { matchService.createMatch(userId, request) }
                 .isInstanceOf(UserNotFoundByIdentifierException::class.java)
         }
+
+        @Test
+        fun `should create match with valid expansions`() {
+            val expansionId = UUID.randomUUID()
+            val expansion = Game(id = expansionId, bggId = 500L, name = "Catan: Seafarers")
+            val gameWithExpansion = Game(
+                id = gameId,
+                bggId = 12345L,
+                name = "Catan",
+                expansionRefs = listOf(ExpansionRef(500L, "Catan: Seafarers")),
+            )
+
+            val request = CreateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                durationMinutes = 30,
+                expansionIds = listOf(expansionId),
+                teams = null,
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1)),
+            )
+
+            val createdMatch = Match(
+                id = matchId,
+                game = gameWithExpansion,
+                createdBy = sampleUser,
+                isTeamBased = false,
+                playedAt = Instant.now(),
+                expansionsUsed = mutableSetOf(expansion),
+            )
+
+            `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(gameWithExpansion))
+            `when`(gameRepository.findAllById(listOf(expansionId))).thenReturn(listOf(expansion))
+            `when`(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            `when`(matchRepository.save(any(Match::class.java))).thenReturn(createdMatch)
+
+            doAnswer { invocation ->
+                val mp = invocation.getArgument<MatchPlayer>(0)
+                mp.id = UUID.randomUUID()
+                mp
+            }.`when`(matchPlayerRepository).save(any(MatchPlayer::class.java))
+
+            val result = matchService.createMatch(userId, request)
+
+            assertThat(result.expansionsUsed).hasSize(1)
+            assertThat(result.expansionsUsed[0].bggId).isEqualTo(500L)
+        }
+
+        @Test
+        fun `should create match with no expansions when expansionIds is empty`() {
+            val request = CreateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                durationMinutes = 30,
+                expansionIds = emptyList(),
+                teams = null,
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1)),
+            )
+
+            val createdMatch = Match(
+                id = matchId,
+                game = sampleGame,
+                createdBy = sampleUser,
+                isTeamBased = false,
+                playedAt = Instant.now(),
+            )
+
+            `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(sampleGame))
+            `when`(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            `when`(matchRepository.save(any(Match::class.java))).thenReturn(createdMatch)
+
+            doAnswer { invocation ->
+                val mp = invocation.getArgument<MatchPlayer>(0)
+                mp.id = UUID.randomUUID()
+                mp
+            }.`when`(matchPlayerRepository).save(any(MatchPlayer::class.java))
+
+            val result = matchService.createMatch(userId, request)
+
+            assertThat(result.expansionsUsed).isEmpty()
+            verify(gameRepository, never()).findAllById(any<List<UUID>>())
+        }
+
+        @Test
+        fun `should throw GameNotFoundException when an expansion id does not exist`() {
+            val missingExpansionId = UUID.randomUUID()
+            val gameWithExpansion = Game(
+                id = gameId,
+                bggId = 12345L,
+                name = "Catan",
+                expansionRefs = listOf(ExpansionRef(500L, "Catan: Seafarers")),
+            )
+
+            val request = CreateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                durationMinutes = 30,
+                expansionIds = listOf(missingExpansionId),
+                teams = null,
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1)),
+            )
+
+            `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(gameWithExpansion))
+            `when`(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            `when`(gameRepository.findAllById(listOf(missingExpansionId))).thenReturn(emptyList())
+
+            assertThatThrownBy { matchService.createMatch(userId, request) }
+                .isInstanceOf(GameNotFoundException::class.java)
+
+            verify(matchRepository, never()).save(any(Match::class.java))
+        }
+
+        @Test
+        fun `should throw InvalidExpansionForGameException when expansion does not belong to the game`() {
+            val unrelatedExpansionId = UUID.randomUUID()
+            val unrelatedExpansion = Game(id = unrelatedExpansionId, bggId = 999L, name = "Unrelated Expansion")
+            val gameWithExpansion = Game(
+                id = gameId,
+                bggId = 12345L,
+                name = "Catan",
+                expansionRefs = listOf(ExpansionRef(500L, "Catan: Seafarers")),
+            )
+
+            val request = CreateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                durationMinutes = 30,
+                expansionIds = listOf(unrelatedExpansionId),
+                teams = null,
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1)),
+            )
+
+            `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(gameWithExpansion))
+            `when`(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            `when`(gameRepository.findAllById(listOf(unrelatedExpansionId))).thenReturn(listOf(unrelatedExpansion))
+
+            assertThatThrownBy { matchService.createMatch(userId, request) }
+                .isInstanceOf(InvalidExpansionForGameException::class.java)
+
+            verify(matchRepository, never()).save(any(Match::class.java))
+        }
     }
 
     @Nested
@@ -535,6 +687,92 @@ class MatchServiceTest {
             assertThatThrownBy { matchService.updateMatch(userId, matchId, updateRequest) }
                 .isInstanceOf(GameNotFoundException::class.java)
         }
+
+        @Test
+        fun `should update the expansions used on an existing match`() {
+            val expansionId = UUID.randomUUID()
+            val expansion = Game(id = expansionId, bggId = 500L, name = "Catan: Seafarers")
+            val gameWithExpansion = Game(
+                id = gameId,
+                bggId = 12345L,
+                name = "Catan",
+                expansionRefs = listOf(ExpansionRef(500L, "Catan: Seafarers")),
+            )
+            val existingMatch = Match(
+                id = matchId,
+                game = gameWithExpansion,
+                createdBy = sampleUser,
+                isTeamBased = false,
+                playedAt = Instant.now(),
+                durationMinutes = 30,
+            )
+
+            val updateRequest = UpdateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                expansionIds = listOf(expansionId),
+                teams = null,
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1)),
+            )
+
+            `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
+            `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(gameWithExpansion))
+            `when`(gameRepository.findAllById(listOf(expansionId))).thenReturn(listOf(expansion))
+            `when`(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            `when`(matchRepository.save(any(Match::class.java))).thenAnswer { it.arguments[0] }
+
+            doAnswer { invocation ->
+                val mp = invocation.getArgument<MatchPlayer>(0)
+                mp.id = UUID.randomUUID()
+                mp
+            }.`when`(matchPlayerRepository).save(any(MatchPlayer::class.java))
+
+            matchService.updateMatch(userId, matchId, updateRequest)
+
+            assertThat(existingMatch.expansionsUsed).containsExactly(expansion)
+        }
+
+        @Test
+        fun `should throw InvalidExpansionForGameException when updating with an expansion that does not belong to the new game`() {
+            val unrelatedExpansionId = UUID.randomUUID()
+            val unrelatedExpansion = Game(id = unrelatedExpansionId, bggId = 999L, name = "Unrelated Expansion")
+            val gameWithExpansion = Game(
+                id = gameId,
+                bggId = 12345L,
+                name = "Catan",
+                expansionRefs = listOf(ExpansionRef(500L, "Catan: Seafarers")),
+            )
+            val existingMatch = Match(
+                id = matchId,
+                game = sampleGame,
+                createdBy = sampleUser,
+                isTeamBased = false,
+                playedAt = Instant.now(),
+            )
+
+            val updateRequest = UpdateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                expansionIds = listOf(unrelatedExpansionId),
+                teams = null,
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1)),
+            )
+
+            `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
+            `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(gameWithExpansion))
+            `when`(gameRepository.findAllById(listOf(unrelatedExpansionId))).thenReturn(listOf(unrelatedExpansion))
+
+            assertThatThrownBy { matchService.updateMatch(userId, matchId, updateRequest) }
+                .isInstanceOf(InvalidExpansionForGameException::class.java)
+
+            verify(matchRepository, never()).save(any(Match::class.java))
+        }
     }
 
     @Nested
@@ -783,6 +1021,50 @@ class MatchServiceTest {
 
             assertThat(result.totalMatches).isEqualTo(0L)
             assertThat(result.totalWins).isEqualTo(0L)
+        }
+    }
+
+    @Nested
+    @DisplayName("getRecentMatchesForUser")
+    inner class GetRecentMatchesForUserTests {
+
+        @Test
+        fun `should return recent matches mapped to DTOs`() {
+            val match = Match(
+                id = matchId,
+                game = sampleGame,
+                createdBy = sampleUser,
+                playedAt = Instant.now(),
+                durationMinutes = 45,
+                isTeamBased = false,
+            )
+
+            `when`(matchRepository.findRecentCompletedForUser(kEq(userId), kAny())).thenReturn(listOf(match))
+            `when`(matchPlayerRepository.findAllByMatchId(matchId)).thenReturn(emptyList())
+
+            val result = matchService.getRecentMatchesForUser(userId, 10)
+
+            assertThat(result).hasSize(1)
+            assertThat(result[0].id).isEqualTo(matchId)
+        }
+
+        @Test
+        fun `should return empty list when user has no recent matches`() {
+            `when`(matchRepository.findRecentCompletedForUser(kEq(userId), kAny())).thenReturn(emptyList())
+
+            val result = matchService.getRecentMatchesForUser(userId)
+
+            assertThat(result).isEmpty()
+        }
+
+        @Test
+        fun `should rethrow exception when repository fails`() {
+            `when`(matchRepository.findRecentCompletedForUser(kEq(userId), kAny()))
+                .thenThrow(RuntimeException("Database error"))
+
+            assertThatThrownBy {
+                matchService.getRecentMatchesForUser(userId)
+            }.isInstanceOf(RuntimeException::class.java)
         }
     }
 }

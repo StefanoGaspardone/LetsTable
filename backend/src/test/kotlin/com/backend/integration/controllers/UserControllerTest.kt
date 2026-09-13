@@ -2,6 +2,7 @@ package com.backend.integration.controllers
 
 import com.backend.models.entities.*
 import com.backend.models.enums.AccountStatus
+import com.backend.models.enums.FriendRequestStatus
 import com.backend.models.enums.UserRole
 import com.backend.repositories.*
 import com.backend.services.JwtService
@@ -40,6 +41,9 @@ class UserControllerTest : AbstractIntegrationTest() {
 
     @Autowired
     private lateinit var matchPlayerRepository: MatchPlayerRepository
+
+    @Autowired
+    private lateinit var friendRequestRepository: FriendRequestRepository
 
     @Autowired
     private lateinit var refreshTokenRepository: RefreshTokenRepository
@@ -82,6 +86,7 @@ class UserControllerTest : AbstractIntegrationTest() {
 
     @AfterEach
     fun cleanUp() {
+        friendRequestRepository.deleteAll()
         refreshTokenRepository.deleteAll()
         matchPlayerRepository.deleteAll()
         matchRepository.deleteAll()
@@ -364,6 +369,154 @@ class UserControllerTest : AbstractIntegrationTest() {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{"username": "newname"}""")
             ).andExpect(status().isForbidden)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // GET /api/v1/users/{userId}/profile
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("GET /api/v1/users/{userId}/profile")
+    inner class GetUserProfileTests {
+
+        @Test
+        fun `should return public profile with stats and recent matches`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+            val game = persistGame()
+
+            val match = persistMatch(game, target)
+            persistPlayer(match, user = target)
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/profile")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.user.id").value(target.id.toString()))
+                .andExpect(jsonPath("$.user.username").value("target"))
+        }
+
+        @Test
+        fun `should return zero stats for a user with no matches`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "no-matches")
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/profile")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.totalMatches").value(0))
+                .andExpect(jsonPath("$.totalWins").value(0))
+                .andExpect(jsonPath("$.recentMatches.length()").value(0))
+        }
+
+        @Test
+        fun `should be viewable by any authenticated user, not just the profile owner`() {
+            val requester = persistUser(username = "unrelated-requester")
+            val target = persistUser(username = "target")
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/profile")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            ).andExpect(status().isOk)
+        }
+
+        @Test
+        fun `should return 404 when the user does not exist`() {
+            val requester = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/users/${UUID.randomUUID()}/profile")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            ).andExpect(status().isNotFound)
+        }
+
+        @Test
+        fun `should return 403 when no auth header is provided`() {
+            val target = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/profile")
+            ).andExpect(status().isForbidden)
+        }
+
+        @Test
+        fun `should return SELF as friendship status when viewing your own profile`() {
+            val user = persistUser(username = "myself")
+
+            mockMvc.perform(
+                get("/api/v1/users/${user.id}/profile")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.friendshipStatus").value("SELF"))
+        }
+
+        @Test
+        fun `should return NONE as friendship status when there is no relationship`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "stranger")
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/profile")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.friendshipStatus").value("NONE"))
+        }
+
+        @Test
+        fun `should return FRIENDS as friendship status when the users are already friends`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "friend")
+
+            friendRequestRepository.saveAndFlush(
+                FriendRequest(sender = requester, receiver = target, status = FriendRequestStatus.ACCEPTED)
+            )
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/profile")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.friendshipStatus").value("FRIENDS"))
+        }
+
+        @Test
+        fun `should return REQUEST_SENT when the requester has sent a pending request to the target`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+
+            friendRequestRepository.saveAndFlush(
+                FriendRequest(sender = requester, receiver = target, status = FriendRequestStatus.PENDING)
+            )
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/profile")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.friendshipStatus").value("REQUEST_SENT"))
+        }
+
+        @Test
+        fun `should return REQUEST_RECEIVED when the target has sent a pending request to the requester`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+
+            friendRequestRepository.saveAndFlush(
+                FriendRequest(sender = target, receiver = requester, status = FriendRequestStatus.PENDING)
+            )
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/profile")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.friendshipStatus").value("REQUEST_RECEIVED"))
         }
     }
 }

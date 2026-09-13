@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useRef, useState, ReactNode } from 'react';
 import { View, Animated } from 'react-native';
 import { CheckCircle2, XCircle, Info } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/ui/text';
 
@@ -23,50 +24,48 @@ const ICONS: Record<ToastVariant, typeof CheckCircle2> = {
 	info: Info,
 }
 
-const VARIANT_STYLES: Record<ToastVariant, { bg: string; icon: string }> = {
-	success: { bg: 'bg-primary', icon: 'text-primary-foreground' },
-	error: { bg: 'bg-destructive', icon: 'text-destructive-foreground' },
-	info: { bg: 'bg-card border border-border', icon: 'text-foreground' },
-}
+const ICON_COLOR = '#C45135';
+
+const SLIDE_DISTANCE = -120;
 
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
+	const insets = useSafeAreaInsets();
 	const [toast, setToast] = useState<ToastState | null>(null);
 
-	const opacity = useRef(new Animated.Value(0)).current;
+	const translateY = useRef(new Animated.Value(SLIDE_DISTANCE)).current;
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const showToast = useCallback((message: string, variant: ToastVariant = 'info') => {
 		if(timeoutRef.current) clearTimeout(timeoutRef.current);
 
 		setToast({ message, variant });
-		opacity.setValue(0);
+		translateY.setValue(SLIDE_DISTANCE);
 
-		Animated.timing(opacity, {
-			toValue: 1,
-			duration: 200,
+		Animated.timing(translateY, {
+			toValue: 0,
+			duration: 250,
 			useNativeDriver: true,
 		}).start();
 
 		timeoutRef.current = setTimeout(() => {
-			Animated.timing(opacity, {
-				toValue: 0,
-				duration: 200,
+			Animated.timing(translateY, {
+				toValue: SLIDE_DISTANCE,
+				duration: 250,
 				useNativeDriver: true,
 			}).start(() => setToast(null));
 		}, 2800);
-	}, [opacity]);
+	}, [translateY]);
 
 	const Icon = toast ? ICONS[toast.variant] : null;
-	const styles = toast ? VARIANT_STYLES[toast.variant] : null;
 
 	return (
 		<ToastContext.Provider value = {{ showToast }}>
 			{children}
-			{toast && styles && Icon && (
-				<Animated.View pointerEvents = 'none' style = {{ opacity }} className = 'absolute bottom-24 left-6 right-6 items-center'>
-					<View className = { `flex-row items-center gap-2 rounded-full px-4 py-3 shadow-lg ${styles.bg}` }>
-						<Icon size = { 18 } className = { styles.icon }/>
-						<Text className = { `flex-1 text-sm ${styles.icon}` } numberOfLines = { 2 }>
+			{toast && Icon && (
+				<Animated.View pointerEvents = 'none' style = {{ transform: [{ translateY }], position: 'absolute', top: insets.top + 8, left: 16, right: 16 }}>
+					<View className = 'flex-row items-center gap-3 rounded-xl bg-card px-4 py-3 shadow-lg border border-border'>
+						<Icon size = { 22 } color = { ICON_COLOR }/>
+						<Text className = 'flex-1 text-sm font-medium text-foreground' numberOfLines = { 2 }>
 							{toast.message}
 						</Text>
 					</View>

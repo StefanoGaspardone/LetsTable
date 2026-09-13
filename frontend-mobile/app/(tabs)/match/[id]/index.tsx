@@ -108,6 +108,24 @@ const MatchDetailScreen = () => {
         }
     }
 
+    const handlePlayerPress = async (playerUserId: string | null, playerName: string) => {
+		if(playerUserId) {
+			teamMembersSheetRef.current?.dismiss();
+
+			if(playerUserId === user?.id) router.push('/(tabs)/profile');
+			else router.push(`/user/${playerUserId}`);
+			
+			return;
+		}
+
+		await confirm({
+			title: 'Giocatore ospite',
+			message: `${playerName} ha giocato come ospite. Se vuole tracciare le sue partite e la sua collezione, può creare un account gratuito su Let's Table!`,
+			confirmLabel: 'Ho capito',
+			infoOnly: true,
+		});
+	}
+
     const handleReplay = () => {
         if(!match) return;
         
@@ -308,7 +326,7 @@ const MatchDetailScreen = () => {
 							{sortedEntries.length >= 3 && (
 								<View className = 'flex-1 items-center'>
 									{secondPlace ? (
-										<Pressable onPress = { () => { if('members' in secondPlace) { setSelectedTeam(secondPlace); teamMembersSheetRef.current?.present(); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
+										<Pressable onPress = { () => { if('members' in secondPlace) { setSelectedTeam(secondPlace); teamMembersSheetRef.current?.present(); } else { handlePlayerPress(secondPlace.userId, secondPlace.name); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
 											{renderPodiumAvatar(secondPlace, 52)}
 											<View className = 'mt-1 flex-row items-center gap-1'>
 												{renderPodiumMeeple(secondPlace, 14)}
@@ -330,7 +348,7 @@ const MatchDetailScreen = () => {
 							)}
 							<View className = 'flex-1 items-center'>
 								{firstPlace && (
-									<Pressable onPress = { () => { if('members' in firstPlace) { setSelectedTeam(firstPlace); teamMembersSheetRef.current?.present(); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
+									<Pressable onPress = { () => { if('members' in firstPlace) { setSelectedTeam(firstPlace); teamMembersSheetRef.current?.present(); } else { handlePlayerPress(firstPlace.userId, firstPlace.name); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
 										{renderPodiumAvatar(firstPlace, 64)}
 										<View className = 'mt-1 flex-row items-center gap-1'>
 											{renderPodiumMeeple(firstPlace, 16)}
@@ -349,7 +367,7 @@ const MatchDetailScreen = () => {
 							</View>
 							{sortedEntries.length === 2 && (
 								<View className = 'flex-1 items-center'>
-									<Pressable onPress = { () => { if('members' in secondPlace!) { setSelectedTeam(secondPlace); teamMembersSheetRef.current?.present(); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
+									<Pressable onPress = { () => { if('members' in secondPlace!) { setSelectedTeam(secondPlace); teamMembersSheetRef.current?.present(); } else { handlePlayerPress(secondPlace!.userId, secondPlace!.name); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
 										{renderPodiumAvatar(secondPlace!, 52)}
 										<View className = 'mt-1 flex-row items-center gap-1'>
 											{renderPodiumMeeple(secondPlace!, 14)}
@@ -369,7 +387,7 @@ const MatchDetailScreen = () => {
 							{sortedEntries.length >= 3 && (
 								<View className = 'flex-1 items-center'>
 									{thirdPlace ? (
-										<Pressable onPress = { () => { if('members' in thirdPlace) { setSelectedTeam(thirdPlace); teamMembersSheetRef.current?.present(); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
+										<Pressable onPress = { () => { if('members' in thirdPlace) { setSelectedTeam(thirdPlace); teamMembersSheetRef.current?.present(); } else { handlePlayerPress(thirdPlace.userId, thirdPlace.name); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
 											{renderPodiumAvatar(thirdPlace, 52)}
 											<View className = 'mt-1 flex-row items-center gap-1'>
 												{renderPodiumMeeple(thirdPlace, 14)}
@@ -424,8 +442,8 @@ const MatchDetailScreen = () => {
                             )
                         }
 
-                        return (
-                            <View key = { entry.id } className = 'flex-row items-center gap-2 rounded-xl border border-border bg-card p-2.5'>
+                    	return (
+                            <Pressable key = { entry.id } onPress = { () => handlePlayerPress(entry.userId, entry.name) } className = 'flex-row items-center gap-2 rounded-xl border border-border bg-card p-2.5 active:scale-[0.98] active:opacity-75'>
                                 {!isInProgress && (
 									<View className = 'h-7 w-7 items-center justify-center rounded-full bg-secondary'>
 										<Text className = 'text-sm font-bold text-muted-foreground'>{rank}°</Text>
@@ -444,7 +462,7 @@ const MatchDetailScreen = () => {
 										<Text className = 'text-sm font-bold text-muted-foreground'>{entry.score}</Text>
 									</View>
 								)}
-                            </View>
+                            </Pressable>
                         )
                     })}
                 </View>
@@ -504,7 +522,7 @@ const MatchDetailScreen = () => {
 							<View className = 'flex-row flex-wrap'>
 								{selectedTeam.members.map((member: any) => (
 									<View key = { member.id } style = {{ width: '25%', padding: 4 }}>
-										<View className = 'items-center gap-1.5 py-3 rounded-2xl border border-border bg-card active:scale-[0.98] active:opacity-75'>
+										<Pressable onPress = { () => handlePlayerPress(member.userId, member.name) } className = 'items-center gap-1.5 py-3 rounded-2xl border border-border bg-card active:scale-[0.98] active:opacity-75'>
 											<Image source = {{ uri: getAvatarUrl(member.avatarId ?? null, member.name ?? '') }} style = {{ width: 56, height: 56, borderRadius: 28 }} contentFit = 'cover'/>
 											<Text className = 'text-center text-sm font-medium text-foreground' numberOfLines = { 1 }>
 												{member.name}
@@ -512,7 +530,7 @@ const MatchDetailScreen = () => {
 													<Text className = 'text-xs font-semibold text-primary'> (io)</Text>
 												)}
 											</Text>
-										</View>
+										</Pressable>
 									</View>
 								))}
 							</View>

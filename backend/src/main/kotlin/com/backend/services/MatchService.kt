@@ -295,7 +295,7 @@ class MatchService(
 
         try {
             val pageable = PageRequest.of(0, limit)
-            val matches = matchRepository.findRecentForUser(userId, pageable)
+            val matches = matchRepository.findRecentCompletedForUser(userId, pageable)
             val response = matches.map { mapMatchToResponse(it) }
 
             logger.info("\n\t[INFO] [match_service][get_recent_matches_for_user] Retrieved {} matches for user {}", response.size, userId)

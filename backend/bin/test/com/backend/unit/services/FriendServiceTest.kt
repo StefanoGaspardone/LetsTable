@@ -6,6 +6,7 @@ import com.backend.models.entities.FriendRequest
 import com.backend.models.entities.User
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.FriendRequestStatus
+import com.backend.models.enums.FriendshipStatus
 import com.backend.models.enums.UserRole
 import com.backend.repositories.FriendRequestRepository
 import com.backend.repositories.UserRepository
@@ -462,6 +463,65 @@ class FriendServiceTest {
             assertThatThrownBy { friendService.listPendingSent(senderId) }
                 .isInstanceOf(RuntimeException::class.java)
                 .hasMessage("Query error")
+        }
+    }
+
+    @Nested
+    @DisplayName("getFriendshipStatus")
+    inner class GetFriendshipStatus {
+
+        @Test
+        fun `should return SELF when checking status against yourself`() {
+            val result = friendService.getFriendshipStatus(senderId, senderId)
+
+            assertThat(result).isEqualTo(FriendshipStatus.SELF)
+
+            verify(exactly = 0) { friendRequestRepository.findFriendshipBetween(any(), any()) }
+        }
+
+        @Test
+        fun `should return FRIENDS when a friendship already exists`() {
+            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.of(mockFriendRequest)
+
+            val result = friendService.getFriendshipStatus(senderId, receiverId)
+
+            assertThat(result).isEqualTo(FriendshipStatus.FRIENDS)
+
+            verify(exactly = 0) { friendRequestRepository.findBySenderIdAndReceiverId(any(), any()) }
+        }
+
+        @Test
+        fun `should return REQUEST_SENT when the current user has sent a pending request`() {
+            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.empty()
+            every { friendRequestRepository.findBySenderIdAndReceiverId(senderId, receiverId) } returns Optional.of(mockFriendRequest)
+
+            val result = friendService.getFriendshipStatus(senderId, receiverId)
+
+            assertThat(result).isEqualTo(FriendshipStatus.REQUEST_SENT)
+
+            verify(exactly = 0) { friendRequestRepository.findBySenderIdAndReceiverId(receiverId, senderId) }
+        }
+
+        @Test
+        fun `should return REQUEST_RECEIVED when the other user has sent a pending request`() {
+            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.empty()
+            every { friendRequestRepository.findBySenderIdAndReceiverId(senderId, receiverId) } returns Optional.empty()
+            every { friendRequestRepository.findBySenderIdAndReceiverId(receiverId, senderId) } returns Optional.of(mockFriendRequest)
+
+            val result = friendService.getFriendshipStatus(senderId, receiverId)
+
+            assertThat(result).isEqualTo(FriendshipStatus.REQUEST_RECEIVED)
+        }
+
+        @Test
+        fun `should return NONE when there is no relationship at all`() {
+            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.empty()
+            every { friendRequestRepository.findBySenderIdAndReceiverId(senderId, receiverId) } returns Optional.empty()
+            every { friendRequestRepository.findBySenderIdAndReceiverId(receiverId, senderId) } returns Optional.empty()
+
+            val result = friendService.getFriendshipStatus(senderId, receiverId)
+
+            assertThat(result).isEqualTo(FriendshipStatus.NONE)
         }
     }
 }

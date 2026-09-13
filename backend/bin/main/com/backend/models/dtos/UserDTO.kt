@@ -56,3 +56,21 @@ data class UpdateUserRequest(
     @field:Schema(description = "If true, removes the current avatar and reverts to the default. Takes precedence over avatarId.")
     val removeAvatar: Boolean? = null,
 )
+
+@Schema(description = "Public profile of a user, visible to any authenticated user")
+data class UserProfileDTO(
+    @field:Schema(description = "The user's public account information")
+    val user: UserDTO,
+
+    @field:Schema(description = "Total number of completed matches the user has participated in")
+    val totalMatches: Long,
+
+    @field:Schema(description = "Total number of matches the user has won")
+    val totalWins: Long,
+
+    @field:Schema(description = "The user's 10 most recent matches")
+    val recentMatches: List<MatchDTO>,
+
+    @field:Schema(description = "Friendship status between the requesting user and this profile's user", example = "FRIENDS")
+    val friendshipStatus: String,
+)
