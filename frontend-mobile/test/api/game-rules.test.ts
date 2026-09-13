@@ -44,7 +44,7 @@ describe('game-rules API', () => {
 			const responseData = { id: 'file-1', fileName: 'rules.pdf' };
 			mockedPost.mockResolvedValueOnce({ data: responseData } as any);
 
-			const result = await uploadGameRule('game-1', 'file:///local/rules.pdf', 'rules.pdf');
+			const result = await uploadGameRule('game-1', 'file:///local/rules.pdf', 'rules.pdf', 'application/pdf');
 
 			expect(mockedPost).toHaveBeenCalledWith(
 				'/games/game-1/rules',
@@ -59,7 +59,7 @@ describe('game-rules API', () => {
 			const error = new Error('Upload failed');
 			mockedPost.mockRejectedValueOnce(error);
 
-			await expect(uploadGameRule('game-1', 'file:///local/rules.pdf', 'rules.pdf')).rejects.toThrow('Upload failed');
+			await expect(uploadGameRule('game-1', 'file:///local/rules.pdf', 'rules.pdf', 'application/pdf')).rejects.toThrow('Upload failed');
 
 			expect(consoleLog).toHaveBeenCalled();
 			consoleLog.mockRestore();

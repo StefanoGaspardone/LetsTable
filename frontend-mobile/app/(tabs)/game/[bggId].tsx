@@ -564,6 +564,7 @@ const GameDetailScreen = () => {
 									onPress: () =>
 										registerMatchSheetRef.current?.present({
 											id: game.id,
+											bggId: game.bggId,
 											name: game.name,
 											thumbnailUrl: game.thumbnailUrl,
 										}),
