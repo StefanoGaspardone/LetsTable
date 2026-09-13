@@ -1,11 +1,15 @@
-import { router, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import { View } from 'react-native';
 import { Compass } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
+
 const NotFoundScreen = () => {
+	const router = useNavigationStack();
+
 	return (
 		<>
 			<Stack.Screen options = {{ headerShown: false }}/>

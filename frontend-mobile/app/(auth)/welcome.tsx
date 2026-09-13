@@ -1,11 +1,14 @@
 import { View } from 'react-native';
-import { router } from 'expo-router';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import MeepleIllustration from '@/components/common/meeple-illustration';
 
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
+
 const WelcomeScreen = () => {
+	const router = useNavigationStack();
+
 	return (
 		<View className = 'flex-1 bg-background px-8 pb-6'>
 			<View className = 'flex-1 items-center justify-center'>
@@ -18,10 +21,10 @@ const WelcomeScreen = () => {
 				</Text>
 			</View>
 			<View className = 'mb-12 gap-3'>
-				<Button className = 'h-14 rounded-full' onPress = { () => router.push('/(auth)/login') }>
+				<Button className = 'h-14 rounded-full' onPress = { () => router.replace('/(auth)/login') }>
 					<Text className = 'text-base font-semibold text-primary-foreground'>Accedi</Text>
 				</Button>
-				<Button variant = 'outline' className = 'h-14 rounded-full border-2 border-border bg-card' onPress = { () => router.push('/(auth)/signup') }>
+				<Button variant = 'outline' className = 'h-14 rounded-full border-2 border-border bg-card' onPress = { () => router.replace('/(auth)/signup') }>
 					<Text className = 'text-base font-semibold text-foreground'>Registrati</Text>
 				</Button>
 			</View>

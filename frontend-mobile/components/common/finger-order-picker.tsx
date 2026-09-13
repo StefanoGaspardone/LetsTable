@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, GestureResponderEvent, PanResponder, Pressable, Modal } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, Easing } from 'react-native-reanimated';
+
 import { Text } from '@/components/ui/text';
 
 interface ActiveTouch {

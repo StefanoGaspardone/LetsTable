@@ -2,7 +2,7 @@ import { View } from 'react-native';
 
 import ScreenHeader from '@/components/common/screen-header';
 import BackButton from '@/components/common/back-button';
-import ComingSoon from '@/components/common/cooming-soon';
+import ComingSoon from '@/components/common/coming-soon';
 
 const SecurityScreen = () => {
 	return (

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Pressable } from 'react-native';
-import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, interpolate, interpolateColor, Extrapolation, SharedValue } from 'react-native-reanimated';
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 interface BackButtonProps {
 	variant?: 'onLight' | 'onDark';
@@ -11,6 +11,8 @@ interface BackButtonProps {
 
 const BackButton = ({ variant = 'onLight', progress }: BackButtonProps) => {
   	const [isPressed, setIsPressed] = useState(false);
+	
+	const router = useNavigationStack();
 
 	const backgroundStyle = useAnimatedStyle(() => {
 		const restOnDark = 'rgba(255,255,255,0.16)';

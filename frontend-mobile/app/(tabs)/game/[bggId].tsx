@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, Linking, Pressable, View } from 'react-native';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -32,6 +32,7 @@ import { useCollectionStatus, useToggleCollection } from '@/hooks/use-game';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 
 import { getFileIconColor, getFileIconName } from '@/lib/file';
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 const IMAGE_HEIGHT = 280;
 const SHEET_RADIUS = 28;
@@ -54,10 +55,12 @@ const GameDetailScreen = () => {
 
 	const queryClient = useQueryClient();
 	const { showToast } = useToast();
+	const router = useNavigationStack();
 
 	const registerMatchSheetRef = useRef<RegisterMatchSheetRef>(null);
 	const pagerRef = useRef<ScrollView>(null);
 	const mainScrollRef = useRef<Animated.ScrollView>(null);
+	const isReturningFromExternalActionRef = useRef(false);
 
 	const [activeTab, setActiveTab] = useState<TabKey>('info');
 	const [tabHeights, setTabHeights] = useState<Record<TabKey, number>>({
@@ -106,30 +109,47 @@ const GameDetailScreen = () => {
 	useRefetchOnFocus(['games', 'detail', bggId]);
 	useRefetchOnFocus(['collection', 'status', game?.id]);
 
-	const handleOpenRuleFile = async (fileId: string, fileName: string) => {
+	const handleOpenRuleFile = async (fileId: string, fileName: string, contentType: string) => {
+		isReturningFromExternalActionRef.current = true;
+
 		try {
 			const localUri = await downloadRuleFile(game!.id, fileId, fileName);
 			const contentUri = await FileSystem.getContentUriAsync(localUri);
-			
+
 			await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
 				data: contentUri,
 				flags: 1,
-				type: 'application/pdf',
+				type: contentType,
 			});
 		} catch {
+			isReturningFromExternalActionRef.current = false;
 			showToast('Impossibile aprire il file', 'error');
 		}
 	}
 
 	const handleUploadRule = async () => {
-		const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
-		
+		isReturningFromExternalActionRef.current = true;
+
+		const result = await DocumentPicker.getDocumentAsync({
+			type: [
+				'application/pdf',
+				'application/msword',
+				'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+				'application/vnd.ms-excel',
+				'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+				'application/vnd.ms-powerpoint',
+				'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+				'image/*',
+				'video/*',
+			],
+		});
+
 		if(result.canceled) return;
-		
+
 		const asset = result.assets[0];
 
 		try {
-			await uploadGameRule(game!.id, asset.uri, asset.name);
+			await uploadGameRule(game!.id, asset.uri, asset.name, asset.mimeType ?? 'application/octet-stream');
 			queryClient.invalidateQueries({ queryKey: ['games', 'rules', game!.id] });
 
 			showToast('Regolamento caricato con successo', 'success');
@@ -223,6 +243,11 @@ const GameDetailScreen = () => {
 
 	useFocusEffect(
 		useCallback(() => {
+			if(isReturningFromExternalActionRef.current) {
+				isReturningFromExternalActionRef.current = false;
+				return;
+			}
+
 			setActiveTab('info');
 			setShouldFetchExpansions(false);
 			setShouldFetchRules(false);
@@ -475,7 +500,7 @@ const GameDetailScreen = () => {
 									) : (
 										<>
 											{ruleFiles?.map(ruleFile => (
-												<Pressable key = { ruleFile.id } onPress = { () => handleOpenRuleFile(ruleFile.id, ruleFile.fileName) } className = 'flex-row items-center bg-card gap-3 rounded-xl border border-border px-3 py-2.5 active:opacity-75 active:scale-[0.98]'>
+												<Pressable key = { ruleFile.id } onPress = { () => handleOpenRuleFile(ruleFile.id, ruleFile.fileName, ruleFile.contentType) } className = 'flex-row items-center bg-card gap-3 rounded-xl border border-border px-3 py-2.5 active:opacity-75 active:scale-[0.98]'>
 													<MaterialCommunityIcons name = { getFileIconName(ruleFile.contentType) } size = { 22 } color = { getFileIconColor(ruleFile.contentType) }/>
 													<View className = 'flex-1'>
 														<Text className = 'text-sm text-foreground' numberOfLines = { 1 }>
@@ -495,7 +520,7 @@ const GameDetailScreen = () => {
 													<>
 														<Plus size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
 														<Text className = { `text-sm ${pressed ? 'text-white' : 'text-muted-foreground'}` }>
-															Carica un regolamento
+															Carica un regolamento o un file
 														</Text>
 													</>
 												)}

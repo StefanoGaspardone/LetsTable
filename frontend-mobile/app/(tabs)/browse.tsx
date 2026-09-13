@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { View, FlatList, ActivityIndicator, Pressable } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Search, List, LayoutGrid } from 'lucide-react-native';
 
 import ScreenHeader from '@/components/common/screen-header';
@@ -10,12 +10,16 @@ import GameGridItem from '@/components/common/game-grid-item';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
+
 import { useDebounce } from '@/hooks/use-debounce';
 import { useGameSearch, useHotGames } from '@/hooks/use-game';
 
 const BrowseScreen = () => {
 	const [search, setSearch] = useState('');
 	const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
+	
+	const router = useNavigationStack();
 
 	useFocusEffect(
 		useCallback(() => {

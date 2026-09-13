@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, ScrollView, TextInput, Pressable, ActivityIndicator } from 'react-native';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Trophy, Users, Award, Star } from 'lucide-react-native';
 import { Image } from 'expo-image';
@@ -14,6 +14,8 @@ import { getMatchById, updateMatch } from '@/api/match';
 
 import { useToast } from '@/contexts/toast-context';
 import { useAuth } from '@/contexts/auth-context';
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
+
 import { getAvatarUrl } from '@/lib/file';
 
 interface ScoreEntry {
@@ -29,10 +31,11 @@ interface ScoreEntry {
 
 const FinishMatchScreen = () => {
 	const { id } = useLocalSearchParams<{ id: string }>();
-	const { showToast } = useToast();
 	const queryClient = useQueryClient();
-
+	
 	const { user } = useAuth();
+	const { showToast } = useToast();
+	const router = useNavigationStack();
 
 	const { data: match, isLoading } = useQuery({
 		queryKey: ['matches', 'detail', id],

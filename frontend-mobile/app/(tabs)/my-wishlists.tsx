@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 
 import ScreenHeader from '@/components/common/screen-header';
-import ComingSoon from '@/components/common/cooming-soon';
+import ComingSoon from '@/components/common/coming-soon';
 import BackButton from '@/components/common/back-button';
 
 const MyWishlistsScreen = () => {

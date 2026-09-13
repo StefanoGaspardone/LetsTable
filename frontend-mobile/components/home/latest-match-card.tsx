@@ -1,6 +1,5 @@
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
 import { Crown } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
@@ -9,6 +8,8 @@ import { Match } from '@/types/match';
 
 import { formatRelativeDays } from '@/lib/date';
 import { getAvatarUrl } from '@/lib/file';
+
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 interface LatestMatchCardProps {
 	match: Match;
@@ -44,6 +45,8 @@ const flattenPlayers = (match: Match): FlatPlayer[] => {
 const LatestMatchCard = ({ match }: LatestMatchCardProps) => {
     const players = flattenPlayers(match);
     const winner = players.find(p => p.isWinner);
+
+    const router = useNavigationStack();
 
     return (
         <Pressable onPress = { () => router.push(`/match/${match.id}`)} className = 'rounded-3xl bg-[#C45135] p-2 active:scale-[0.98] active:opacity-75 shadow-sm mb-1'>

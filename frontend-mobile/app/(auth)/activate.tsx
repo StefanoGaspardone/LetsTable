@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -9,10 +9,12 @@ import OtpInput from '@/components/common/otp-input';
 import { useToast } from '@/contexts/toast-context';
 
 import { activate, resendActivationOtp } from '@/api/auth';
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 const ActivateScreen = () => {
 	const { identifier } = useLocalSearchParams<{ identifier: string }>();
 	const { showToast } = useToast();
+	const router = useNavigationStack();
 
 	const [otpCode, setOtpCode] = useState('');
 	const [isSubmitting, setIsSubmitting] = useState(false);

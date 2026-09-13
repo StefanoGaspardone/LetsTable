@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { ToastProvider } from '@/contexts/toast-context';
 import { ConfirmDialogProvider } from '@/contexts/confirm-dialog-context';
 import { ThemeProvider as AppThemeProvider } from '@/contexts/theme-context';
+import { NavigationStackProvider } from '@/contexts/navigation-stack-context';
 
 import { useHealthCheck } from '@/hooks/use-health-check';
 
@@ -81,10 +82,12 @@ const RootLayout = () => {
 						<AppThemeProvider>
 							<ToastProvider>
 								<ConfirmDialogProvider>
-									<ThemeProvider value = { DefaultTheme }>
-										<RootLayoutNav/>
-										{!isHealthy && <ServerDownOverlay isChecking = { isChecking } onRetry = { retryNow }/>}
-									</ThemeProvider>
+									<NavigationStackProvider>
+										<ThemeProvider value = { DefaultTheme }>
+											<RootLayoutNav/>
+											{!isHealthy && <ServerDownOverlay isChecking = { isChecking } onRetry = { retryNow }/>}
+										</ThemeProvider>
+									</NavigationStackProvider>
 								</ConfirmDialogProvider>
 							</ToastProvider>
 						</AppThemeProvider>

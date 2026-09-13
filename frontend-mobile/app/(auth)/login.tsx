@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { View } from 'react-native';
-import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -12,6 +11,7 @@ import PasswordInput from '@/components/common/password-input';
 
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 import { LoginFormValues, loginSchema } from '@/schemas/auth-schema';
 
@@ -20,6 +20,7 @@ import { login as log_in } from '@/api/auth';
 const LoginScreen = () => {
 	const { login } = useAuth();
 	const { showToast } = useToast();
+	const router = useNavigationStack();
 
 	const [isSubmitting, setIsSubmitting] = useState(false);
 

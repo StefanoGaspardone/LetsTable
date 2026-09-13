@@ -1,6 +1,5 @@
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
 import { Dices } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
@@ -9,6 +8,8 @@ import { Match } from '@/types/match';
 
 import { formatRelativeDays } from '@/lib/date';
 import { getAvatarUrl } from '@/lib/file';
+
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 interface MatchCardProps {
 	match: Match;
@@ -87,6 +88,8 @@ const TeamDotStack = ({ teams }: { teams: FlatTeam[] }) => {
 }
 
 const MatchListItem = ({ match }: MatchCardProps) => {
+	const router = useNavigationStack();
+
 	const isInProgress = match.durationMinutes == null;
 
 	const teams = match.isTeamBased ? flattenTeams(match) : [];

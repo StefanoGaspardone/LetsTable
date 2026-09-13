@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Check } from 'lucide-react-native';
 import { useForm, Controller } from 'react-hook-form';
@@ -13,6 +12,7 @@ import AuthField from '@/components/auth/auth-field';
 import PasswordInput from '@/components/common/password-input';
 
 import { useToast } from '@/contexts/toast-context';
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 import { SignupFormValues, signupSchema } from '@/schemas/auth-schema';
 
@@ -20,6 +20,8 @@ import { signup } from '@/api/auth';
 
 const SignupScreen = () => {
 	const { showToast } = useToast();
+	const router = useNavigationStack();
+
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const { control, handleSubmit, formState: { errors, isValid } } = useForm<SignupFormValues>({

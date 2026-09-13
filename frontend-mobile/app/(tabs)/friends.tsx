@@ -8,7 +8,7 @@ import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
 import ScreenHeader from '@/components/common/screen-header';
 import SegmentedControl from '@/components/common/segmented-control';
-import ComingSoon from '@/components/common/cooming-soon';
+import ComingSoon from '@/components/common/coming-soon';
 
 import { useDebounce } from '@/hooks/use-debounce';
 import { useUserSearch } from '@/hooks/use-user';

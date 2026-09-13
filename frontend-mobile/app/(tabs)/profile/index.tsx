@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import { View, ScrollView, Pressable, Switch, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Bell, Moon, Shield, LogOut, ChevronRight, Camera, Users, Trophy, Gamepad2, Edit3, Trash2 } from 'lucide-react-native';
@@ -13,6 +12,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useConfirmDialog } from '@/contexts/confirm-dialog-context';
 import { useTheme } from '@/contexts/theme-context';
 import { useToast } from '@/contexts/toast-context';
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 import { useHomeStats } from '@/hooks/use-stat';
 import { useFriends } from '@/hooks/use-friend';
@@ -27,6 +27,7 @@ const ProfileScreen = () => {
 	const { confirm } = useConfirmDialog();
 	const { themePreference } = useTheme();
 	const { showToast } = useToast();
+	const router = useNavigationStack();
 
 	const themeSheetRef = useRef<ThemePickerSheetRef>(null);
 

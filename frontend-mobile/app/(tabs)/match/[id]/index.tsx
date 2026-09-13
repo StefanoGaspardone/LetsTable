@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { View, Pressable, ActivityIndicator, ScrollView } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { Dices, Pencil, Trash2, MapPin, FileText, Trophy, Users, ChevronRight, Repeat, Clock, Calendar } from 'lucide-react-native';
@@ -19,11 +19,12 @@ import { getMatchById, deleteMatch } from '@/api/match';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { useConfirmDialog } from '@/contexts/confirm-dialog-context';
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 import { formatDuration } from '@/lib/time';
+import { getAvatarUrl } from '@/lib/file';
 
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
-import { getAvatarUrl } from '@/lib/file';
 
 interface TeamEntry {
 	id: string;
@@ -59,10 +60,12 @@ const renderPodiumMeeple = (entry: any, size: number) => (
 
 const MatchDetailScreen = () => {
     const { id } = useLocalSearchParams<{ id: string }>();
+    const queryClient = useQueryClient();
+
     const { user } = useAuth();
     const { showToast } = useToast();
     const { confirm } = useConfirmDialog();
-    const queryClient = useQueryClient();
+	const router = useNavigationStack();
 
     const registerMatchSheetRef = useRef<RegisterMatchSheetRef>(null);
     const teamMembersSheetRef = useRef<any>(null);

@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
-import { router } from 'expo-router';
 import { Settings, Library, Trophy, ListPlus, Users, UserPlus } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
@@ -20,11 +19,15 @@ import { useMyWishlists } from '@/hooks/use-wishlist';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { useFriends } from '@/hooks/use-friend';
 
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
+
 const HomeScreen = () => {
 	const { totalWins, totalMatches, totalGames } = useHomeStats();
 	const { data: friends } = useFriends();
 	const { data: matchesData } = useMatches({ sort: 'playedAt-desc', size: 5 } as any);
 	const { data: wishlists } = useMyWishlists();
+
+	const router = useNavigationStack();
 
 	useRefetchOnFocus(['matches']);
 	useRefetchOnFocus(['collection']);

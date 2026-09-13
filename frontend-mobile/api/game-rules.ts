@@ -10,12 +10,12 @@ export const listGameRules = async (gameId: string): Promise<UploadedFile[]> => 
 	return data;
 }
 
-export const uploadGameRule = async (gameId: string, fileUri: string, fileName: string): Promise<UploadedFile> => {
+export const uploadGameRule = async (gameId: string, fileUri: string, fileName: string, mimeType: string): Promise<UploadedFile> => {
 	const formData = new FormData();
 	formData.append('file', {
 		uri: fileUri,
 		name: fileName,
-		type: 'application/pdf',
+		type: mimeType,
 	} as any);
 
 	try {

@@ -1,6 +1,5 @@
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
 import { Heart, Users, Lock, Dices, ChevronRight } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 
@@ -8,6 +7,7 @@ import { Text } from '@/components/ui/text';
 
 import { Wishlist } from '@/types/wishlist';
 import { listWishlistItems } from '@/api/wishlist';
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 interface WishlistMiniCardProps {
 	wishlist: Wishlist;
@@ -16,6 +16,8 @@ interface WishlistMiniCardProps {
 const THUMB_SIZE = 44;
 
 const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
+	const router = useNavigationStack();
+
 	const { data } = useQuery({
 		queryKey: ['wishlists', 'preview-items', wishlist.id],
 		queryFn: () => listWishlistItems(wishlist.id, 0, 3),

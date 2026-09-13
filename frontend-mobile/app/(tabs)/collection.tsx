@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { View, Pressable, FlatList, ActivityIndicator } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Search, List, LayoutGrid, Plus } from 'lucide-react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -16,6 +16,8 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { useCollection } from '@/hooks/use-collection';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
+
 const FILTER_OPTIONS = [
 	{ value: 'all', label: 'Tutti' },
 	{ value: 'played', label: 'Giocati' },
@@ -29,6 +31,8 @@ const CollectionScreen = () => {
 	const [selectedFilter, setSelectedFilter] = useState('all');
 	const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
 	const [search, setSearch] = useState('');
+
+	const router = useNavigationStack();
 
 	useFocusEffect(
 		useCallback(() => {

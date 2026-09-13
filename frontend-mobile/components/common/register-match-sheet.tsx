@@ -1,7 +1,6 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { Plus, X, Dices, Trash2, UserCheck } from 'lucide-react-native';
@@ -24,6 +23,7 @@ import { getPlayerColor } from '@/lib/colors';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { getAvatarUrl } from '@/lib/file';
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 interface PresetGame {
 	id: string;
@@ -69,6 +69,8 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 
 	const { user } = useAuth();
 	const { showToast } = useToast();
+    const router = useNavigationStack();
+
 	const queryClient = useQueryClient();
 
 	const [presetGame, setPresetGame] = useState<PresetGame | null>(null);
