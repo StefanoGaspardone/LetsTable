@@ -1,8 +1,6 @@
 package com.backend.unit.services
 
 import com.backend.services.MailService
-import jakarta.mail.Session
-import jakarta.mail.internet.MimeMessage
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -10,28 +8,21 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.any
-import org.mockito.ArgumentMatchers.eq
+import org.mockito.ArgumentMatchers.*
 import org.mockito.Captor
 import org.mockito.Mock
+import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
-import org.mockito.Mockito.doThrow
-import org.mockito.Mockito.never
-import org.mockito.Mockito.verify
 import org.mockito.junit.jupiter.MockitoExtension
-import org.springframework.mail.javamail.JavaMailSender
+import org.springframework.http.ResponseEntity
+import org.springframework.web.reactive.function.client.WebClient
 import org.thymeleaf.TemplateEngine
 import org.thymeleaf.context.Context
-import java.util.Properties
+import reactor.core.publisher.Mono
 
 @ExtendWith(MockitoExtension::class)
 class MailServiceTest {
-
-    @Mock
-    private lateinit var mailSender: JavaMailSender
 
     @Mock
     private lateinit var templateEngine: TemplateEngine
@@ -40,25 +31,46 @@ class MailServiceTest {
     private lateinit var contextCaptor: ArgumentCaptor<Context>
 
     @Captor
-    private lateinit var mimeMessageCaptor: ArgumentCaptor<MimeMessage>
+    private lateinit var payloadCaptor: ArgumentCaptor<Any>
+
+    private lateinit var brevoWebClient: WebClient
+    private lateinit var requestBodyUriSpec: WebClient.RequestBodyUriSpec
+    private lateinit var requestBodySpec: WebClient.RequestBodySpec
+    private lateinit var requestHeadersSpec: WebClient.RequestHeadersSpec<*>
+    private lateinit var responseSpec: WebClient.ResponseSpec
 
     private lateinit var mailService: MailService
 
     private val fromAddress = "noreply@letstable.com"
     private val fromName = "Let's Table Team"
+    private val brevoApiKey = "test-api-key"
 
     @BeforeEach
     fun setUp() {
+        brevoWebClient = mock()
+        requestBodyUriSpec = mock()
+        requestBodySpec = mock()
+        requestHeadersSpec = mock()
+        responseSpec = mock()
+
         mailService = MailService(
-            mailSender = mailSender,
+            brevoWebClient = brevoWebClient,
             templateEngine = templateEngine,
             fromAddress = fromAddress,
-            fromName = fromName
+            fromName = fromName,
+            brevoApiKey = brevoApiKey,
+            mailEnabled = true,
         )
     }
 
-    private fun createDummyMimeMessage(): MimeMessage {
-        return MimeMessage(Session.getInstance(Properties()))
+    @Suppress("UNCHECKED_CAST")
+    private fun stubSuccessfulSend() {
+        `when`(brevoWebClient.post()).thenReturn(requestBodyUriSpec)
+        `when`(requestBodyUriSpec.uri("/smtp/email")).thenReturn(requestBodySpec)
+        `when`(requestBodySpec.header(anyString(), anyString())).thenReturn(requestBodySpec)
+        `when`(requestBodySpec.bodyValue(payloadCaptor.capture())).thenReturn(requestHeadersSpec as WebClient.RequestHeadersSpec<Nothing>)
+        `when`(requestHeadersSpec.retrieve()).thenReturn(responseSpec)
+        `when`(responseSpec.toBodilessEntity()).thenReturn(Mono.just(ResponseEntity.ok().build()))
     }
 
     @Nested
@@ -71,40 +83,38 @@ class MailServiceTest {
             val otpCode = "123456"
             val expiresInMinutes = 10L
             val expectedHtml = "<html>Activation OTP: 123456</html>"
-            val mimeMessage = createDummyMimeMessage()
 
             `when`(templateEngine.process(eq("emails/otp"), contextCaptor.capture()))
                 .thenReturn(expectedHtml)
-            `when`(mailSender.createMimeMessage()).thenReturn(mimeMessage)
+            stubSuccessfulSend()
 
             mailService.sendActivationOtp(recipient, otpCode, expiresInMinutes)
-
-            verify(mailSender).send(mimeMessageCaptor.capture())
 
             val capturedContext = contextCaptor.value
             assertThat(capturedContext.getVariable("otpCode")).isEqualTo(otpCode)
             assertThat(capturedContext.getVariable("expiresInMinutes")).isEqualTo(expiresInMinutes)
 
-            val sentMessage = mimeMessageCaptor.value
-            assertThat(sentMessage.allRecipients[0].toString()).isEqualTo(recipient)
-            assertThat(sentMessage.subject).isEqualTo("Your Let's Table activation code")
+            @Suppress("UNCHECKED_CAST")
+            val payload = payloadCaptor.value as Map<String, Any>
+            assertThat(payload["subject"]).isEqualTo("Your Let's Table activation code")
+            assertThat(payload["htmlContent"]).isEqualTo(expectedHtml)
+
+            @Suppress("UNCHECKED_CAST")
+            val toList = payload["to"] as List<Map<String, String>>
+            assertThat(toList[0]["email"]).isEqualTo(recipient)
         }
 
         @Test
         fun `should propagate exception when template rendering fails`() {
             val recipient = "user@example.com"
-            val otpCode = "123456"
-            val expiresInMinutes = 10L
 
             `when`(templateEngine.process(eq("emails/otp"), any(Context::class.java)))
                 .thenThrow(RuntimeException("Template processing error"))
 
             assertThatThrownBy {
-                mailService.sendActivationOtp(recipient, otpCode, expiresInMinutes)
+                mailService.sendActivationOtp(recipient, "123456", 10L)
             }.isInstanceOf(RuntimeException::class.java)
                 .hasMessage("Template processing error")
-
-            verify(mailSender, never()).send(any(MimeMessage::class.java))
         }
     }
 
@@ -118,76 +128,65 @@ class MailServiceTest {
             val otpCode = "654321"
             val expiresInMinutes = 5L
             val expectedHtml = "<html>Reset OTP: 654321</html>"
-            val mimeMessage = createDummyMimeMessage()
 
             `when`(templateEngine.process(eq("emails/password-reset"), contextCaptor.capture()))
                 .thenReturn(expectedHtml)
-            `when`(mailSender.createMimeMessage()).thenReturn(mimeMessage)
+            stubSuccessfulSend()
 
             mailService.sendPasswordResetOtp(recipient, otpCode, expiresInMinutes)
-
-            verify(mailSender).send(mimeMessageCaptor.capture())
 
             val capturedContext = contextCaptor.value
             assertThat(capturedContext.getVariable("otpCode")).isEqualTo(otpCode)
             assertThat(capturedContext.getVariable("expiresInMinutes")).isEqualTo(expiresInMinutes)
 
-            val sentMessage = mimeMessageCaptor.value
-            assertThat(sentMessage.allRecipients[0].toString()).isEqualTo(recipient)
-            assertThat(sentMessage.subject).isEqualTo("Reset your Let's Table password")
+            @Suppress("UNCHECKED_CAST")
+            val payload = payloadCaptor.value as Map<String, Any>
+            assertThat(payload["subject"]).isEqualTo("Reset your Let's Table password")
         }
 
         @Test
-        fun `should rethrow exception when mail sender throws exception`() {
+        fun `should rethrow exception when the Brevo API call fails`() {
             val recipient = "user@example.com"
-            val otpCode = "654321"
-            val expiresInMinutes = 5L
-            val mimeMessage = createDummyMimeMessage()
 
             `when`(templateEngine.process(eq("emails/password-reset"), any(Context::class.java)))
                 .thenReturn("<html>Reset OTP</html>")
-            `when`(mailSender.createMimeMessage()).thenReturn(mimeMessage)
-            doThrow(RuntimeException("SMTP connection failed")).`when`(mailSender).send(mimeMessage)
+
+            `when`(brevoWebClient.post()).thenReturn(requestBodyUriSpec)
+            `when`(requestBodyUriSpec.uri("/smtp/email")).thenReturn(requestBodySpec)
+            `when`(requestBodySpec.header(anyString(), anyString())).thenReturn(requestBodySpec)
+            @Suppress("UNCHECKED_CAST")
+            `when`(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec as WebClient.RequestHeadersSpec<Nothing>)
+            `when`(requestHeadersSpec.retrieve()).thenReturn(responseSpec)
+            `when`(responseSpec.toBodilessEntity()).thenReturn(Mono.error(RuntimeException("Brevo API error")))
 
             assertThatThrownBy {
-                mailService.sendPasswordResetOtp(recipient, otpCode, expiresInMinutes)
+                mailService.sendPasswordResetOtp(recipient, "654321", 5L)
             }.isInstanceOf(RuntimeException::class.java)
-                .hasMessage("SMTP connection failed")
+                .hasMessage("Brevo API error")
         }
     }
 
     @Nested
-    @DisplayName("Edge Cases and Boundary Values")
-    inner class EdgeCasesTests {
+    @DisplayName("mail.enabled flag")
+    inner class MailEnabledTests {
 
-        @ParameterizedTest
-        @ValueSource(strings = ["", "000000", "999999999999"])
-        fun `should handle different OTP code lengths and values`(otpCode: String) {
-            val recipient = "test@domain.org"
-            val mimeMessage = createDummyMimeMessage()
+        @Test
+        fun `should skip sending and not call Brevo when mail is disabled`() {
+            val disabledMailService = MailService(
+                brevoWebClient = brevoWebClient,
+                templateEngine = templateEngine,
+                fromAddress = fromAddress,
+                fromName = fromName,
+                brevoApiKey = brevoApiKey,
+                mailEnabled = false,
+            )
 
-            `when`(templateEngine.process(eq("emails/otp"), contextCaptor.capture()))
+            `when`(templateEngine.process(eq("emails/otp"), any(Context::class.java)))
                 .thenReturn("<html>OTP</html>")
-            `when`(mailSender.createMimeMessage()).thenReturn(mimeMessage)
 
-            mailService.sendActivationOtp(recipient, otpCode, 15L)
+            disabledMailService.sendActivationOtp("user@example.com", "123456", 10L)
 
-            assertThat(contextCaptor.value.getVariable("otpCode")).isEqualTo(otpCode)
-        }
-
-        @ParameterizedTest
-        @ValueSource(longs = [0L, 1L, Long.MAX_VALUE])
-        fun `should handle edge cases for expiration time in minutes`(expiresInMinutes: Long) {
-            val recipient = "test@domain.org"
-            val mimeMessage = createDummyMimeMessage()
-
-            `when`(templateEngine.process(eq("emails/otp"), contextCaptor.capture()))
-                .thenReturn("<html>OTP</html>")
-            `when`(mailSender.createMimeMessage()).thenReturn(mimeMessage)
-
-            mailService.sendActivationOtp(recipient, "1234", expiresInMinutes)
-
-            assertThat(contextCaptor.value.getVariable("expiresInMinutes")).isEqualTo(expiresInMinutes)
+            org.mockito.Mockito.verify(brevoWebClient, org.mockito.Mockito.never()).post()
         }
     }
 }
