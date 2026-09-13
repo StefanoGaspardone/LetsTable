@@ -5,10 +5,12 @@ import io.minio.BucketExistsArgs
 import io.minio.MakeBucketArgs
 import io.minio.MinioClient
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.OkHttpClient
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.env.Environment
+import java.util.concurrent.TimeUnit
 
 @Configuration
 class MinIOConfig(private val properties: MinIOProperties, private val environment: Environment) {
@@ -17,10 +19,39 @@ class MinIOConfig(private val properties: MinIOProperties, private val environme
 
     @Bean
     fun minioClient(): MinioClient {
+        val parsedUrl = properties.url.toHttpUrl()
+        val basePath = parsedUrl.encodedPath.trim('/')
+        val hostOnlyEndpoint = "${parsedUrl.scheme}://${parsedUrl.host}"
+
+        val httpClient = if(basePath.isNotEmpty()) {
+            OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .addInterceptor { chain ->
+                    val original = chain.request()
+                    val originalUrl = original.url
+
+                    val newUrl = originalUrl.newBuilder()
+                        .encodedPath("/$basePath${originalUrl.encodedPath}")
+                        .build()
+
+                    chain.proceed(original.newBuilder().url(newUrl).build())
+                }
+                .build()
+        } else {
+            OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .build()
+        }
+
         val client = MinioClient.builder()
-            .endpoint(properties.url.toHttpUrl())
+            .endpoint(hostOnlyEndpoint)
             .credentials(properties.accessKey, properties.secretKey)
             .region("eu-central-1")
+            .httpClient(httpClient)
             .build()
 
         val isDev = environment.activeProfiles.isEmpty() || environment.activeProfiles.any { it in listOf("dev", "local") }
