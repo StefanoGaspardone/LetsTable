@@ -65,7 +65,7 @@ class UploadedFileServiceTest {
         role = UserRole.USER
     )
 
-    private val allowedTypes = setOf("application/pdf", "image/png", "image/jpeg")
+    private val isTypeAllowed: (String?) -> Boolean = { it in setOf("application/pdf", "image/png", "image/jpeg") }
 
     @BeforeEach
     fun setUpSecurityContext() {
@@ -98,7 +98,7 @@ class UploadedFileServiceTest {
                 entity.apply { id = fileId }
             }
 
-            val result = uploadedFileService.uploadFile(ownerType, ownerId, multipartFile, allowedTypes)
+            val result = uploadedFileService.uploadFile(ownerType, ownerId, multipartFile, isTypeAllowed)
 
             assertThat(result).isNotNull
             assertThat(result.id).isEqualTo(fileId)
@@ -135,7 +135,7 @@ class UploadedFileServiceTest {
                 entity.apply { id = fileId }
             }
 
-            val result = uploadedFileService.uploadFile(ownerType, ownerId, multipartFile, allowedTypes)
+            val result = uploadedFileService.uploadFile(ownerType, ownerId, multipartFile, isTypeAllowed)
 
             assertThat(result).isNotNull
             assertThat(result.uploadedByUsername).isNull()
@@ -156,7 +156,7 @@ class UploadedFileServiceTest {
             )
 
             assertThatThrownBy {
-                uploadedFileService.uploadFile(ownerType, ownerId, multipartFile, allowedTypes)
+                uploadedFileService.uploadFile(ownerType, ownerId, multipartFile, isTypeAllowed)
             }.isInstanceOf(InvalidFileTypeException::class.java)
 
             verify(storageService, never()).putObject(
@@ -186,7 +186,7 @@ class UploadedFileServiceTest {
                 )
 
             assertThatThrownBy {
-                uploadedFileService.uploadFile(FileOwnerType.USER_AVATAR, ownerId, multipartFile, allowedTypes)
+                uploadedFileService.uploadFile(FileOwnerType.USER_AVATAR, ownerId, multipartFile, isTypeAllowed)
             }.isInstanceOf(RuntimeException::class.java)
 
             verify(uploadedFileRepository, never()).save(any())
@@ -269,7 +269,9 @@ class UploadedFileServiceTest {
                 size = 500
             )
             val fakeStream: InputStream = "avatar binary stream".byteInputStream()
-            whenever(uploadedFileRepository.findByIdAndOwnerTypeAndOwnerId(fileId, FileOwnerType.USER_AVATAR, ownerId))
+
+            // Corretto: usa findByIdAndOwnerType (2 parametri) come atteso dal service
+            whenever(uploadedFileRepository.findByIdAndOwnerType(fileId, FileOwnerType.USER_AVATAR))
                 .thenReturn(Optional.of(uploadedFile))
             whenever(storageService.getObject(uploadedFile.objectKey)).thenReturn(fakeStream)
 
@@ -282,7 +284,8 @@ class UploadedFileServiceTest {
 
         @Test
         fun `should throw UploadedFileNotFoundException when file record not found in repository`() {
-            whenever(uploadedFileRepository.findByIdAndOwnerTypeAndOwnerId(fileId, ownerType, ownerId))
+            // Corretto: usa findByIdAndOwnerType (2 parametri)
+            whenever(uploadedFileRepository.findByIdAndOwnerType(fileId, ownerType))
                 .thenReturn(Optional.empty())
 
             assertThatThrownBy {

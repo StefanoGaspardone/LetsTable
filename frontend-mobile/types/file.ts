@@ -3,4 +3,5 @@ export interface UploadedFile {
 	fileName: string;
 	uploadedByUsername: string | null;
 	createdAt: string;
+	contentType: string;
 }

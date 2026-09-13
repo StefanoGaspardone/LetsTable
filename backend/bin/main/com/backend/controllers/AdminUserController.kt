@@ -14,7 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
-import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
@@ -44,8 +44,8 @@ class AdminUserController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(required = false) sort: String?,
-    ): PageDTO<AdminUserDTO> =
-        adminUserService.listUsers(role, status, search, page, size, sort)
+    ): ResponseEntity<PageDTO<AdminUserDTO>> =
+        ResponseEntity.ok(adminUserService.listUsers(role, status, search, page, size, sort))
 
     @Operation(summary = "Get user detail", description = "Returns detailed information about a user, including activity stats and recent matches.")
     @ApiResponses(
@@ -69,8 +69,8 @@ class AdminUserController(
         ]
     )
     @GetMapping("/{userId}")
-    fun getUserDetail(@PathVariable userId: UUID): AdminUserDetailDTO =
-        adminUserService.getUserDetail(userId)
+    fun getUserDetail(@PathVariable userId: UUID): ResponseEntity<AdminUserDetailDTO> =
+        ResponseEntity.ok(adminUserService.getUserDetail(userId))
 
     @Operation(summary = "Suspend a user", description = "Suspends an active user's account. Admins cannot suspend their own account.")
     @ApiResponses(
@@ -80,25 +80,6 @@ class AdminUserController(
                 content = [Content(schema = Schema(implementation = AdminUserDTO::class))]
             ),
             ApiResponse(
-                responseCode = "400", description = "Bad Request - Cannot suspend own account, or account is not active",
-                content = [Content(
-                    mediaType = "application/json",
-                    schema = Schema(implementation = ErrorResponse::class),
-                    examples = [
-                        ExampleObject(
-                            name = "CannotSuspendSelfExample",
-                            summary = "Attempted to suspend own account",
-                            value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"You cannot suspend your own account\"}"
-                        ),
-                        ExampleObject(
-                            name = "InvalidTransitionExample",
-                            summary = "Account is not currently active",
-                            value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Only active accounts can be suspended\"}"
-                        ),
-                    ]
-                )]
-            ),
-            ApiResponse(
                 responseCode = "404", description = "Not Found - User does not exist",
                 content = [Content(
                     mediaType = "application/json",
@@ -110,11 +91,30 @@ class AdminUserController(
                     )]
                 )]
             ),
+            ApiResponse(
+                responseCode = "409", description = "Conflict - Cannot suspend own account, or account is not active",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [
+                        ExampleObject(
+                            name = "CannotSuspendSelfExample",
+                            summary = "Attempted to suspend own account",
+                            value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"You cannot suspend your own account\"}"
+                        ),
+                        ExampleObject(
+                            name = "InvalidTransitionExample",
+                            summary = "Account is not currently active",
+                            value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"Only active accounts can be suspended\"}"
+                        ),
+                    ]
+                )]
+            ),
         ]
     )
     @PatchMapping("/{userId}/suspend")
-    fun suspendUser(@PathVariable userId: UUID): AdminUserDTO =
-        adminUserService.suspendUser(CurrentUser.id(), userId)
+    fun suspendUser(@PathVariable userId: UUID): ResponseEntity<AdminUserDTO> =
+        ResponseEntity.ok(adminUserService.suspendUser(CurrentUser.id(), userId))
 
     @Operation(summary = "Reactivate a user", description = "Reactivates a suspended user's account.")
     @ApiResponses(
@@ -124,18 +124,6 @@ class AdminUserController(
                 content = [Content(schema = Schema(implementation = AdminUserDTO::class))]
             ),
             ApiResponse(
-                responseCode = "400", description = "Bad Request - Account is not currently suspended",
-                content = [Content(
-                    mediaType = "application/json",
-                    schema = Schema(implementation = ErrorResponse::class),
-                    examples = [ExampleObject(
-                        name = "InvalidTransitionExample",
-                        summary = "Account is not suspended",
-                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Only suspended accounts can be reactivated\"}"
-                    )]
-                )]
-            ),
-            ApiResponse(
                 responseCode = "404", description = "Not Found - User does not exist",
                 content = [Content(
                     mediaType = "application/json",
@@ -147,11 +135,23 @@ class AdminUserController(
                     )]
                 )]
             ),
+            ApiResponse(
+                responseCode = "409", description = "Conflict - Account is not currently suspended",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "InvalidTransitionExample",
+                        summary = "Account is not suspended",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"Only suspended accounts can be reactivated\"}"
+                    )]
+                )]
+            ),
         ]
     )
     @PatchMapping("/{userId}/reactivate")
-    fun reactivateUser(@PathVariable userId: UUID): AdminUserDTO =
-        adminUserService.reactivateUser(userId)
+    fun reactivateUser(@PathVariable userId: UUID): ResponseEntity<AdminUserDTO> =
+        ResponseEntity.ok(adminUserService.reactivateUser(userId))
 
     @Operation(summary = "Create an admin account", description = "Creates a new administrator account, active immediately (no email verification required).")
     @ApiResponses(
@@ -193,8 +193,7 @@ class AdminUserController(
             ),
         ]
     )
-    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/admin")
-    fun createAdmin(@Valid @RequestBody request: CreateAdminRequest): AdminUserDTO =
-        adminUserService.createAdmin(request)
+    fun createAdmin(@Valid @RequestBody request: CreateAdminRequest): ResponseEntity<AdminUserDTO> =
+        ResponseEntity.status(201).body(adminUserService.createAdmin(request))
 }

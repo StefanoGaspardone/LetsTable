@@ -4,6 +4,7 @@ import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.UploadedFileDTO
 import com.backend.models.enums.FileOwnerType
 import com.backend.services.UploadedFileService
+import com.backend.utils.FileTypeValidator
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -21,7 +22,18 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import java.util.UUID
 
-private val ALLOWED_RULE_FILE_TYPES = setOf("application/pdf")
+private val isRuleFileTypeAllowed = FileTypeValidator.exactTypesOrPrefixes(
+    exactTypes = setOf(
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ),
+    prefixes = setOf("image/", "video/"),
+)
 
 @Tag(name = "Game Rule Files", description = "Community-uploaded rulebook PDFs for games")
 @RestController
@@ -62,8 +74,8 @@ class GameRuleFileController(
         ]
     )
     @PostMapping(consumes = ["multipart/form-data"])
-    fun uploadRuleFile(@Parameter(description = "Internal ID of the game") @PathVariable gameId: UUID, @Parameter(description = "PDF file to upload") @RequestParam("file") file: MultipartFile): UploadedFileDTO =
-        uploadedFileService.uploadFile(FileOwnerType.GAME_RULE, gameId, file, ALLOWED_RULE_FILE_TYPES)
+    fun uploadRuleFile(@Parameter(description = "Internal ID of the game") @PathVariable gameId: UUID, @Parameter(description = "File to upload") @RequestParam("file") file: MultipartFile): UploadedFileDTO =
+        uploadedFileService.uploadFile(FileOwnerType.GAME_RULE, gameId, file, isRuleFileTypeAllowed)
 
     @Operation(summary = "Download a rule file", description = "Streams the raw PDF content of an uploaded rule file")
     @ApiResponses(

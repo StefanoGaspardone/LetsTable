@@ -1,6 +1,7 @@
 package com.backend.repositories
 
 import com.backend.models.entities.Match
+import com.backend.models.projections.GamePopularityProjection
 import com.backend.models.projections.MatchDayCountProjection
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
@@ -73,4 +74,14 @@ interface MatchRepository: JpaRepository<Match, UUID>, JpaSpecificationExecutor<
         """
     )
     fun countWonMatchesForUser(@Param("userId") userId: UUID): Long
+
+    @Query(
+        """
+        SELECT m.game.id AS gameId, m.game.name AS gameName, COUNT(DISTINCT m) AS count
+        FROM Match m
+        GROUP BY m.game.id, m.game.name
+        ORDER BY COUNT(DISTINCT m) DESC
+        """
+    )
+    fun findMostPlayedGames(pageable: Pageable): List<GamePopularityProjection>
 }

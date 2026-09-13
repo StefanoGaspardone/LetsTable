@@ -30,12 +30,12 @@ class UploadedFileService(
         ownerType: FileOwnerType,
         ownerId: UUID,
         file: MultipartFile,
-        allowedContentTypes: Set<String>,
+        isContentTypeAllowed: (String?) -> Boolean,
     ): UploadedFileDTO {
         logger.debug("\n\t[DEBUG] [uploaded_file_service][upload_file] Uploading file\n\townerType={}\n\townerId={}\n\tfileName={}", ownerType, ownerId, file.originalFilename)
 
         try {
-            if(file.contentType !in allowedContentTypes) throw InvalidFileTypeException("Unsupported file type: ${file.contentType}")
+            if(!isContentTypeAllowed(file.contentType)) throw InvalidFileTypeException("Unsupported file type: ${file.contentType}")
 
             val currentUser = userRepository.findById(CurrentUser.id()).orElse(null)
             val extension = file.originalFilename?.substringAfterLast('.', "") ?: ""

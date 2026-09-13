@@ -21,7 +21,7 @@ class JwtAuthFilter(
     @Value($$"${jwt.secret}") private val jwtSecret: String,
 ): OncePerRequestFilter() {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
     private val key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret))
 
     override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
@@ -52,11 +52,11 @@ class JwtAuthFilter(
             SecurityContextHolder.getContext().authentication =
                 UsernamePasswordAuthenticationToken(principal, null, authorities)
 
-            logger.debug("\n\t[DEBUG] [jwt_auth_filter][do_filter_internal] Authenticated user {} with role {}", userId, role)
+            log.debug("\n\t[DEBUG] [jwt_auth_filter][do_filter_internal] Authenticated user {} with role {}", userId, role)
         } catch(e: JwtException) {
-            logger.warn("\n\t[WARN] [jwt_auth_filter][do_filter_internal] Invalid token: {}", e.message)
+            log.warn("\n\t[WARN] [jwt_auth_filter][do_filter_internal] Invalid token: {}", e.message)
         } catch(_: IllegalArgumentException) {
-            logger.warn("\n\t[WARN] [jwt_auth_filter][do_filter_internal] Malformed user id in token subject")
+            log.warn("\n\t[WARN] [jwt_auth_filter][do_filter_internal] Malformed user id in token subject")
         }
 
         filterChain.doFilter(request, response)

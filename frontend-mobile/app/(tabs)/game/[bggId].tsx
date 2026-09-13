@@ -3,11 +3,12 @@ import { ActivityIndicator, Dimensions, Linking, Pressable, View } from 'react-n
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, FileText, Plus, UserCheck, ArrowLeftRight, Puzzle, Gauge, PenTool, Palette, Building2, Trash2, Library, Check, Heart, Layers, Ruler } from 'lucide-react-native';
+import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, Plus, UserCheck, ArrowLeftRight, Puzzle, Gauge, PenTool, Palette, Building2, Trash2, Library, Check, Heart, Layers, Ruler, Download } from 'lucide-react-native';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, interpolate, interpolateColor, Extrapolation, useDerivedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +30,8 @@ import { useToast } from '@/contexts/toast-context';
 
 import { useCollectionStatus, useToggleCollection } from '@/hooks/use-game';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+
+import { getFileIconColor, getFileIconName } from '@/lib/file';
 
 const IMAGE_HEIGHT = 280;
 const SHEET_RADIUS = 28;
@@ -259,7 +262,7 @@ const GameDetailScreen = () => {
 			<View style = {{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }} onLayout = { e => setMeasuredHeaderHeight(e.nativeEvent.layout.height) }>
 				<ScreenHeader title = 'Dettagli Gioco' titleStyle = { titleColorStyle } renderBackground = { <Animated.View style = { [{ flex: 1 }, headerBackgroundStyle] } className = 'bg-background'/> } leftElement = { <BackButton progress = { headerProgress }/> }/>
 			</View>
-			<Animated.ScrollView ref = { mainScrollRef } onScroll = { scrollHandler } scrollEventThrottle = { 16 } contentContainerStyle = {{ paddingBottom: 60 }} onLayout = { e => { layoutHeight.value = e.nativeEvent.layout.height; } } onContentSizeChange = { (_, height) => { contentHeight.value = height; } }>
+			<Animated.ScrollView ref = { mainScrollRef } onScroll = { scrollHandler } scrollEventThrottle = { 16 } onLayout = { e => { layoutHeight.value = e.nativeEvent.layout.height; } } onContentSizeChange = { (_, height) => { contentHeight.value = height; } }>
 				<View style = {{ height: IMAGE_HEIGHT - SHEET_OVERLAP }}/>
 				<View style = {{ borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS }} className = 'bg-background pb-6 pt-6'>
 					<View style = {{ position: 'absolute', top: -BADGE_SIZE / 2, right: 24, width: BADGE_SIZE, height: BADGE_SIZE }} className = 'items-center justify-center rounded-full border-2 border-background bg-[#C45135] shadow-lg'>
@@ -461,7 +464,7 @@ const GameDetailScreen = () => {
 							</View>
 							<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { const height = e.nativeEvent?.layout?.height; if(height) setTabHeights(prev => ({ ...prev, file: height })); } }>
 								<View className = 'px-4 gap-2'>
-									<Pressable onPress = { handleVisitBgg } className = 'flex-row items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2.5'>
+									<Pressable onPress = { handleVisitBgg } className = 'flex-row items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2.5 active:opacity-75 active:scale-[0.98]'>
 										<ExternalLink size = { 16 } color = '#C45135'/>
 										<Text className = 'text-sm font-medium text-foreground'>Visita su BoardGameGeek</Text>
 									</Pressable>
@@ -472,8 +475,8 @@ const GameDetailScreen = () => {
 									) : (
 										<>
 											{ruleFiles?.map(ruleFile => (
-												<Pressable key = { ruleFile.id } onPress = { () => handleOpenRuleFile(ruleFile.id, ruleFile.fileName) } className = 'flex-row items-center gap-2 rounded-xl border border-border px-3 py-2.5 active:bg-black/20'>
-													<FileText size = { 16 } color = '#736E65'/>
+												<Pressable key = { ruleFile.id } onPress = { () => handleOpenRuleFile(ruleFile.id, ruleFile.fileName) } className = 'flex-row items-center bg-card gap-3 rounded-xl border border-border px-3 py-2.5 active:opacity-75 active:scale-[0.98]'>
+													<MaterialCommunityIcons name = { getFileIconName(ruleFile.contentType) } size = { 22 } color = { getFileIconColor(ruleFile.contentType) }/>
 													<View className = 'flex-1'>
 														<Text className = 'text-sm text-foreground' numberOfLines = { 1 }>
 															{ruleFile.fileName}
@@ -484,6 +487,7 @@ const GameDetailScreen = () => {
 															</Text>
 														)}
 													</View>
+													<Download size = { 18 } color = '#736E65' className = 'ml-auto'/>
 												</Pressable>
 											))}
 											<Pressable onPress = { handleUploadRule } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>

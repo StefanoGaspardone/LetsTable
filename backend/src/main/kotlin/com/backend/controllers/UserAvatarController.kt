@@ -5,6 +5,7 @@ import com.backend.models.dtos.UploadedFileDTO
 import com.backend.models.enums.FileOwnerType
 import com.backend.security.CurrentUser
 import com.backend.services.UploadedFileService
+import com.backend.utils.FileTypeValidator
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -21,7 +22,10 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import java.util.*
 
-private val ALLOWED_AVATAR_FILE_TYPES = setOf("image/png", "image/jpeg", "image/webp")
+private val isAvatarFileTypeAllowed = FileTypeValidator.exactTypesOrPrefixes(
+    exactTypes = emptySet(),
+    prefixes = setOf("image/"),
+)
 
 @Tag(name = "User Avatar", description = "Upload, retrieve, and delete the current user's avatar image")
 @RestController
@@ -52,8 +56,8 @@ class UserAvatarController(
     )
     @PreAuthorize("hasRole('USER')")
     @PostMapping("/api/v1/users/me/avatar", consumes = ["multipart/form-data"])
-    fun uploadAvatar(@Parameter(description = "Image file to upload") @RequestParam("file") file: MultipartFile): ResponseEntity<UploadedFileDTO> =
-        ResponseEntity.ok(uploadedFileService.uploadFile(FileOwnerType.USER_AVATAR, CurrentUser.id(), file, ALLOWED_AVATAR_FILE_TYPES))
+    fun uploadAvatar(@Parameter(description = "Image file to upload") @RequestParam("file") file: MultipartFile): UploadedFileDTO =
+        uploadedFileService.uploadFile(FileOwnerType.USER_AVATAR, CurrentUser.id(), file, isAvatarFileTypeAllowed)
 
     @Operation(
         summary = "Get a user's avatar",

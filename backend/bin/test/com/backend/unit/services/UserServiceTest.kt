@@ -6,18 +6,15 @@ import com.backend.models.dtos.UpdateUserRequest
 import com.backend.models.entities.*
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.UserRole
-import com.backend.repositories.MatchPlayerRepository
-import com.backend.repositories.MatchRepository
-import com.backend.repositories.RefreshTokenRepository
-import com.backend.repositories.UserRepository
+import com.backend.repositories.*
 import com.backend.services.UserService
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.Mockito.*
 import org.mockito.junit.jupiter.MockitoExtension
@@ -41,7 +38,9 @@ class UserServiceTest {
     @Mock
     private lateinit var refreshTokenRepository: RefreshTokenRepository
 
-    @InjectMocks
+    @Mock
+    private lateinit var uploadedFileRepository: UploadedFileRepository
+
     private lateinit var userService: UserService
 
     private val currentUserId: UUID = UUID.randomUUID()
@@ -88,6 +87,17 @@ class UserServiceTest {
         expiresAt = Instant.now().plusSeconds(3600),
         revoked = revoked,
     )
+
+    @BeforeEach
+    fun setUp() {
+        userService = UserService(
+            userRepository = userRepository,
+            matchRepository = matchRepository,
+            matchPlayerRepository = matchPlayerRepository,
+            refreshTokenRepository = refreshTokenRepository,
+            uploadedFileRepository = uploadedFileRepository
+        )
+    }
 
     // ---------------------------------------------------------------------
     // searchByUsername

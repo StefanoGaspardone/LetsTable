@@ -18,6 +18,9 @@ data class UploadedFileDTO(
 
     @field:Schema(description = "When the file was uploaded")
     val createdAt: Instant,
+
+    @field:Schema(description = "Content type of the uploaded file", example = "application/pdf")
+    val contentType: String,
 ) {
     companion object {
         fun from(entity: UploadedFile) = UploadedFileDTO(
@@ -25,6 +28,7 @@ data class UploadedFileDTO(
             fileName = entity.fileName,
             uploadedByUsername = entity.uploadedBy?.username,
             createdAt = entity.createdAt,
+            contentType = entity.contentType
         )
     }
 }

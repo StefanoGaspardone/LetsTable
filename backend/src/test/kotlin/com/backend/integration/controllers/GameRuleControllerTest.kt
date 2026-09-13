@@ -194,20 +194,20 @@ class GameRuleControllerTest : AbstractIntegrationTest() {
         }
 
         @Test
-        fun `should return 400 when file type is not a PDF`() {
+        fun `should return 400 when file type is not supported`() {
             val user = persistUser()
             val gameId = UUID.randomUUID()
 
-            val imageFile = MockMultipartFile(
+            val unsupportedFile = MockMultipartFile(
                 "file",
-                "cover.png",
-                "image/png",
-                "fake image content".toByteArray()
+                "archive.zip",
+                "application/zip",
+                "fake archive content".toByteArray()
             )
 
             mockMvc.perform(
                 multipart("/api/v1/games/$gameId/rules")
-                    .file(imageFile)
+                    .file(unsupportedFile)
                     .header(
                         HttpHeaders.AUTHORIZATION,
                         authHeader(user)
@@ -224,6 +224,30 @@ class GameRuleControllerTest : AbstractIntegrationTest() {
             ).isEmpty()
 
             assertThat(storedObjects).isEmpty()
+        }
+
+        @Test
+        fun `should accept an image file as a rulebook`() {
+            val user = persistUser()
+            val gameId = UUID.randomUUID()
+
+            val imageFile = MockMultipartFile(
+                "file",
+                "reference-card.png",
+                "image/png",
+                "fake image content".toByteArray()
+            )
+
+            mockMvc.perform(
+                multipart("/api/v1/games/$gameId/rules")
+                    .file(imageFile)
+                    .header(
+                        HttpHeaders.AUTHORIZATION,
+                        authHeader(user)
+                    )
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.fileName").value("reference-card.png"))
         }
 
         @Test

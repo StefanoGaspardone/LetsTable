@@ -1,6 +1,7 @@
 package com.backend.repositories
 
 import com.backend.models.entities.User
+import com.backend.models.enums.AccountStatus
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
 import org.springframework.data.jpa.repository.Query
@@ -29,4 +30,6 @@ interface UserRepository: JpaRepository<User, UUID>, JpaSpecificationExecutor<Us
         """
     )
     fun searchActiveByUsername(@Param("query") query: String): List<User>
+
+    fun countByAccountStatus(accountStatus: AccountStatus): Long
 }
