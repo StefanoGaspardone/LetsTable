@@ -78,7 +78,7 @@ const HomeScreen = () => {
 						))}
 					</View>
 				) : (
-					<EmptyState icon = { <Trophy size = { 32 } color = '#C45135'/> } title = 'Nessuna partita registrata' subtitle = 'Inizia a tracciare le tue serate di gioco.' actionLabel = 'Registra partita' onAction = { () => router.push('/match/new')}/>
+					<EmptyState icon = { <Trophy size = { 32 } color = '#C45135'/> } title = 'Nessuna partita registrata' subtitle = 'Inizia a tracciare le tue serate di gioco.' actionLabel = 'Registra partita' onAction = { () => registerMatchSheetRef.current?.present()}/>
 				)}
 				<View className = 'mt-4 mb-1 flex-row items-center justify-between'>
 					<Text className = 'font-display text-xl text-foreground'>Le Mie Wishlist</Text>

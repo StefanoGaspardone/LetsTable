@@ -4,6 +4,7 @@ import com.backend.properties.MinIOProperties
 import io.minio.BucketExistsArgs
 import io.minio.MakeBucketArgs
 import io.minio.MinioClient
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -17,7 +18,7 @@ class MinIOConfig(private val properties: MinIOProperties, private val environme
     @Bean
     fun minioClient(): MinioClient {
         val client = MinioClient.builder()
-            .endpoint(properties.url)
+            .endpoint(properties.url.toHttpUrl())
             .credentials(properties.accessKey, properties.secretKey)
             .region("eu-central-1")
             .build()
