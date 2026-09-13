@@ -115,6 +115,7 @@ const MatchDetailScreen = () => {
             id: match.game.id,
             name: match.game.name,
             thumbnailUrl: match.game.thumbnailUrl,
+			bggId: match.game.bggId
         });
     }
 
@@ -202,6 +203,9 @@ const MatchDetailScreen = () => {
 					<Text className = 'flex-1 font-display text-lg text-foreground' numberOfLines = { 1 }>
 						{match.game.name}
 					</Text>
+					<View className = 'justify-center'>
+						<ChevronRight size = { 18 } color = '#736E65'/>
+					</View>
 				</Pressable>
 				{isInProgress && (
 					<View className = 'mt-3 flex-row items-center gap-2 self-start rounded-full border border-[#C45135]/30 bg-[#C45135]/10 px-3 py-1.5'>
@@ -392,7 +396,7 @@ const MatchDetailScreen = () => {
 										<Text className = 'text-sm font-bold text-muted-foreground'>{rank}°</Text>
 									</View>
 								)}
-                                <View style = {{ backgroundColor: entry.color ?? '#DDD8CE' }} className = 'h-5 w-5 rounded-full border border-black'/>
+								<MeepleIllustration size = { 16 } color = { entry.color ?? '#FFFFFF' } outlined/>
                                 <Image source = {{ uri: getAvatarUrl(entry.avatarId ?? null, entry.name ?? '') }} style = {{ width: 36, height: 36, borderRadius: 100 }} contentFit = 'cover'/>
                                 <Text className = 'flex-1 text-sm font-medium text-foreground' numberOfLines = { 1 }>
 									{entry.name}

@@ -101,3 +101,5 @@ class StorageNotFoundException(objectKey: String) : RuntimeException("Object not
 class CannotSuspendSelfException: RuntimeException("You cannot suspend your own account")
 
 class InvalidAccountStatusTransitionException(message: String): RuntimeException(message)
+
+class InvalidExpansionForGameException(expansionId: UUID) : RuntimeException("Expansion $expansionId does not belong to the selected game")

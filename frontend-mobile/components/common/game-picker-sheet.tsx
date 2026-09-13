@@ -15,6 +15,7 @@ import { useRecentGames } from '@/hooks/use-match';
 
 export interface PickedGame {
 	id: string;
+	bggId: number;
 	name: string;
 	thumbnailUrl: string | null;
 }
@@ -59,12 +60,12 @@ const GamePickerSheet = forwardRef<GamePickerSheetRef, GamePickerSheetProps>(({ 
 	const items = isSearching ? searchResults : collectionItems;
 	const isLoading = isSearching ? searchQuery.isLoading : collectionQuery.isLoading;
 
-	const handleSelect = (game: { id: string | null; name: string; thumbnailUrl: string | null }) => {
+	const handleSelect = (game: { id: string | null; bggId: number; name: string; thumbnailUrl: string | null }) => {
 		if(!game.id) {
 			return;
 		}
 		
-        onSelect({ id: game.id, name: game.name, thumbnailUrl: game.thumbnailUrl });
+		onSelect({ id: game.id, bggId: game.bggId, name: game.name, thumbnailUrl: game.thumbnailUrl });
 		sheetRef.current?.dismiss();
 	}
 

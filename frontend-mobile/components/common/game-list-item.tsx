@@ -32,21 +32,21 @@ const GameListItem = ({ game, onPress, showRank }: GameListItemProps) => {
 				)}
 			</View>
 			<View className = 'flex-1 justify-center gap-1'>
-				<View className = 'flex-row items-center justify-between gap-2'>
-					<View className = 'flex-1 flex-row items-center gap-1.5'>
-						<Text className = 'shrink text-base font-semibold text-foreground' numberOfLines = { 2 }>
+				<View className='flex-row items-start justify-between gap-2'>
+					<View className='flex-1 flex-row items-center gap-1.5'>
+						<Text className='shrink text-base font-semibold text-foreground' numberOfLines={2}>
 							{game.name}
 						</Text>
 						{game.inCollection && (
-							<View className = 'h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#C45135]'>
-								<Check size = { 11 } color = '#FFFFFF' strokeWidth = { 3 }/>
+							<View className='h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#C45135]'>
+								<Check size={11} color='#FFFFFF' strokeWidth={3}/>
 							</View>
 						)}
 					</View>
 					{game.isExpansion && (
-						<View className = 'flex-row items-center gap-1 rounded-full bg-[#C45135]/10 px-2 py-0.5 shrink-0'>
-							<PuzzleIcon size = { 10 } color = '#C45135'/>
-							<Text className = 'text-[9px] font-sans-medium text-[#C45135]'>Espansione</Text>
+						<View className='mt-0.5 flex-row items-center gap-1 rounded-full bg-[#C45135]/10 px-2 py-0.5 shrink-0'>
+							<PuzzleIcon size={10} color='#C45135'/>
+							<Text className='text-[9px] font-sans-medium text-[#C45135]'>Espansione</Text>
 						</View>
 					)}
 				</View>

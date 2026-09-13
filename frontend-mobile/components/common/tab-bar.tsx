@@ -6,6 +6,8 @@ import { Home, Dices, Trophy, Users, User } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
+
 const ICONS: Record<string, typeof Home> = {
 	home: Home,
 	collection: Dices,
@@ -20,6 +22,14 @@ const LABELS: Record<string, string> = {
 	matches: 'Partite',
 	friends: 'Amici',
 	'profile/index': 'Profilo',
+}
+
+const TAB_PATHS: Record<string, string> = {
+	home: '/(tabs)/home',
+	collection: '/(tabs)/collection',
+	matches: '/(tabs)/matches',
+	friends: '/(tabs)/friends',
+	'profile/index': '/(tabs)/profile',
 }
 
 const PILL_WIDTH = 52;
@@ -38,7 +48,10 @@ interface TabBarProps {
 
 const TabBar = ({ state, navigation }: TabBarProps) => {
 	const insets = useSafeAreaInsets();
+	
 	const [tabWidth, setTabWidth] = useState(0);
+
+	const router = useNavigationStack();
 
 	const visibleRoutes = state.routes.filter(route => ICONS[route.name]);
 	const focusedVisibleIndex = visibleRoutes.findIndex(route => route.key === state.routes[state.index].key);
@@ -74,7 +87,7 @@ const TabBar = ({ state, navigation }: TabBarProps) => {
 					<View className = 'h-full w-full rounded-full' style = {{ backgroundColor: 'rgba(196, 81, 53, 0.12)' }}/>
 				</Animated.View>
 			)}
-			{visibleRoutes.map((route, index) => {
+			{visibleRoutes.map(route => {
 				const Icon = ICONS[route.name];
 				const label = LABELS[route.name];
 				const isFocused = state.routes[state.index].key === route.key;
@@ -88,6 +101,9 @@ const TabBar = ({ state, navigation }: TabBarProps) => {
 
 					if(!isFocused && !event.defaultPrevented) {
 						navigation.navigate(route.name);
+
+						const path = TAB_PATHS[route.name];
+						if(path) router.replace(path);
 					}
 				}
 

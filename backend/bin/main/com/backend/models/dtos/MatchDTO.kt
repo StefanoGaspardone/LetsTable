@@ -91,6 +91,9 @@ data class CreateMatchRequest(
     @field:Schema(description = "How long the match actually took, in minutes")
     val durationMinutes: Int? = null,
 
+    @field:Schema(description = "Internal ids of the expansions used in this match, if any. All must belong to the same game as gameId.")
+    val expansionIds: List<UUID> = emptyList(),
+
     @field:Schema(description = "Teams, required and non-empty only if isTeamBased is true")
     @field:Valid
     override val teams: List<CreateMatchTeamRequest>? = null,
@@ -119,6 +122,9 @@ data class UpdateMatchRequest(
     @field:Schema(description = "Whether players are grouped into teams")
     @field:NotNull
     override val isTeamBased: Boolean,
+
+    @field:Schema(description = "Internal ids of the expansions used in this match, if any. All must belong to the same game as gameId.")
+    val expansionIds: List<UUID> = emptyList(),
 
     @field:Schema(description = "Teams, required and non-empty only if isTeamBased is true")
     @field:Valid
@@ -229,6 +235,9 @@ data class MatchDTO(
     @field:Schema(description = "Game played")
     val game: GameDTO,
 
+    @field:Schema(description = "Expansions used in this match, if any")
+    val expansionsUsed: List<GameDTO>,
+
     @field:Schema(description = "Public profile of the user who created this match")
     val createdBy: UserDTO,
 
@@ -264,6 +273,7 @@ data class MatchDTO(
         ) = MatchDTO(
             id = match.id!!,
             game = GameDTO.from(match.game),
+            expansionsUsed = match.expansionsUsed.map { GameDTO.from(it) },
             createdBy = UserDTO.from(match.createdBy),
             isTeamBased = match.isTeamBased,
             playedAt = match.playedAt,

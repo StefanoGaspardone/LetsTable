@@ -54,6 +54,8 @@ class MatchService(
             val createdBy = userRepository.findById(userId)
                 .orElseThrow { UserNotFoundByIdentifierException(userId.toString()) }
 
+            val expansions = resolveExpansions(request.expansionIds, game)
+
             val match = Match(
                 game = game,
                 createdBy = createdBy,
@@ -62,6 +64,7 @@ class MatchService(
                 place = request.place,
                 notes = request.notes,
                 durationMinutes = request.durationMinutes,
+                expansionsUsed = expansions.toMutableSet(),
             )
             val savedMatch = matchRepository.save(match)
 
@@ -77,6 +80,9 @@ class MatchService(
             throw e
         } catch(e: InvalidMatchPlayerIdentityException) {
             logger.warn("\n\t[WARN] [match_service][create_match] Invalid player identity from user {}", userId)
+            throw e
+        } catch(e: InvalidExpansionForGameException) {
+            logger.warn("\n\t[WARN] [match_service][create_match] Invalid expansion for game {}: {}", request.gameId, e.message)
             throw e
         } catch(e: GameNotFoundException) {
             logger.warn("\n\t[WARN] [match_service][create_match] Game {} not found", request.gameId)
@@ -112,6 +118,7 @@ class MatchService(
             }
             match.place = request.place
             match.notes = request.notes
+            match.expansionsUsed = resolveExpansions(request.expansionIds, game).toMutableSet()
 
             if(match.durationMinutes == null) {
                 val elapsedMinutes = Duration.between(match.createdAt, Instant.now()).toMinutes().toInt()
@@ -425,5 +432,27 @@ class MatchService(
     private fun combineDateWithCurrentTime(date: LocalDate): Instant {
         val currentTime = Instant.now().atZone(ZoneOffset.UTC).toLocalTime()
         return LocalDateTime.of(date, currentTime).atZone(ZoneOffset.UTC).toInstant()
+    }
+
+    private fun resolveExpansions(expansionIds: List<UUID>, baseGame: Game): List<Game> {
+        if(expansionIds.isEmpty()) return emptyList()
+
+        val expansions = gameRepository.findAllById(expansionIds)
+
+        if(expansions.size != expansionIds.size) {
+            val foundIds = expansions.mapNotNull { it.id }.toSet()
+            val missingId = expansionIds.first { it !in foundIds }
+            throw GameNotFoundException(missingId)
+        }
+
+        val baseGameBggIds = baseGame.expansionRefs.map { it.bggId }.toSet()
+
+        expansions.forEach { expansion ->
+            if(expansion.bggId !in baseGameBggIds) {
+                throw InvalidExpansionForGameException(expansion.id!!)
+            }
+        }
+
+        return expansions
     }
 }

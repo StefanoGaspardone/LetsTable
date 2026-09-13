@@ -56,8 +56,8 @@ const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
 					))}
 				</View>
 			</View>
-			<View className = 'h-9 w-9 items-center justify-center rounded-full bg-secondary'>
-				<ChevronRight size = { 18 } color = '#C45135'/>
+			<View className = 'justify-center'>
+				<ChevronRight size = { 18 } color = '#736E65'/>
 			</View>
 		</Pressable>
 	)

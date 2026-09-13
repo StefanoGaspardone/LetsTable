@@ -3,7 +3,7 @@ import { View, Pressable } from 'react-native';
 import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { Plus, X, Dices, Trash2, UserCheck } from 'lucide-react-native';
+import { Plus, X, Dices, Trash2, UserCheck, Puzzle } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -15,18 +15,20 @@ import SegmentedControl from '@/components/common/segmented-control';
 import PlayerIdentityPickerSheet, { PickedIdentity, PlayerIdentityPickerSheetRef } from '@/components/common/player-identity-picker-sheet';
 import ColorSwatchPicker from '@/components/common/color-swatch-picker';
 import FingerOrderPicker from '@/components/common/finger-order-picker';
+import ExpansionPickerSheet, { ExpansionPickerSheetRef, PickedExpansion } from '@/components/common/expansion-picker-sheet';
 
 import { createMatch } from '@/api/match';
 
 import { getPlayerColor } from '@/lib/colors';
+import { getAvatarUrl } from '@/lib/file';
 
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
-import { getAvatarUrl } from '@/lib/file';
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 interface PresetGame {
 	id: string;
+	bggId: number;
 	name: string;
 	thumbnailUrl: string | null;
 }
@@ -66,6 +68,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 	const sheetRef = useRef<BottomSheetModal>(null);
     const gamePickerRef = useRef<GamePickerSheetRef>(null);
 	const identityPickerRef = useRef<PlayerIdentityPickerSheetRef>(null);
+	const expansionPickerRef = useRef<ExpansionPickerSheetRef>(null);
 
 	const { user } = useAuth();
 	const { showToast } = useToast();
@@ -82,6 +85,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
     const [identityPickerTargetTeamIndex, setIdentityPickerTargetTeamIndex] = useState<number | null>(null);
     const [isFingerPickerOpen, setIsFingerPickerOpen] = useState(false);
     const [place, setPlace] = useState('');
+    const [selectedExpansions, setSelectedExpansions] = useState<PickedExpansion[]>([]);
 
     useImperativeHandle(ref, () => ({
 		present: game => {
@@ -96,6 +100,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
             setTeams([]);
             setIdentityPickerTargetTeamIndex(null);
             setPlace('');
+            setSelectedExpansions([]);
 
 			sheetRef.current?.present();
 		},
@@ -109,7 +114,24 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 
 	const handleGameSelected = (game: PickedGame) => {
 		setPresetGame(game);
+		setSelectedExpansions([]);
 		sheetRef.current?.present();
+	}
+
+	const handleOpenExpansionPicker = () => {
+		if(!presetGame) return;
+
+		sheetRef.current?.dismiss();
+		expansionPickerRef.current?.present(presetGame.bggId, selectedExpansions);
+	}
+
+	const handleExpansionsConfirmed = (expansions: PickedExpansion[]) => {
+		setSelectedExpansions(expansions);
+		sheetRef.current?.present();
+	}
+
+	const handleRemoveExpansion = (expansionId: string) => {
+		setSelectedExpansions(prev => prev.filter(e => e.id !== expansionId));
 	}
 
 	const handleOpenIdentityPicker = (teamIndex: number | null = null) => {
@@ -244,6 +266,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                 notes: null,
                 durationMinutes: null,
                 isTeamBased: mode === 'team',
+                expansionIds: selectedExpansions.map(e => e.id),
                 teams:
                     mode === 'team'
                         ? teams.map((t) => ({
@@ -335,6 +358,44 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                     <View className = 'mb-4'>
                         <Input value = { place } onChangeText = { setPlace } placeholder = 'Es. Casa di Ale' className = 'h-11'/>
                     </View>
+                    {presetGame && (
+                        <>
+                            <Text className = 'mb-1.5 text-xs uppercase tracking-wide text-muted-foreground font-semibold'>Espansioni (opzionale)</Text>
+                            <View className = 'mb-4 gap-2'>
+                                {selectedExpansions.map(expansion => (
+                                    <View key = { expansion.id } className = 'flex-row items-center gap-2.5 rounded-xl border border-border bg-card p-2'>
+                                        <View style = {{ width: 32, height: 32 }} className = 'overflow-hidden rounded-xl bg-secondary'>
+                                            {expansion.thumbnailUrl ? (
+                                                <Image source = {{ uri: expansion.thumbnailUrl }} style = {{ width: 32, height: 32 }} contentFit = 'cover'/>
+                                            ) : (
+                                                <View className = 'h-full w-full items-center justify-center'>
+                                                    <Puzzle size = { 14 } color = '#736E65'/>
+                                                </View>
+                                            )}
+                                        </View>
+                                        <Text className = 'flex-1 text-sm text-foreground font-medium' numberOfLines = { 1 }>
+                                            {expansion.name}
+                                        </Text>
+                                        <Pressable onPress = { () => handleRemoveExpansion(expansion.id) } hitSlop = { 8 } className = 'active:rounded-full active:bg-primary/90 p-2'>
+                                            {({ pressed }) => (
+                                                <X size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+                                            )}
+                                        </Pressable>
+                                    </View>
+                                ))}
+                                <Pressable onPress = { handleOpenExpansionPicker } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
+                                    {({ pressed }) => (
+                                        <>
+                                            <Puzzle size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+                                            <Text className = { `text-sm ${pressed ? 'text-white' : 'text-muted-foreground'}` }>
+                                                {selectedExpansions.length > 0 ? 'Modifica espansioni' : 'Aggiungi espansioni'}
+                                            </Text>
+                                        </>
+                                    )}
+                                </Pressable>
+                            </View>
+                        </>
+                    )}
                     <Text className = 'mb-2 text-xs uppercase tracking-wide text-muted-foreground font-semibold'>Giocatori</Text>
 					<View className = 'mb-4'>
 						<SegmentedControl options = { MODE_OPTIONS } selected = { mode } onSelect = { setMode }/>
@@ -457,6 +518,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
             </AppBottomSheet>
             <GamePickerSheet ref = { gamePickerRef } onSelect = { handleGameSelected } onBack = { () => { gamePickerRef.current?.dismiss(); sheetRef.current?.present(); } }/>
             <PlayerIdentityPickerSheet ref = { identityPickerRef } excludeUserIds = { excludeUserIds } excludeGuestNames = { excludeGuestNames } onConfirm = { handleIdentitiesConfirmed } onBack = { () => { identityPickerRef.current?.dismiss(); sheetRef.current?.present(); } }/>
+            <ExpansionPickerSheet ref = { expansionPickerRef } onConfirm = { handleExpansionsConfirmed } onBack = { () => { expansionPickerRef.current?.dismiss(); sheetRef.current?.present(); } }/>
             <FingerOrderPicker visible = { isFingerPickerOpen } onClose = { () => setIsFingerPickerOpen(false) }/>
         </>
 	)

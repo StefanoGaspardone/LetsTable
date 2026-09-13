@@ -39,6 +39,7 @@ export interface Match {
 	createdAt: string;
 	teams: MatchTeam[] | null;
 	players: MatchPlayer[] | null;
+	expansionsUsed: Game[];
 }
 
 export interface MatchDayCount {
@@ -72,6 +73,7 @@ export interface CreateMatchPayload {
 	notes: string | null;
 	durationMinutes: number | null;
 	isTeamBased: boolean;
+	expansionIds: string[];
 	teams: CreateMatchTeamPayload[] | null;
 	players: MatchIndividualPlayerPayload[] | null;
 }
@@ -82,6 +84,7 @@ export interface UpdateMatchPayload {
 	place: string | null;
 	notes: string | null;
 	isTeamBased: boolean;
+	expansionIds: string[];
 	teams: CreateMatchTeamPayload[] | null;
 	players: MatchIndividualPlayerPayload[] | null;
 }

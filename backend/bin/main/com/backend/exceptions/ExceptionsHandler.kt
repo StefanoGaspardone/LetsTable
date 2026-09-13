@@ -241,4 +241,8 @@ class ExceptionsHandler {
     @ExceptionHandler(InvalidAccountStatusTransitionException::class)
     fun handleInvalidAccountStatusTransition(ex: InvalidAccountStatusTransitionException) =
         buildResponse(HttpStatus.BAD_REQUEST, ex)
+
+    @ExceptionHandler(InvalidExpansionForGameException::class)
+    fun handleInvalidExpansionForGame(ex: InvalidExpansionForGameException) =
+        buildResponse(HttpStatus.BAD_REQUEST, ex)
 }

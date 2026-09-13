@@ -20,19 +20,19 @@ import MeepleIllustration from '@/components/common/meeple-illustration';
 import BackButton from '@/components/common/back-button';
 import FabMenu from '@/components/common/fab-menu';
 import SegmentedControl from '@/components/common/segmented-control';
-import GameGridItem from '@/components/common/game-grid-item';
 import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/register-match-sheet';
+import GameListItem from '@/components/common/game-list-item';
 
 import { getGameByBggId, getGameExpansions } from '@/api/game';
 import { downloadRuleFile, listGameRules, uploadGameRule } from '@/api/game-rules';
 
 import { useToast } from '@/contexts/toast-context';
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 import { useCollectionStatus, useToggleCollection } from '@/hooks/use-game';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 
 import { getFileIconColor, getFileIconName } from '@/lib/file';
-import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 const IMAGE_HEIGHT = 280;
 const SHEET_RADIUS = 28;
@@ -269,9 +269,6 @@ const GameDetailScreen = () => {
 
 	const hasRecommendations = Boolean(game.bestWith || (game.recommendedWith && game.recommendedWith !== game.bestWith));
 	const hasCredits = game.designers.length > 0 || game.artists.length > 0 || game.publishers.length > 0;
-
-	const expansionRows: typeof expansions[] = [];
-	for(let i = 0; i < expansions.length; i += 2) expansionRows.push(expansions.slice(i, i + 2));
 
 	return (
 		<View className = 'flex-1 bg-background'>
@@ -537,24 +534,19 @@ const GameDetailScreen = () => {
 												<ActivityIndicator color = '#C45135'/>
 											</View>
 										) : expansions.length > 0 ? (
-											<View className = 'gap-0'>
-												{expansionRows.map((row, rowIndex) => (
-													<View key = { rowIndex } className = 'flex-row gap-3'>
-														{row.map(expansion => (
-															<GameGridItem key = { expansion.bggId } game = { expansion } onPress = { () => router.push(`/game/${expansion.bggId}`) }/>
-														))}
-														{row.length === 1 && <View style = {{ flex: 1 }}/>}
-													</View>
-												))}
-												{isFetchingNextPage && (
-													<View className = 'items-center py-3'>
-														<ActivityIndicator size = 'small' color = '#C45135'/>
-													</View>
-												)}
-											</View>
-										) : (
-											<Text className = 'py-2 text-sm text-muted-foreground'>Nessuna espansione trovata.</Text>
-										)}
+												<View className = 'gap-2'>
+													{expansions.map(expansion => (
+														<GameListItem key = { expansion.bggId } game = { expansion } onPress = { () => router.push(`/game/${expansion.bggId}`) }/>
+													))}
+													{isFetchingNextPage && (
+														<View className = 'items-center py-3'>
+															<ActivityIndicator size = 'small' color = '#C45135'/>
+														</View>
+													)}
+												</View>
+											) : (
+												<Text className = 'py-2 text-sm text-muted-foreground'>Nessuna espansione trovata.</Text>
+											)}
 									</View>
 								</View>
 							)}
