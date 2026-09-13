@@ -55,7 +55,7 @@ interface LocalTeam {
 }
 
 export interface RegisterMatchSheetRef {
-	present: (game?: PresetGame) => void;
+	present: (game?: PresetGame, initialExpansions?: PickedExpansion[]) => void;
 	dismiss: () => void;
 }
 
@@ -88,7 +88,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
     const [selectedExpansions, setSelectedExpansions] = useState<PickedExpansion[]>([]);
 
     useImperativeHandle(ref, () => ({
-		present: game => {
+		present: (game, initialExpansions) => {
 			setPresetGame(game ?? null);
 			setPlayedAt(new Date().toISOString().slice(0, 10));
 			setMode('individual');
@@ -100,7 +100,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
             setTeams([]);
             setIdentityPickerTargetTeamIndex(null);
             setPlace('');
-            setSelectedExpansions([]);
+            setSelectedExpansions(initialExpansions ?? []);
 
 			sheetRef.current?.present();
 		},

@@ -273,7 +273,7 @@ data class MatchDTO(
         ) = MatchDTO(
             id = match.id!!,
             game = GameDTO.from(match.game),
-            expansionsUsed = match.expansionsUsed.map { GameDTO.from(it) },
+            expansionsUsed = match.expansionsUsed.toList().map { GameDTO.from(it) },
             createdBy = UserDTO.from(match.createdBy),
             isTeamBased = match.isTeamBased,
             playedAt = match.playedAt,

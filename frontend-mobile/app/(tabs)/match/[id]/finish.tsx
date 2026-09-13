@@ -114,6 +114,7 @@ const FinishMatchScreen = () => {
 					place: match.place,
 					notes: notes.trim() || null,
 					isTeamBased: true,
+					expansionIds: match.expansionsUsed.map(e => e.id!),
 					players: null,
 					teams: match.teams!.map(team => {
 						const entry = entries.find(e => e.id === team.id)!;
@@ -137,6 +138,7 @@ const FinishMatchScreen = () => {
 					place: match.place,
 					notes: notes.trim() || null,
 					isTeamBased: false,
+					expansionIds: match.expansionsUsed.map(e => e.id!),
 					teams: null,
 					players: entries.map(entry => ({
 						userId: entry.userId,

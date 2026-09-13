@@ -44,7 +44,7 @@ const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
 				</Text>
 				<View className = 'mt-1.5 flex-row'>
 					{previewItems.map((item, index) => (
-						<View key = { item.id } style = {{ width: THUMB_SIZE, height: THUMB_SIZE, marginLeft: index === 0 ? 0 : -12, zIndex: previewItems.length - index }} className = 'overflow-hidden rounded-lg border-2 border-card bg-secondary'>
+						<View key = { item.id } style = {{ width: THUMB_SIZE, height: THUMB_SIZE, marginLeft: index === 0 ? 0 : -12, zIndex: previewItems.length - index }} className = 'overflow-hidden rounded-xl border-2 border-card bg-secondary'>
 							{item.game.thumbnailUrl ? (
 								<Image source = {{ uri: item.game.thumbnailUrl }} style = {{ width: '100%', height: '100%' }} contentFit = 'cover'/>
 							) : (

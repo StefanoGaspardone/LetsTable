@@ -3,7 +3,7 @@ import { View, Pressable, ActivityIndicator, ScrollView } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { Dices, Pencil, Trash2, MapPin, FileText, Trophy, Users, ChevronRight, Repeat, Clock, Calendar } from 'lucide-react-native';
+import { Dices, Pencil, Trash2, MapPin, FileText, Trophy, Users, ChevronRight, Repeat, Clock, Calendar, Puzzle } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -111,12 +111,20 @@ const MatchDetailScreen = () => {
     const handleReplay = () => {
         if(!match) return;
         
-		registerMatchSheetRef.current?.present({
-            id: match.game.id,
-            name: match.game.name,
-            thumbnailUrl: match.game.thumbnailUrl,
-			bggId: match.game.bggId
-        });
+		registerMatchSheetRef.current?.present(
+			{
+				id: match.game.id,
+				name: match.game.name,
+				thumbnailUrl: match.game.thumbnailUrl,
+				bggId: match.game.bggId,
+			},
+			match.expansionsUsed.map(expansion => ({
+				id: expansion.id!,
+				bggId: expansion.bggId,
+				name: expansion.name,
+				thumbnailUrl: expansion.thumbnailUrl,
+			}))
+		);
     }
 
     const sortedEntries = useMemo(() => {
@@ -259,6 +267,33 @@ const MatchDetailScreen = () => {
 								</View>
 							</View>
 						)}
+					</View>
+				)}
+				{match.expansionsUsed.length > 0 && (
+					<View className = 'mt-4 rounded-2xl border border-border bg-card p-3'>
+						<View className = 'mb-2 flex-row items-center gap-2'>
+							<Puzzle size = { 16 } color = '#736E65'/>
+							<Text className = 'text-xs text-muted-foreground'>Espansioni usate</Text>
+						</View>
+						<View className = 'gap-2'>
+							{match.expansionsUsed.map(expansion => (
+								<Pressable key = { expansion.id } onPress = { () => router.push(`/game/${expansion.bggId}`) } className = 'flex-row items-center gap-2.5 rounded-xl bg-secondary p-2 active:opacity-75 active:scale-[0.98]'>
+									<View style = {{ width: 40, height: 40 }} className = 'overflow-hidden rounded-xl bg-card'>
+										{expansion.thumbnailUrl ? (
+											<Image source = {{ uri: expansion.thumbnailUrl }} style = {{ width: 40, height: 40 }} contentFit = 'cover'/>
+										) : (
+											<View className = 'h-full w-full items-center justify-center'>
+												<Dices size = { 14 } color = '#736E65'/>
+											</View>
+										)}
+									</View>
+									<Text className = 'flex-1 text-sm text-foreground font-medium' numberOfLines = { 1 }>
+										{expansion.name}
+									</Text>
+									<ChevronRight size = { 14 } color = '#736E65'/>
+								</Pressable>
+							))}
+						</View>
 					</View>
 				)}
 				<View className = 'mb-3 mt-6 flex-row items-center gap-2'>
