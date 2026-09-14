@@ -21,7 +21,12 @@ class MinIOConfig(private val properties: MinIOProperties, private val environme
     fun minioClient(): MinioClient {
         val parsedUrl = properties.url.toHttpUrl()
         val basePath = parsedUrl.encodedPath.trim('/')
-        val hostOnlyEndpoint = "${parsedUrl.scheme}://${parsedUrl.host}"
+        val isDefaultPort = (parsedUrl.scheme == "http" && parsedUrl.port == 80) || (parsedUrl.scheme == "https" && parsedUrl.port == 443)
+        val hostOnlyEndpoint = if(isDefaultPort) {
+            "${parsedUrl.scheme}://${parsedUrl.host}"
+        } else {
+            "${parsedUrl.scheme}://${parsedUrl.host}:${parsedUrl.port}"
+        }
 
         val httpClient = if(basePath.isNotEmpty()) {
             OkHttpClient.Builder()
