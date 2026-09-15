@@ -52,6 +52,9 @@ data class GameDTO(
     @field:Schema(description = "Current position in the BGG hotness ranking, null if not currently trending")
     val rank: Int?,
 
+    @field:Schema(description = "BoardGameGeek's overall ranking position, null if not ranked or not yet synced")
+    val bggRank: Int?,
+
     @field:Schema(description = "Whether this game is in the current user's collection, null if not applicable/not checked")
     val inCollection: Boolean? = null,
 
@@ -90,6 +93,7 @@ data class GameDTO(
             expansions = if (game.isExpansion == null) null else game.expansionRefs.size.toLong(),
             isExpansion = game.isExpansion,
             rank = game.rank,
+            bggRank = game.bggRank,
             inCollection = inCollection,
             baseGame = baseGame,
             difficulty = game.difficulty,
@@ -115,6 +119,7 @@ data class GameDTO(
             expansions = null,
             isExpansion = null,
             rank = null,
+            bggRank = null,
             inCollection = null,
             baseGame = null,
             difficulty = null,

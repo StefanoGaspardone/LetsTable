@@ -15,12 +15,15 @@ class DataSeeder(
     private val wishlistSeeder: WishlistSeeder,
     private val matchSeeder: MatchSeeder,
     private val friendSeeder: FriendSeeder,
+    private val adminSeeder: AdminSeeder,
     @Value($$"${seeding.enabled}") private val seedingEnabled: Boolean,
 ): CommandLineRunner {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun run(vararg args: String) {
+        adminSeeder.seed()
+
         if(!seedingEnabled) {
             logger.debug("\n\t[DEBUG] [demo_data_seeder][run] Seeding disabled, skipping")
             return

@@ -24,9 +24,9 @@ interface CollectionItemRepository : JpaRepository<CollectionItem, UUID>, JpaSpe
 
     @Query(
         """
-        SELECT ci.game.id AS gameId, ci.game.name AS gameName, COUNT(ci) AS count
+        SELECT ci.game.id AS gameId, ci.game.name AS gameName, ci.game.thumbnailUrl as gameThumbnailUrl, COUNT(ci) AS count
         FROM CollectionItem ci
-        GROUP BY ci.game.id, ci.game.name
+        GROUP BY ci.game.id, ci.game.name, ci.game.thumbnailUrl
         ORDER BY COUNT(ci) DESC
         """
     )

@@ -117,6 +117,12 @@ data class BggThingItemXml(
     fun baseGameRef(): ExpansionRef? =
         links.firstOrNull { it.type == "boardgameexpansion" && it.inbound == true }
             ?.let { link -> link.id.toLongOrNull()?.let { id -> ExpansionRef(id, link.value) } }
+
+    fun bggRank(): Int? =
+        statistics?.ratings?.ranks?.ranks
+            ?.firstOrNull { it.name == "boardgame" }
+            ?.value
+            ?.toIntOrNull()
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -198,6 +204,25 @@ data class BggThingStatisticsXml(
 data class BggThingRatingsXml(
     @field:JacksonXmlProperty(localName = "averageweight")
     val averageWeight: BggValueXml? = null,
+
+    @field:JacksonXmlProperty(localName = "ranks")
+    val ranks: BggThingRanksXml? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class BggThingRanksXml(
+    @field:JacksonXmlProperty(localName = "rank")
+    @field:JacksonXmlElementWrapper(useWrapping = false)
+    val ranks: List<BggThingRankXml> = emptyList(),
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class BggThingRankXml(
+    @field:JacksonXmlProperty(isAttribute = true)
+    val name: String,
+
+    @field:JacksonXmlProperty(isAttribute = true)
+    val value: String,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

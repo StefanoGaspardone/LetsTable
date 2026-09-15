@@ -3,6 +3,7 @@ package com.backend.controllers
 import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.AdminGameDTO
 import com.backend.models.dtos.AdminUploadedFileDTO
+import com.backend.models.dtos.PageDTO
 import com.backend.services.AdminGameService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -113,4 +114,14 @@ class AdminGameController(
         adminGameService.deleteRuleFile(gameId, fileId)
         return ResponseEntity.noContent().build()
     }
+
+    @GetMapping
+    fun listGames(
+        @Parameter(description = "Page number (0-indexed)") @RequestParam(defaultValue = "0") page: Int,
+        @Parameter(description = "Page size") @RequestParam(defaultValue = "20") size: Int,
+        @Parameter(description = "Search by game name") @RequestParam(required = false) search: String?,
+        @Parameter(description = "True for expansions only, false for base games only, omitted for both") @RequestParam(required = false) isExpansion: Boolean?,
+        @Parameter(description = "Sort field and direction, e.g. 'name-asc', 'rank-desc', 'lastSyncedAt-desc', 'isExpansion-asc'") @RequestParam(required = false) sort: String?,
+    ): ResponseEntity<PageDTO<AdminGameDTO>> =
+        ResponseEntity.ok(adminGameService.listGames(page, size, search, isExpansion, sort))
 }

@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
+      frontend-mobile: ${{ steps.filter.outputs.frontend-mobile }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -26,7 +26,7 @@ jobs:
               - 'backend/**'
               - '.github/workflows/ci.yml'
               - 'sonar-project.properties'
-            frontend:
+            frontend-mobile:
               - 'frontend-mobile/**'
               - '.github/workflows/ci.yml'
               - 'sonar-project.properties'
@@ -76,12 +76,12 @@ jobs:
           path: backend/build/reports/jacoco/test/jacocoTestReport.xml
 
   # ============================================================
-  # 3. FRONTEND TESTS & COVERAGE
+  # 3. FRONTEND MOBILE TESTS & COVERAGE
   # ============================================================
-  frontend-test:
-    name: Frontend - Test & Coverage
+  frontend-mobile-test:
+    name: Frontend Mobile - Test & Coverage
     needs: changes
-    if: ${{ needs.changes.outputs.frontend == 'true' }}
+    if: ${{ needs.changes.outputs.frontend-mobile == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -99,19 +99,19 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: frontend-mobile/pnpm-lock.yaml
 
-      - name: Install Frontend Dependencies
+      - name: Install Frontend Mobile Dependencies
         run: pnpm install --frozen-lockfile --dir frontend-mobile
 
-      - name: Type Check (TypeScript)
+      - name: Type Check
         run: pnpm --filter ./frontend-mobile exec tsc --noEmit
 
-      - name: Run Frontend Coverage Script
+      - name: Run Frontend Mobile Coverage Script
         run: pnpm --filter ./frontend-mobile test:coverage
 
-      - name: Upload Frontend Coverage Artifact
+      - name: Upload Frontend Mobile Coverage Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-coverage
+          name: frontend-mobile-coverage
           path: frontend-mobile/coverage/lcov.info
 
   # ============================================================
@@ -119,7 +119,7 @@ jobs:
   # ============================================================
   sonarcloud:
     name: SonarCloud Analysis
-    needs: [changes, backend-test, frontend-test]
+    needs: [changes, backend-test, frontend-mobile-test]
     if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
 
@@ -151,10 +151,10 @@ jobs:
           path: backend/build/reports/jacoco/test
 
       - name: Download Frontend Coverage Artifact
-        if: ${{ needs.changes.outputs.frontend == 'true' }}
+        if: ${{ needs.changes.outputs.frontend-mobile == 'true' }}
         uses: actions/download-artifact@v4
         with:
-          name: frontend-coverage
+          name: frontend-mobile-coverage
           path: frontend-mobile/coverage
 
       - name: Run SonarCloud Scan

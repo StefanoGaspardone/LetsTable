@@ -21,9 +21,9 @@ interface WishlistItemRepository: JpaRepository<WishlistItem, UUID>, JpaSpecific
 
     @Query(
         """
-        SELECT wi.game.id AS gameId, wi.game.name AS gameName, COUNT(wi) AS count
+        SELECT wi.game.id AS gameId, wi.game.name AS gameName, wi.game.thumbnailUrl as gameThumbnailUrl, COUNT(wi) AS count
         FROM WishlistItem wi
-        GROUP BY wi.game.id, wi.game.name
+        GROUP BY wi.game.id, wi.game.name, wi.game.thumbnailUrl
         ORDER BY COUNT(wi) DESC
         """
     )

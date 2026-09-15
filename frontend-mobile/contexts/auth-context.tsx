@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		} catch(error) {
 			console.log('RESTORE SESSION FAILED:', error);
 			
-			if (axios.isAxiosError(error)) {
+			if(axios.isAxiosError(error)) {
 				console.log('RESTORE SESSION ERROR STATUS:', error.response?.status);
 				console.log('RESTORE SESSION ERROR MESSAGE:', error.message);
 			}

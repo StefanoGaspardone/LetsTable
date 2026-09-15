@@ -5,5 +5,6 @@ import java.util.UUID
 interface GamePopularityProjection {
     val gameId: UUID
     val gameName: String
+    val gameThumbnailUrl: String
     val count: Long
 }

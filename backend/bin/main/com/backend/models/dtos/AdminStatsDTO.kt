@@ -36,6 +36,9 @@ data class GamePopularityDTO(
     @field:Schema(description = "Game name")
     val gameName: String,
 
+    @field:Schema(description = "Game thumbnail URL, if available")
+    val gameThumbnailUrl: String?,
+
     @field:Schema(description = "Number of occurrences for this ranking's metric")
     val count: Long,
 ) {
@@ -43,6 +46,7 @@ data class GamePopularityDTO(
         fun from(projection: GamePopularityProjection) = GamePopularityDTO(
             gameId = projection.gameId,
             gameName = projection.gameName,
+            gameThumbnailUrl = projection.gameThumbnailUrl,
             count = projection.count,
         )
     }

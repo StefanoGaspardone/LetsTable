@@ -38,14 +38,8 @@ class GameService(
         private const val STALE_AFTER_DAYS = 7L
     }
 
-    fun getOrSyncGame(
-        bggId: Long,
-        resolveBaseGame: Boolean = true
-    ): GameDTO {
-        logger.debug(
-            "\n\t[DEBUG] [game_service][get_or_sync_game] Resolving game with bggId {}",
-            bggId
-        )
+    fun getOrSyncGame(bggId: Long, resolveBaseGame: Boolean = true): GameDTO {
+        logger.debug("\n\t[DEBUG] [game_service][get_or_sync_game] Resolving game with bggId {}", bggId)
 
         try {
             val existing = gameRepository
@@ -101,11 +95,7 @@ class GameService(
                             resolveBaseGame = false
                         )
                     } catch(e: Exception) {
-                        logger.warn(
-                            "\n\t[WARN] [game_service][get_or_sync_game] Could not resolve base game, skipping\n\tbaseGameBggId={}\n\treason={}",
-                            game.baseGameBggId,
-                            e.message
-                        )
+                        logger.warn("\n\t[WARN] [game_service][get_or_sync_game] Could not resolve base game, skipping\n\tbaseGameBggId={}\n\treason={}", game.baseGameBggId, e.message)
                         null
                     }
                 } else {
@@ -116,10 +106,7 @@ class GameService(
                 GameSleeveDTO.from(it)
             }
 
-            logger.info(
-                "\n\t[INFO] [game_service][get_or_sync_game] Resolved game with bggId {}",
-                bggId
-            )
+            logger.info("\n\t[INFO] [game_service][get_or_sync_game] Resolved game with bggId {}", bggId)
 
             return GameDTO.from(
                 game,
@@ -128,31 +115,16 @@ class GameService(
                 sleevesDTO
             )
         } catch(e: GameNotFoundOnBggException) {
-            logger.warn(
-                "\n\t[WARN] [game_service][get_or_sync_game] Game not found on BGG with id {}",
-                bggId
-            )
+            logger.warn("\n\t[WARN] [game_service][get_or_sync_game] Game not found on BGG with id {}", bggId)
             throw e
         } catch(e: Exception) {
-            logger.error(
-                "\n\t[ERROR] [game_service][get_or_sync_game] Error resolving game with bggId {}: {}",
-                bggId,
-                e.message,
-                e
-            )
+            logger.error("\n\t[ERROR] [game_service][get_or_sync_game] Error resolving game with bggId {}: {}", bggId, e.message, e)
             throw e
         }
     }
 
-    fun getHotGames(
-        page: Int,
-        size: Int
-    ): PageDTO<GameDTO> {
-        logger.debug(
-            "\n\t[DEBUG] [game_service][get_hot_games] Retrieving hot games\n\tpage={}\n\tsize={}",
-            page,
-            size
-        )
+    fun getHotGames(page: Int, size: Int): PageDTO<GameDTO> {
+        logger.debug("\n\t[DEBUG] [game_service][get_hot_games] Retrieving hot games\n\tpage={}\n\tsize={}", page, size)
 
         try {
             val pageSafe = if(page < 0) 0 else page
@@ -176,10 +148,7 @@ class GameService(
                     }
                 }
 
-            logger.info(
-                "\n\t[INFO] [game_service][get_hot_games] Retrieved {} hot games",
-                result.numberOfElements
-            )
+            logger.info("\n\t[INFO] [game_service][get_hot_games] Retrieved {} hot games", result.numberOfElements)
 
             return result.toPageDTO {
                 GameDTO.from(
@@ -189,27 +158,19 @@ class GameService(
                 )
             }
         } catch(e: Exception) {
-            logger.error(
-                "\n\t[ERROR] [game_service][get_hot_games] Error retrieving hot games: {}",
-                e.message,
-                e
-            )
+            logger.error("\n\t[ERROR] [game_service][get_hot_games] Error retrieving hot games: {}", e.message, e)
             throw e
         }
     }
 
     fun refreshHotGames() {
-        logger.debug(
-            "\n\t[DEBUG] [game_service][refresh_hot_games] Refreshing hot games cache from BGG"
-        )
+        logger.debug("\n\t[DEBUG] [game_service][refresh_hot_games] Refreshing hot games cache from BGG")
 
         try {
             val hotItems = bggClient.getHotGames().items
 
             if(hotItems.isEmpty()) {
-                logger.info(
-                    "\n\t[INFO] [game_service][refresh_hot_games] No hot games returned from BGG"
-                )
+                logger.info("\n\t[INFO] [game_service][refresh_hot_games] No hot games returned from BGG")
                 return
             }
 
@@ -221,10 +182,7 @@ class GameService(
                     .items
                     .associateBy { it.id }
             } catch(e: Exception) {
-                logger.warn(
-                    "\n\t[WARN] [game_service][refresh_hot_games] Batch enrichment failed\n\treason={}",
-                    e.message
-                )
+                logger.warn("\n\t[WARN] [game_service][refresh_hot_games] Batch enrichment failed\n\treason={}", e.message)
                 emptyMap()
             }
 
@@ -263,30 +221,14 @@ class GameService(
 
             hotGamesPersistenceService.saveHotGames(gamesToSave)
 
-            logger.info(
-                "\n\t[INFO] [game_service][refresh_hot_games] Hot games cache refreshed with {} entries",
-                gamesToSave.size
-            )
+            logger.info("\n\t[INFO] [game_service][refresh_hot_games] Hot games cache refreshed with {} entries", gamesToSave.size)
         } catch(e: Exception) {
-            logger.error(
-                "\n\t[ERROR] [game_service][refresh_hot_games] Error refreshing hot games cache: {}",
-                e.message,
-                e
-            )
+            logger.error("\n\t[ERROR] [game_service][refresh_hot_games] Error refreshing hot games cache: {}", e.message, e)
         }
     }
 
-    fun search(
-        query: String,
-        page: Int,
-        size: Int
-    ): PageDTO<GameDTO> {
-        logger.debug(
-            "\n\t[DEBUG] [game_service][search] Searching games\n\tquery={}\n\tpage={}\n\tsize={}",
-            query,
-            page,
-            size
-        )
+    fun search(query: String, page: Int, size: Int): PageDTO<GameDTO> {
+        logger.debug("\n\t[DEBUG] [game_service][search] Searching games\n\tquery={}\n\tpage={}\n\tsize={}", query, page, size)
 
         try {
             val lightweightResults = bggClient
@@ -349,11 +291,7 @@ class GameService(
                 }
             }
 
-            logger.debug(
-                "\n\t[DEBUG] [game_service][search] Search cache status\n\tfresh={}\n\ttoEnrich={}",
-                freshGames.size,
-                gamesToEnrich.size
-            )
+            logger.debug("\n\t[DEBUG] [game_service][search] Search cache status\n\tfresh={}\n\ttoEnrich={}", freshGames.size, gamesToEnrich.size)
 
             val enrichedGamesByBggId =
                 if(gamesToEnrich.isNotEmpty()) {
@@ -388,35 +326,17 @@ class GameService(
                 lightweightResults.size.toLong()
             )
 
-            logger.info(
-                "\n\t[INFO] [game_service][search] Returning {} enriched results for query {}",
-                content.size,
-                query
-            )
+            logger.info("\n\t[INFO] [game_service][search] Returning {} enriched results for query {}", content.size, query)
 
             return pageResult.toPageDTO { it }
         } catch(e: Exception) {
-            logger.error(
-                "\n\t[ERROR] [game_service][search] Error searching games with query {}: {}",
-                query,
-                e.message,
-                e
-            )
+            logger.error("\n\t[ERROR] [game_service][search] Error searching games with query {}: {}", query, e.message, e)
             throw e
         }
     }
 
-    fun getExpansions(
-        bggId: Long,
-        page: Int,
-        size: Int
-    ): PageDTO<GameDTO> {
-        logger.debug(
-            "\n\t[DEBUG] [game_service][get_expansions] Fetching expansions\n\tbggId={}\n\tpage={}\n\tsize={}",
-            bggId,
-            page,
-            size
-        )
+    fun getExpansions(bggId: Long, page: Int, size: Int): PageDTO<GameDTO> {
+        logger.debug("\n\t[DEBUG] [game_service][get_expansions] Fetching expansions\n\tbggId={}\n\tpage={}\n\tsize={}", bggId, page, size)
 
         try {
             val game = gameRepository
@@ -432,11 +352,7 @@ class GameService(
                         resolveBaseGame = false
                     )
                 } catch(e: Exception) {
-                    logger.warn(
-                        "\n\t[WARN] [game_service][get_expansions] Could not sync expansion, skipping\n\texpansionBggId={}\n\treason={}",
-                        ref.bggId,
-                        e.message
-                    )
+                    logger.warn("\n\t[WARN] [game_service][get_expansions] Could not sync expansion, skipping\n\texpansionBggId={}\n\treason={}", ref.bggId, e.message)
                     null
                 }
             }
@@ -473,13 +389,7 @@ class GameService(
                 sortedExpansions.size.toLong()
             )
 
-            logger.info(
-                "\n\t[INFO] [game_service][get_expansions] Resolved expansions page\n\tbggId={}\n\tpage={}\n\tresolvedCount={}\n\ttotalCount={}",
-                bggId,
-                pageSafe,
-                content.size,
-                sortedExpansions.size
-            )
+            logger.info("\n\t[INFO] [game_service][get_expansions] Resolved expansions page\n\tbggId={}\n\tpage={}\n\tresolvedCount={}\n\ttotalCount={}", bggId, pageSafe, content.size, sortedExpansions.size)
 
             return pageResult.toPageDTO { it }
         } catch(e: GameNotFoundOnBggException) {
@@ -660,6 +570,8 @@ class GameService(
                 ?.value
                 ?.toDoubleOrNull()
                 ?.takeIf { it > 0 }
+
+        game.bggRank = details.bggRank()
 
         game.designers =
             details.links

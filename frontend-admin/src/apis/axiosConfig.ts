@@ -1,6 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
-const BASE_URL = `${import.meta.env.VITE_SERVER_URL || 'localhost:8080'}/api/v1`;
+export const BASE_URL = `${import.meta.env.VITE_SERVER_URL || 'https://letstable.onrender.com'}/api/v1`;
 
 const axiosInstance = axios.create({
 	baseURL: BASE_URL,
@@ -98,6 +98,10 @@ export const setAuthTokens = (accessToken: string, refreshToken: string) => {
 export const clearAuthTokens = () => {
 	localStorage.removeItem('accessToken');
 	localStorage.removeItem('refreshToken');
+}
+
+export const getAccessToken = () => {
+	return localStorage.getItem('accessToken');
 }
 
 export default axiosInstance;

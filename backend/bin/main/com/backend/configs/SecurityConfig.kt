@@ -1,8 +1,13 @@
 package com.backend.configs
 
 import com.backend.security.JwtAuthFilter
+import org.aopalliance.intercept.MethodInvocation
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl
+import org.springframework.security.authorization.AuthorizationManagerFactory
+import org.springframework.security.authorization.DefaultAuthorizationManagerFactory
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
@@ -18,8 +23,21 @@ class SecurityConfig(
 ) {
 
     @Bean
+    fun roleHierarchy(): RoleHierarchy {
+        return RoleHierarchyImpl.fromHierarchy("ROLE_ADMIN > ROLE_USER")
+    }
+
+    @Bean
+    fun methodSecurityAuthorizationManagerFactory(roleHierarchy: RoleHierarchy): AuthorizationManagerFactory<MethodInvocation> {
+        val factory = DefaultAuthorizationManagerFactory<MethodInvocation>()
+        factory.setRoleHierarchy(roleHierarchy)
+        return factory
+    }
+
+    @Bean
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
         http
+            .cors { }
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->

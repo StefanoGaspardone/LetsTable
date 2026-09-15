@@ -89,9 +89,9 @@ interface MatchRepository: JpaRepository<Match, UUID>, JpaSpecificationExecutor<
 
     @Query(
         """
-        SELECT m.game.id AS gameId, m.game.name AS gameName, COUNT(DISTINCT m) AS count
+        SELECT m.game.id AS gameId, m.game.name AS gameName, m.game.thumbnailUrl as gameThumbnailUrl, COUNT(DISTINCT m) AS count
         FROM Match m
-        GROUP BY m.game.id, m.game.name
+        GROUP BY m.game.id, m.game.name, m.game.thumbnailUrl
         ORDER BY COUNT(DISTINCT m) DESC
         """
     )
