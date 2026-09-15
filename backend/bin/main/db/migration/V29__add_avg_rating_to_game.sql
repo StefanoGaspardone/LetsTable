@@ -1,0 +1,2 @@
+ALTER TABLE games
+    ADD COLUMN avg_rating DOUBLE PRECISION NULL;

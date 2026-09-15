@@ -1,5 +1,5 @@
 export interface Game {
-	id: string;
+id: string;
 	bggId: number;
 	name: string;
 	yearPublished: number | null;
@@ -14,6 +14,8 @@ export interface Game {
 	expansions: number | null;
 	isExpansion: boolean | null;
 	rank: number | null;
+	bggRank: number | null;
+	avgRating: number | null;
 	inCollection: boolean | null;
 	baseGame: Game | null;
 	difficulty: number | null;

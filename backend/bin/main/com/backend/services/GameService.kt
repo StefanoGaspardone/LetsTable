@@ -572,6 +572,7 @@ class GameService(
                 ?.takeIf { it > 0 }
 
         game.bggRank = details.bggRank()
+        game.avgRating = details.averageRating()
 
         game.designers =
             details.links

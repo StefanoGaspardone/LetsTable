@@ -70,6 +70,9 @@ class Game(
     @Column(name = "bgg_rank", nullable = true)
     var bggRank: Int? = null,
 
+    @Column(name = "avg_rating", nullable = true)
+    var avgRating: Double? = null,
+
     @Column(name = "difficulty", nullable = true)
     var difficulty: Double? = null,
 

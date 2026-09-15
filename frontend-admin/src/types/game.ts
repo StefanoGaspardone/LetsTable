@@ -15,6 +15,7 @@ export interface AdminGame {
 	isExpansion: boolean | null;
 	rank: number | null;
 	bggRank: number | null;
+	avgRating: number | null;
 	inCollection: boolean | null;
 	baseGame: AdminGame | null;
 	difficulty: number | null;

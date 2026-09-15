@@ -123,6 +123,9 @@ data class BggThingItemXml(
             ?.firstOrNull { it.name == "boardgame" }
             ?.value
             ?.toIntOrNull()
+
+    fun averageRating(): Double? =
+        statistics?.ratings?.average?.value?.toDoubleOrNull()
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -207,6 +210,9 @@ data class BggThingRatingsXml(
 
     @field:JacksonXmlProperty(localName = "ranks")
     val ranks: BggThingRanksXml? = null,
+
+    @field:JacksonXmlProperty(localName = "average")
+    val average: BggValueXml? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

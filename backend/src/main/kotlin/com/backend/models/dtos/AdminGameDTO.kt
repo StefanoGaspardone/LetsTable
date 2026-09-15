@@ -56,6 +56,9 @@ data class AdminGameDTO(
     @field:Schema(description = "BoardGameGeek's overall ranking position, null if not ranked or not yet synced")
     val bggRank: Int?,
 
+    @field:Schema(description = "Average user rating from 1 to 10, null if not yet fully synced")
+    val avgRating: Double?,
+
     @field:Schema(description = "Average complexity/weight rating from 1 to 5, null if not yet fully synced")
     val difficulty: Double?,
 
@@ -95,6 +98,7 @@ data class AdminGameDTO(
             isExpansion = game.isExpansion,
             rank = game.rank,
             bggRank = game.bggRank,
+            avgRating = game.avgRating,
             difficulty = game.difficulty,
             designers = game.designers,
             artists = game.artists,

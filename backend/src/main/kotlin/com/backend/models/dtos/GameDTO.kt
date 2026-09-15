@@ -55,6 +55,9 @@ data class GameDTO(
     @field:Schema(description = "BoardGameGeek's overall ranking position, null if not ranked or not yet synced")
     val bggRank: Int?,
 
+    @field:Schema(description = "Average user rating from 1 to 10, null if not yet fully synced")
+    val avgRating: Double?,
+
     @field:Schema(description = "Whether this game is in the current user's collection, null if not applicable/not checked")
     val inCollection: Boolean? = null,
 
@@ -94,6 +97,7 @@ data class GameDTO(
             isExpansion = game.isExpansion,
             rank = game.rank,
             bggRank = game.bggRank,
+            avgRating = game.avgRating,
             inCollection = inCollection,
             baseGame = baseGame,
             difficulty = game.difficulty,
@@ -119,6 +123,7 @@ data class GameDTO(
             expansions = null,
             isExpansion = null,
             rank = null,
+            avgRating = null,
             bggRank = null,
             inCollection = null,
             baseGame = null,
