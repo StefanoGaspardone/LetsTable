@@ -2,13 +2,8 @@ package com.backend.unit.services
 
 import com.backend.exceptions.StorageNotFoundException
 import com.backend.exceptions.StorageWriteException
-import com.backend.properties.MinIOProperties
+import com.backend.properties.S3Properties
 import com.backend.services.StorageService
-import io.minio.GetObjectArgs
-import io.minio.GetObjectResponse
-import io.minio.MinioClient
-import io.minio.PutObjectArgs
-import io.minio.RemoveObjectArgs
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -25,17 +20,23 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import org.mockito.junit.jupiter.MockitoExtension
+import software.amazon.awssdk.core.ResponseInputStream
+import software.amazon.awssdk.core.sync.RequestBody
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
+import software.amazon.awssdk.services.s3.model.GetObjectRequest
+import software.amazon.awssdk.services.s3.model.GetObjectResponse
+import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import java.io.ByteArrayInputStream
-import java.io.InputStream
 
 @ExtendWith(MockitoExtension::class)
 class StorageServiceTest {
 
     @Mock
-    private lateinit var minioClient: MinioClient
+    private lateinit var s3Client: S3Client
 
     @Mock
-    private lateinit var properties: MinIOProperties
+    private lateinit var properties: S3Properties
 
     @InjectMocks
     private lateinit var storageService: StorageService
@@ -59,27 +60,27 @@ class StorageServiceTest {
             val size = content.size.toLong()
             val contentType = "image/jpeg"
 
-            val argsCaptor = ArgumentCaptor.forClass(PutObjectArgs::class.java)
+            val requestCaptor = ArgumentCaptor.forClass(PutObjectRequest::class.java)
 
             storageService.putObject(objectKey, inputStream, size, contentType)
 
-            verify(minioClient).putObject(argsCaptor.capture())
+            verify(s3Client).putObject(requestCaptor.capture(), any(RequestBody::class.java))
 
-            val capturedArgs = argsCaptor.value
-            assertThat(capturedArgs.bucket()).isEqualTo(bucketName)
-            assertThat(capturedArgs.`object`()).isEqualTo(objectKey)
-            assertThat(capturedArgs.contentType()).isEqualTo(contentType)
+            val capturedRequest = requestCaptor.value
+            assertThat(capturedRequest.bucket()).isEqualTo(bucketName)
+            assertThat(capturedRequest.key()).isEqualTo(objectKey)
+            assertThat(capturedRequest.contentType()).isEqualTo(contentType)
         }
 
         @Test
-        fun `should throw StorageWriteException when minioClient fails during putObject`() {
+        fun `should throw StorageWriteException when s3Client fails during putObject`() {
             val content = "hello world".toByteArray()
             val inputStream = ByteArrayInputStream(content)
             val size = content.size.toLong()
             val contentType = "image/jpeg"
 
-            doThrow(RuntimeException("MinIO cluster unreachable"))
-                .`when`(minioClient).putObject(any(PutObjectArgs::class.java))
+            doThrow(RuntimeException("S3 cluster unreachable"))
+                .`when`(s3Client).putObject(any(PutObjectRequest::class.java), any(RequestBody::class.java))
 
             assertThatThrownBy {
                 storageService.putObject(objectKey, inputStream, size, contentType)
@@ -93,24 +94,25 @@ class StorageServiceTest {
 
         @Test
         fun `should retrieve object stream successfully`() {
-            val mockResponse = mock(GetObjectResponse::class.java)
+            @Suppress("UNCHECKED_CAST")
+            val mockResponse = mock(ResponseInputStream::class.java) as ResponseInputStream<GetObjectResponse>
 
-            val argsCaptor = ArgumentCaptor.forClass(GetObjectArgs::class.java)
-            `when`(minioClient.getObject(argsCaptor.capture())).thenReturn(mockResponse)
+            val requestCaptor = ArgumentCaptor.forClass(GetObjectRequest::class.java)
+            `when`(s3Client.getObject(requestCaptor.capture())).thenReturn(mockResponse)
 
-            val resultStream: InputStream = storageService.getObject(objectKey)
+            val resultStream = storageService.getObject(objectKey)
 
             assertThat(resultStream).isNotNull
             assertThat(resultStream).isEqualTo(mockResponse)
 
-            val capturedArgs = argsCaptor.value
-            assertThat(capturedArgs.bucket()).isEqualTo(bucketName)
-            assertThat(capturedArgs.`object`()).isEqualTo(objectKey)
+            val capturedRequest = requestCaptor.value
+            assertThat(capturedRequest.bucket()).isEqualTo(bucketName)
+            assertThat(capturedRequest.key()).isEqualTo(objectKey)
         }
 
         @Test
-        fun `should throw StorageNotFoundException when minioClient fails during getObject`() {
-            `when`(minioClient.getObject(any(GetObjectArgs::class.java)))
+        fun `should throw StorageNotFoundException when s3Client fails during getObject`() {
+            `when`(s3Client.getObject(any(GetObjectRequest::class.java)))
                 .thenThrow(RuntimeException("Object not found in bucket"))
 
             assertThatThrownBy {
@@ -125,21 +127,21 @@ class StorageServiceTest {
 
         @Test
         fun `should remove object successfully`() {
-            val argsCaptor = ArgumentCaptor.forClass(RemoveObjectArgs::class.java)
+            val requestCaptor = ArgumentCaptor.forClass(DeleteObjectRequest::class.java)
 
             storageService.deleteObject(objectKey)
 
-            verify(minioClient).removeObject(argsCaptor.capture())
+            verify(s3Client).deleteObject(requestCaptor.capture())
 
-            val capturedArgs = argsCaptor.value
-            assertThat(capturedArgs.bucket()).isEqualTo(bucketName)
-            assertThat(capturedArgs.`object`()).isEqualTo(objectKey)
+            val capturedRequest = requestCaptor.value
+            assertThat(capturedRequest.bucket()).isEqualTo(bucketName)
+            assertThat(capturedRequest.key()).isEqualTo(objectKey)
         }
 
         @Test
-        fun `should throw StorageWriteException when minioClient fails during removeObject`() {
-            doThrow(RuntimeException("MinIO deletion error"))
-                .`when`(minioClient).removeObject(any(RemoveObjectArgs::class.java))
+        fun `should throw StorageWriteException when s3Client fails during deleteObject`() {
+            doThrow(RuntimeException("S3 deletion error"))
+                .`when`(s3Client).deleteObject(any(DeleteObjectRequest::class.java))
 
             assertThatThrownBy {
                 storageService.deleteObject(objectKey)
