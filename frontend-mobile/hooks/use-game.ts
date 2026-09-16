@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getGameByBggId, getHotGames, searchGame } from '@/api/game';
+import { getGameByBggId, getHotGames, getOverallGames, searchGame } from '@/api/game';
 import { addToCollection, getGameStatusInCollection, removeFromCollection } from '@/api/collection';
 import { addItemToWishlist, getItemStatusInWishlist, removeItemFromWishlist } from '@/api/wishlist';
 
@@ -17,6 +17,15 @@ export const useHotGames = () => {
 	return useInfiniteQuery({
 		queryKey: ['games', 'hot'],
 		queryFn: ({ pageParam }) => getHotGames(pageParam),
+		initialPageParam: 0,
+		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
+	});
+}
+
+export const useOverallGames = () => {
+	return useInfiniteQuery({
+		queryKey: ['games', 'overall'],
+		queryFn: ({ pageParam }) => getOverallGames(pageParam),
 		initialPageParam: 0,
 		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
 	});

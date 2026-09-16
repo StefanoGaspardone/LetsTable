@@ -43,3 +43,7 @@ export interface AdminUploadedFile {
 	uploadedByUsername: string | null;
 	createdAt: string;
 }
+
+export interface BggRankIndex {
+	count: number;
+}

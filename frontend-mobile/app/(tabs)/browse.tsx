@@ -9,15 +9,23 @@ import GameListItem from '@/components/common/game-list-item';
 import GameGridItem from '@/components/common/game-grid-item';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
+import SegmentedControl from '@/components/common/segmented-control';
 
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 import { useDebounce } from '@/hooks/use-debounce';
-import { useGameSearch, useHotGames } from '@/hooks/use-game';
+import { useGameSearch, useHotGames, useOverallGames } from '@/hooks/use-game';
+import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+
+const RANKING_OPTIONS = [
+	{ value: 'overall', label: 'Overall' },
+	{ value: 'hotness', label: 'Hotness' },
+];
 
 const BrowseScreen = () => {
 	const [search, setSearch] = useState('');
 	const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
+	const [rankingMode, setRankingMode] = useState<'overall' | 'hotness'>('overall');
 	
 	const router = useNavigationStack();
 
@@ -32,11 +40,16 @@ const BrowseScreen = () => {
 
 	const searchQuery = useGameSearch(debouncedSearch);
 	const hotQuery = useHotGames();
+	const overallQuery = useOverallGames();
 
-	const activeQuery = isSearching ? searchQuery : hotQuery;
+	useRefetchOnFocus(['games', 'hot']);
+	useRefetchOnFocus(['games', 'overall']);
+
+	const rankingQuery = rankingMode === 'overall' ? overallQuery : hotQuery;
+	const activeQuery = isSearching ? searchQuery : rankingQuery;
 	const items = isSearching
-		? (searchQuery.data?.pages.flatMap((page) => page.content) ?? [])
-		: (hotQuery.data?.pages.flatMap((page) => page.content) ?? []);
+		? (searchQuery.data?.pages.flatMap(page => page.content) ?? [])
+		: (rankingQuery.data?.pages.flatMap(page => page.content) ?? []);
 
 	const renderFooter = () => {
 		if(activeQuery.isFetchingNextPage) {
@@ -94,7 +107,7 @@ const BrowseScreen = () => {
 					</Pressable>
 				</View>
 				{!isSearching && (
-					<Text className = 'font-display text-lg text-foreground'>In tendenza su BGG</Text>
+					<SegmentedControl options = { RANKING_OPTIONS } selected = { rankingMode } onSelect = { value => setRankingMode(value as 'overall' | 'hotness') }/>
 				)}
 			</View>
 			{activeQuery.isLoading ? (
@@ -105,9 +118,9 @@ const BrowseScreen = () => {
 				<FlatList className = 'mt-3' key = { viewMode } data = { items } keyExtractor = { item => `${item.bggId}` } numColumns = { viewMode === 'grid' ? 2 : 1 } columnWrapperStyle = { viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined } contentContainerStyle = { viewMode === 'grid' ? { paddingBottom: 40, flexGrow: 1 } : { paddingHorizontal: 16, paddingBottom: 40, flexGrow: 1 } } ItemSeparatorComponent = { viewMode === 'list' ? () => <View className = 'h-2'/> : undefined }
 					renderItem = {({ item }) =>
 						viewMode === 'list' ? (
-							<GameListItem game = { item } onPress = { () => router.push(`/game/${item.bggId}`) } showRank = { !isSearching }/>
+							<GameListItem game = { item } onPress = { () => router.push(`/game/${item.bggId}`) } showRank = { !isSearching } rankField = { rankingMode === 'overall' ? 'bggRank' : 'rank' }/>
 						) : (
-							<GameGridItem game = { item } onPress = { () => router.push(`/game/${item.bggId}`) } showRank = { !isSearching }/>
+							<GameGridItem game = { item } onPress = { () => router.push(`/game/${item.bggId}`) } showRank = { !isSearching } rankField = { rankingMode === 'overall' ? 'bggRank' : 'rank' }/>
 						)
 					}
 					onEndReached = { () => { if(activeQuery.hasNextPage && !activeQuery.isFetchingNextPage) activeQuery.fetchNextPage() } } onEndReachedThreshold = { 0.4 } ListFooterComponent = { renderFooter } ListEmptyComponent = { renderEmpty }

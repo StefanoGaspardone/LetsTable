@@ -103,3 +103,5 @@ class CannotSuspendSelfException: RuntimeException("You cannot suspend your own 
 class InvalidAccountStatusTransitionException(message: String): RuntimeException(message)
 
 class InvalidExpansionForGameException(expansionId: UUID) : RuntimeException("Expansion $expansionId does not belong to the selected game")
+
+class InvalidRankIndexFileException(message: String): RuntimeException(message)

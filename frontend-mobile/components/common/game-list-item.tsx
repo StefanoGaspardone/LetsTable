@@ -10,15 +10,18 @@ interface GameListItemProps {
 	game: Game;
 	onPress?: () => void;
 	showRank?: boolean;
+	rankField?: 'rank' | 'bggRank';
 }
 
-const GameListItem = ({ game, onPress, showRank }: GameListItemProps) => {
+const GameListItem = ({ game, onPress, showRank, rankField = 'rank' }: GameListItemProps) => {
+	const displayedRank = rankField === 'bggRank' ? game.bggRank : game.rank;
+
 	return (
 		<Pressable onPress = { onPress } className = 'flex-row items-center gap-3 rounded-2xl border border-border bg-card p-2 active:scale-[0.98] active:opacity-75'>
 			{showRank && (
 				<View style = {{ width: 28 }} className = 'items-center justify-center'>
-					{game.rank != null && (
-						<Text className = 'font-display text-lg text-primary'>{game.rank}</Text>
+					{displayedRank != null && (
+						<Text className = 'font-display text-lg text-primary'>{displayedRank}</Text>
 					)}
 				</View>
 			)}

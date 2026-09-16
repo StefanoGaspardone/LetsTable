@@ -19,6 +19,7 @@ import { NavigationStackProvider } from '@/contexts/navigation-stack-context';
 import { useHealthCheck } from '@/hooks/use-health-check';
 
 import ServerDownOverlay from '@/components/common/server-down-overlay';
+import { KeyboardAvoidingView, Platform } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -45,11 +46,13 @@ const RootLayoutNav = () => {
 	}
 
 	return (
-		<Stack screenOptions = {{ headerShown: false }}>
-			<Stack.Screen name = 'index'/>
-			<Stack.Screen name = '(auth)'/>
-			<Stack.Screen name = '(tabs)'/>
-		</Stack>
+		<KeyboardAvoidingView style = {{ flex: 1 }} behavior = { Platform.OS === 'ios' ? 'padding' : 'height' }>
+			<Stack screenOptions = {{ headerShown: false }}>
+				<Stack.Screen name = 'index'/>
+				<Stack.Screen name = '(auth)'/>
+				<Stack.Screen name = '(tabs)'/>
+			</Stack>
+		</KeyboardAvoidingView>
 	)
 }
 

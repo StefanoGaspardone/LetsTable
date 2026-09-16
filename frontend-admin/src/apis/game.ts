@@ -3,7 +3,7 @@ import { handleApiError } from '@/apis/axiosError';
 
 import { toast } from '@/components/ui/toast';
 
-import type { AdminGame, AdminUploadedFile } from '@/types/game';
+import type { AdminGame, AdminUploadedFile, BggRankIndex } from '@/types/game';
 import type { Page } from '@/types/page';
 
 export interface ListGamesParams {
@@ -27,9 +27,8 @@ export const listGames = async (params?: ListGamesParams): Promise<Page<AdminGam
 			},
 			toastError: true,
 		});
-		throw error;
 	}
-};
+}
 
 export const forceRefreshGame = async (bggId: number): Promise<AdminGame> => {
 	try {
@@ -46,9 +45,8 @@ export const forceRefreshGame = async (bggId: number): Promise<AdminGame> => {
 			},
 			toastError: true,
 		});
-		throw error;
 	}
-};
+}
 
 export const forceRefreshHotGames = async (): Promise<void> => {
 	try {
@@ -63,9 +61,8 @@ export const forceRefreshHotGames = async (): Promise<void> => {
 			},
 			toastError: true,
 		});
-		throw error;
 	}
-};
+}
 
 export const listRuleFiles = async (gameId: string): Promise<AdminUploadedFile[]> => {
 	try {
@@ -81,9 +78,8 @@ export const listRuleFiles = async (gameId: string): Promise<AdminUploadedFile[]
 			},
 			toastError: true,
 		});
-		throw error;
 	}
-};
+}
 
 export const deleteRuleFile = async (gameId: string, fileId: string): Promise<void> => {
 	try {
@@ -99,6 +95,30 @@ export const deleteRuleFile = async (gameId: string, fileId: string): Promise<vo
 			},
 			toastError: true,
 		});
-		throw error;
 	}
-};
+}
+
+export const uploadRankIndex = async (file: File): Promise<BggRankIndex> => {
+	try {
+		const formData = new FormData();
+		formData.append('file', file);
+
+		const res = await axiosInstance.post<BggRankIndex>('/admin/games/rank-index/upload', formData, {
+			headers: { 'Content-Type': 'multipart/form-data' },
+			timeout: 120000,
+		});
+
+		toast.add({ type: 'success', description: `Rank index aggiornato: ${res.data.count} voci.` });
+		return res.data;
+	} catch (error) {
+		handleApiError(error, {
+			fallback: 'Impossibile caricare il file del rank index.',
+			statusMessages: {
+				400: 'File non valido o non leggibile.',
+				401: 'Sessione scaduta. Effettua di nuovo il login.',
+				403: 'Accesso negato. Sono richiesti i privilegi di amministratore.',
+			},
+			toastError: true,
+		});
+	}
+}

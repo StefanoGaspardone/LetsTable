@@ -18,9 +18,12 @@ interface GameGridItemProps {
 	game: Game;
 	onPress?: () => void;
 	showRank?: boolean;
+	rankField?: 'rank' | 'bggRank';
 }
 
-const GameGridItem = ({ game, onPress, showRank = false }: GameGridItemProps) => {
+const GameGridItem = ({ game, onPress, showRank = false, rankField = 'rank' }: GameGridItemProps) => {
+	const displayedRank = rankField === 'bggRank' ? game.bggRank : game.rank;
+
 	return (
 		<Pressable onPress = { onPress } style = {{ width: CARD_WIDTH, padding: CARD_PADDING }} className = 'mb-4 rounded-2xl border border-border bg-card active:scale-[0.98] active:opacity-75'>
 			<View style = {{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }} className = 'relative overflow-hidden rounded-xl bg-secondary'>
@@ -33,9 +36,9 @@ const GameGridItem = ({ game, onPress, showRank = false }: GameGridItemProps) =>
 				)}
 				<View className = 'absolute top-1.5 left-1.5 right-1.5 flex-row items-center justify-between pointer-events-none'>
 					<View className = 'flex-row items-center gap-1'>
-						{game.rank != null && showRank && (
+						{displayedRank != null && showRank && (
 							<View className = 'h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1.5 shadow-sm'>
-							<Text className = 'text-xs font-bold text-white'>#{game.rank}</Text>
+							<Text className = 'text-xs font-bold text-white'>#{displayedRank}</Text>
 							</View>
 						)}
 					</View>

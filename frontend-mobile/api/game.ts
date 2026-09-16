@@ -17,6 +17,13 @@ export const getHotGames = async (page: number, size = 20): Promise<PageDTO<Game
 	return data;
 }
 
+export const getOverallGames = async (page: number, size = 20): Promise<PageDTO<Game>> => {
+	const { data } = await apiClient.get<PageDTO<Game>>('/games/overall', {
+		params: { page, size },
+	});
+	return data;
+}
+
 export const getGameByBggId = async (bggId: number): Promise<Game> => {
 	const { data } = await apiClient.get<Game>(`/games/${bggId}`);
     return data;

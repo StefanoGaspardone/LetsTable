@@ -1,10 +1,9 @@
 package com.backend.seeders
 
 import com.backend.clients.BggClient
-import com.backend.models.dtos.BggThingItemXml
 import com.backend.models.entities.Game
 import com.backend.repositories.GameRepository
-import org.jsoup.Jsoup
+import com.backend.utils.BggDetails
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Instant
@@ -56,14 +55,14 @@ class GameSeeder(
 
                 val baseGameEntities = baseGamesXml.items.map { item ->
                     val game = gameRepository.findByBggId(item.id).orElseGet { Game(bggId = item.id, name = "") }
-                    applyBggDetails(game, item)
+                    BggDetails.applyBggDetails(game, item)
                 }
                 gameRepository.saveAll(baseGameEntities)
 
                 expansionsXml?.items?.let { expItems ->
                     val expansionEntities = expItems.map { expItem ->
                         val expGame = gameRepository.findByBggId(expItem.id).orElseGet { Game(bggId = expItem.id, name = "") }
-                        applyBggDetails(expGame, expItem)
+                        BggDetails.applyBggDetails(expGame, expItem)
 
                         expGame.isExpansion = true
                         expGame.baseGameBggId = expansionToBaseGameIdMap[expItem.id] ?: expItem.baseGameRef()?.bggId
@@ -84,41 +83,6 @@ class GameSeeder(
             logger.error("\n\t[ERROR] [game_seeder][seed] Error seeding games from BGG: {}. Falling back to static mock seed.", e.message)
             seedStaticFallback()
         }
-    }
-
-    private fun applyBggDetails(game: Game, details: BggThingItemXml): Game {
-        val cleanDescription = details.description
-            ?.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
-            ?.let { Jsoup.parse(it).body().wholeText() }
-            ?.replace(Regex("""[—–-]\s*description from (the )?(publisher|designer|artist|manufacturer)\.?\s*$""", RegexOption.IGNORE_CASE), "")
-            ?.replace(Regex("\n{3,}"), "\n\n")
-            ?.trim()
-
-        game.name = details.primaryName() ?: game.name
-        game.yearPublished = details.yearPublished?.value?.toIntOrNull()
-        game.thumbnailUrl = details.thumbnail
-        game.imageUrl = details.image
-        game.minPlayers = details.minPlayers?.value?.toIntOrNull()?.takeIf { it > 0 }
-        game.maxPlayers = details.maxPlayers?.value?.toIntOrNull()?.takeIf { it > 0 }
-        game.playingTimeMinutes = details.playingTime?.value?.toIntOrNull()?.takeIf { it > 0 }
-        game.description = cleanDescription
-        game.lastSyncedAt = Instant.now()
-        game.isExpansion = details.type != "boardgame"
-
-        val baseGameRef = details.baseGameRef()
-        game.baseGameBggId = baseGameRef?.bggId
-        game.difficulty = details.statistics
-            ?.ratings
-            ?.averageWeight
-            ?.value
-            ?.toDoubleOrNull()
-            ?.takeIf { it > 0 }
-
-        game.designers = details.links.filter { it.type == "boardgamedesigner" }.map { it.value }
-        game.artists = details.links.filter { it.type == "boardgameartist" }.map { it.value }
-        game.publishers = details.links.filter { it.type == "boardgamepublisher" }.map { it.value }
-
-        return game
     }
 
     private fun seedStaticFallback(): List<Game> {

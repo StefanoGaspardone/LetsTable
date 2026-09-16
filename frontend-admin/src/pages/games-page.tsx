@@ -1,10 +1,10 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { RefreshCw, Loader2, Puzzle } from 'lucide-react';
+import { RefreshCw, Loader2, Puzzle, Upload } from 'lucide-react';
 
-import { listGames, forceRefreshGame, type ListGamesParams } from '@/apis/game';
+import { listGames, forceRefreshGame, type ListGamesParams, uploadRankIndex } from '@/apis/game';
 
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
@@ -25,6 +25,10 @@ const GamesPage = () => {
 	const [search, setSearch] = useState('');
 	const [expansionsOnly, setExpansionsOnly] = useState(false);
 	const [refreshingBggId, setRefreshingBggId] = useState<number | null>(null);
+    const [isUploadingRankIndex, setIsUploadingRankIndex] = useState(false);
+
+	const fileInputRef = useRef<HTMLInputElement>(null);
+
 	const { field: sortField, direction: sortDirection, handleSort, sortParam } = useSort<SortField>('name');
     
     const navigate = useNavigate();
@@ -59,14 +63,40 @@ const GamesPage = () => {
 		}
 	}
 
+    
+	const handleRankIndexFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+		const file = event.target.files?.[0];
+		if(!file) return;
+
+		setIsUploadingRankIndex(true);
+
+		try {
+			await uploadRankIndex(file);
+		} catch {
+			// swallow catch
+		} finally {
+			setIsUploadingRankIndex(false);
+			if(fileInputRef.current) fileInputRef.current.value = '';
+		}
+	}
+
 	return (
 		<div className = 'flex h-screen flex-col gap-8 p-8'>
 			<h1 className = 'font-heading shrink-0 text-2xl font-bold'>Giochi</h1>
-			<div className = 'flex shrink-0 items-center gap-4'>
-				<Input placeholder = 'Cerca per nome...' value = { search } onChange = { e => setSearch(e.target.value) } className = 'max-w-sm bg-card py-4.5'/>
-				<div className = 'flex items-center gap-2 cursor-pointer'>
-					<Switch checked = { expansionsOnly } onCheckedChange = { setExpansionsOnly } id = 'expansions-only' className = '**:data-[slot=switch-thumb]:bg-white'/>
-					<label htmlFor = 'expansions-only' className = 'text-sm font-medium cursor-pointer'>Solo espansioni</label>
+			<div className = 'flex shrink-0 items-center justify-between gap-4'>
+				<div className = 'flex items-center gap-4'>
+					<Input placeholder = 'Cerca per nome...' value = { search } onChange = { e => setSearch(e.target.value) } className = 'max-w-sm bg-card py-4.5'/>
+					<div className = 'flex items-center gap-2 cursor-pointer'>
+						<Switch checked = { expansionsOnly } onCheckedChange = { setExpansionsOnly } id = 'expansions-only' className = '**:data-[slot=switch-thumb]:bg-white'/>
+						<label htmlFor = 'expansions-only' className = 'text-sm font-medium cursor-pointer'>Solo espansioni</label>
+					</div>
+				</div>
+				<div>
+					<input ref = { fileInputRef } type = 'file' accept = '.csv' className = 'hidden' onChange = { handleRankIndexFileSelected }/>
+					<Button className = 'bg-card cursor-pointer' variant = 'outline' onClick = { () => fileInputRef.current?.click() } disabled = { isUploadingRankIndex }>
+						{isUploadingRankIndex ? <Loader2 className = 'h-4 w-4 animate-spin'/> : <Upload className = 'h-4 w-4'/>}
+						Carica rank index
+					</Button>
 				</div>
 			</div>
 			<div className = 'min-h-0 flex-1 overflow-y-auto rounded-lg border border-border bg-card'>

@@ -105,4 +105,17 @@ class GameController(
     @GetMapping("/{bggId}/expansions")
     fun getExpansions(@Parameter(description = "BoardGameGeek ID of the game", example = "316554") @PathVariable bggId: Long, @Parameter(description = "Page number (0-indexed)", example = "0") @RequestParam(defaultValue = "0") page: Int, @Parameter(description = "Page size", example = "10") @RequestParam(defaultValue = "10") size: Int): PageDTO<GameDTO> =
         gameService.getExpansions(bggId, page, size)
+
+    @Operation(summary = "Overall ranking", description = "Games ranked by BoardGameGeek's overall rank, based on the manually uploaded rank index.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Overall ranking",
+                content = [Content(schema = Schema(implementation = GameDTO::class))]
+            ),
+        ]
+    )
+    @GetMapping("/overall")
+    fun overall(@RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int): PageDTO<GameDTO> =
+        gameService.getOverallGames(page, size)
 }
