@@ -2,7 +2,7 @@ import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { View, ActivityIndicator, Pressable } from 'react-native';
 import { BottomSheetModal, BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { Image } from 'expo-image';
-import { Search, Dices, ChevronLeft } from 'lucide-react-native';
+import { Search, Dices, ChevronLeft, X } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
@@ -79,10 +79,15 @@ const GamePickerSheet = forwardRef<GamePickerSheetRef, GamePickerSheetProps>(({ 
                     <Text className = 'font-display text-lg text-foreground'>Scegli un gioco</Text>
                 </View>
 				<View className = 'relative mb-3 px-4'>
-					<Input placeholder = 'Cerca...' value = { search } onChangeText = { setSearch } className = 'rounded-2xl bg-secondary pl-10'/>
+					<Input placeholder = 'Cerca...' value = { search } onChangeText = { setSearch } className = 'rounded-2xl bg-secondary pl-10 pr-10'/>
 					<View className = 'pointer-events-none absolute left-3 top-0 h-full justify-center px-4'>
 						<Search size = { 18 } className = 'text-muted-foreground'/>
 					</View>
+					{search.length > 0 && (
+						<Pressable onPress = { () => setSearch('') } hitSlop = { 8 } className = 'absolute right-3 top-0 h-full justify-center px-4'>
+							<X size = { 18 } className = 'text-muted-foreground'/>
+						</Pressable>
+					)}
 				</View>
 				{isLoading ? (
 					<View className = 'items-center py-8 px-4'>

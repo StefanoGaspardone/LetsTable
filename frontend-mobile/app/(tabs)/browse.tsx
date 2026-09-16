@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { View, FlatList, ActivityIndicator, Pressable } from 'react-native';
+import { RefreshControl } from 'react-native-gesture-handler';
 import { useFocusEffect } from 'expo-router';
 import { Search, List, LayoutGrid } from 'lucide-react-native';
 
@@ -16,6 +17,7 @@ import { useNavigationStack } from '@/contexts/navigation-stack-context';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useGameSearch, useHotGames, useOverallGames } from '@/hooks/use-game';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 
 const RANKING_OPTIONS = [
 	{ value: 'overall', label: 'Overall' },
@@ -44,6 +46,8 @@ const BrowseScreen = () => {
 
 	useRefetchOnFocus(['games', 'hot']);
 	useRefetchOnFocus(['games', 'overall']);
+
+	const { refreshing, onRefresh } = usePullToRefresh([['games', 'hot'], ['games', 'overall']]);
 
 	const rankingQuery = rankingMode === 'overall' ? overallQuery : hotQuery;
 	const activeQuery = isSearching ? searchQuery : rankingQuery;
@@ -115,7 +119,7 @@ const BrowseScreen = () => {
 					<ActivityIndicator/>
 				</View>
 			) : (
-				<FlatList className = 'mt-3' key = { viewMode } data = { items } keyExtractor = { item => `${item.bggId}` } numColumns = { viewMode === 'grid' ? 2 : 1 } columnWrapperStyle = { viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined } contentContainerStyle = { viewMode === 'grid' ? { paddingBottom: 40, flexGrow: 1 } : { paddingHorizontal: 16, paddingBottom: 40, flexGrow: 1 } } ItemSeparatorComponent = { viewMode === 'list' ? () => <View className = 'h-2'/> : undefined }
+				<FlatList className = 'mt-3' key = { viewMode } data = { items } keyExtractor = { item => `${item.bggId}` } numColumns = { viewMode === 'grid' ? 2 : 1 } columnWrapperStyle = { viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined } contentContainerStyle = { viewMode === 'grid' ? { paddingBottom: 40, flexGrow: 1 } : { paddingHorizontal: 16, paddingBottom: 40, flexGrow: 1 } } ItemSeparatorComponent = { viewMode === 'list' ? () => <View className = 'h-2'/> : undefined } refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = '#C45135' colors = { ['#C45135'] } progressBackgroundColor = '#F2EFE9'/> }
 					renderItem = {({ item }) =>
 						viewMode === 'list' ? (
 							<GameListItem game = { item } onPress = { () => router.push(`/game/${item.bggId}`) } showRank = { !isSearching } rankField = { rankingMode === 'overall' ? 'bggRank' : 'rank' }/>

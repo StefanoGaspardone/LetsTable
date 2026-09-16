@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { View, Pressable, ActivityIndicator, ScrollView } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { RefreshControl } from 'react-native-gesture-handler';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { Dices, Pencil, Trash2, MapPin, FileText, Trophy, Users, ChevronRight, Repeat, Clock, Calendar, Puzzle } from 'lucide-react-native';
@@ -25,6 +26,7 @@ import { formatDuration } from '@/lib/time';
 import { getAvatarUrl } from '@/lib/file';
 
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 
 interface TeamEntry {
 	id: string;
@@ -79,6 +81,8 @@ const MatchDetailScreen = () => {
     });
 
 	useRefetchOnFocus(['matches', 'detail', id]);
+			
+	const { refreshing, onRefresh } = usePullToRefresh([['matches', 'detail', id]]);
 
     const isCreator = match?.createdBy?.id === user?.id;
     const isInProgress = match?.durationMinutes == null;
@@ -215,7 +219,7 @@ const MatchDetailScreen = () => {
     return (
         <View className = 'flex-1 bg-background'>
             <ScreenHeader title = 'Dettaglio Partita' leftElement = { <BackButton/> }/>
-            <ScrollView className = 'flex-1' contentContainerStyle = {{ padding: 16, paddingBottom: 24 }}>
+            <ScrollView className = 'flex-1' contentContainerStyle = {{ padding: 16, paddingBottom: 24 }} refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = '#C45135' colors = { ['#C45135'] } progressBackgroundColor = '#F2EFE9'/> }>
                 <Pressable className = 'flex-row items-center gap-3 rounded-2xl border border-border bg-card p-2 active:scale-[0.98] active:opacity-75' onPress = { () => router.push(`/game/${match.game.bggId}`) }>
 					<View style = {{ width: 56, height: 56 }} className = 'overflow-hidden rounded-xl bg-secondary'>
 						{match.game.thumbnailUrl ? (

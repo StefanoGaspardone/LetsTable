@@ -214,7 +214,7 @@ const ProfileScreen = () => {
 							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-[#C45135]/15'>
 								<Shield size = { 17 } color = '#C45135'/>
 							</View>
-							<Text className = 'text-sm font-medium text-foreground'>Sicurezza & Password</Text>
+							<Text className = 'text-sm font-medium text-foreground'>Sicurezza</Text>
 						</View>
 						<ChevronRight size = { 18 } color = '#8E8E93'/>
 					</Pressable>
@@ -228,7 +228,7 @@ const ProfileScreen = () => {
 							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-[#C45135]/15'>
 								<Bell size = { 17 } color = '#C45135'/>
 							</View>
-							<Text className = 'text-sm font-medium text-foreground'>Notifiche Push</Text>
+							<Text className = 'text-sm font-medium text-foreground'>Notifiche</Text>
 						</View>
 						<Switch value = { notificationsEnabled } onValueChange = { handleToggleNotifications } trackColor = {{ false: '#DDD8CE', true: '#F2EFE9' }} thumbColor = { notificationsEnabled ? '#C45135' : '#f4f3f4' } ios_backgroundColor = '#DDD8CE'/>
 					</View>

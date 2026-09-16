@@ -110,6 +110,11 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
                     <View className = 'pointer-events-none absolute left-3 top-0 h-full justify-center'>
                         <Search size = { 16 } color = '#736E65'/>
                     </View>
+					{search.length > 0 && (
+						<Pressable onPress = { () => setSearch('') } hitSlop = { 8 } className = 'absolute right-3 top-0 h-full justify-center'>
+							<X size = { 18 } className = 'text-muted-foreground'/>
+						</Pressable>
+					)}
                 </View>
                 {selected.length > 0 && (
                     <View className = 'mb-3 flex-row flex-wrap'>

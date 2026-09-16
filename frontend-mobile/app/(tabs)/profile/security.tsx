@@ -7,7 +7,7 @@ import ComingSoon from '@/components/common/coming-soon';
 const SecurityScreen = () => {
 	return (
 		<View className = 'flex-1 bg-background'>
-			<ScreenHeader title = 'Sicurezza & Password' leftElement = { <BackButton/> }/>
+			<ScreenHeader title = 'Sicurezza' leftElement = { <BackButton/> }/>
 			<ComingSoon title = 'In arrivo' subtitle = 'Qui potrai cambiare la tua password.'/>
 		</View>
 	)

@@ -219,15 +219,11 @@ No frontend automated test suite yet (manual testing against the real backend du
 
 ## Backlog
 
-| Item | Notes |
-|---|---|
-| Friends tab | Currently a "coming soon" placeholder; friend request send/accept/list is implemented backend-side but not yet wired into the mobile UI. |
-| Profile tab | Same — placeholder screen; account settings, logout, and profile editing exist as backend endpoints but no frontend yet. |
-| Wishlist detail & picker | `my-wishlists` and `wishlist/[id]` are placeholder screens; wishlist CRUD, member management, and item add/remove are implemented backend-side. |
-| Push notifications | Backend has a `push_tokens` table and register/unregister endpoints; no notification sending (friend request received, match result, etc.) wired up yet. |
-| Meeple avatars | Replace the flat color-dot next to each player (match detail, match-finish screen) with a small meeple icon rendered in the player's chosen color. |
-| Multi-touch "finger picker" for random turn order | Players each place a finger on screen; after a touch-timeout, a countdown picks a random starting player/team, turn order proceeding clockwise from touch position. Not started. |
-| Match expansions used | Allow tagging which expansion(s) of a game were used in a given match, alongside the base game — requires both backend (a join table) and frontend (an extra step in the register-match flow) changes. |
-| Component/sleeve info on game detail | Investigating a data source for sleeve dimensions/card counts per component (BGG has no public, documented endpoint for this); candidate is scraping sleeveyourgames.com, pending a reply to an email asking about an official API. |
-| EAS build / distribution | No production build pipeline yet — the app is currently only run through Expo Go / dev builds during development. |
-| Automated frontend tests | No test suite yet for the mobile app; testing has been manual, against the real running backend, throughout development. |
+- friend section in create match
+- edit match
+- create match sheet padding bottom
+- slide down to refresh
+- dark mode + dark palette
+- fix push notifications
+- input durata partita in termina partita
+- better email templates

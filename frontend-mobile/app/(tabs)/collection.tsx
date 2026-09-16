@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { View, Pressable, FlatList, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Search, List, LayoutGrid, Plus } from 'lucide-react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, RefreshControl } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import ScreenHeader from '@/components/common/screen-header';
@@ -15,6 +15,7 @@ import { Text } from '@/components/ui/text';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useCollection } from '@/hooks/use-collection';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
@@ -50,6 +51,8 @@ const CollectionScreen = () => {
 
 	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useCollection(debouncedSearch, getPlayedFilter(selectedFilter));
 	useRefetchOnFocus(['collection']);
+
+	const { refreshing, onRefresh } = usePullToRefresh([['collection']]);
 
 	const items = data?.pages.flatMap((page) => page.content) ?? [];
 
@@ -136,7 +139,7 @@ const CollectionScreen = () => {
 							<ActivityIndicator/>
 						</View>
 					) : (
-						<FlatList className = 'mt-3' key = { viewMode } data = { items } keyExtractor = { item => item.id } numColumns = { viewMode === 'grid' ? 2 : 1 } columnWrapperStyle = { viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined } contentContainerStyle = { viewMode === 'grid' ? { paddingBottom: 100, flexGrow: 1 } : { paddingHorizontal: 16, paddingBottom: 100, flexGrow: 1 } } ItemSeparatorComponent = { viewMode === 'list' ? () => <View className = 'h-2'/> : undefined }
+						<FlatList className = 'mt-3' key = { viewMode } data = { items } keyExtractor = { item => item.id } numColumns = { viewMode === 'grid' ? 2 : 1 } columnWrapperStyle = { viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined } contentContainerStyle = { viewMode === 'grid' ? { paddingBottom: 100, flexGrow: 1 } : { paddingHorizontal: 16, paddingBottom: 100, flexGrow: 1 } } ItemSeparatorComponent = { viewMode === 'list' ? () => <View className = 'h-2'/> : undefined } refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = '#C45135' colors = { ['#C45135'] } progressBackgroundColor = '#F2EFE9'/> }
 							renderItem = { ({ item }) =>
 								viewMode === 'list' ? (
 									<GameListItem game = { item.game } onPress = { () => router.push(`/game/${item.game.bggId}`) }/>

@@ -2,6 +2,7 @@ import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { View, Pressable, ActivityIndicator, FlatList, SectionList } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect } from 'expo-router';
+import { RefreshControl } from 'react-native-gesture-handler';
 import { Search, UserPlus, Check, X, UserX, Users, Clock } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
@@ -14,6 +15,8 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { useUserSearch } from '@/hooks/use-user';
 import {  useFriends, usePendingReceived, usePendingSent, useSendFriendRequest, useAcceptFriendRequest, useRejectFriendRequest, useCancelFriendRequest, useRemoveFriend } from '@/hooks/use-friend';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
+
 import { getAvatarUrl } from '@/lib/file';
 
 const getViewOptions = (pendingRequestsCount: number) => [
@@ -56,6 +59,9 @@ const FriendsScreen = () => {
     }, [viewMode]);
 
     useRefetchOnFocus(['friends']);
+            
+    const { refreshing, onRefresh } = usePullToRefresh([['friends']]);
+    const refreshControl = <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = '#C45135' colors = { ['#C45135'] } progressBackgroundColor = '#F2EFE9'/>;
 
     const sendRequest = useSendFriendRequest();
     const acceptRequest = useAcceptFriendRequest();
@@ -155,7 +161,7 @@ const FriendsScreen = () => {
                         <ActivityIndicator color = '#C45135' size = 'large'/>
                     </View>
                 ) : friends && friends.length > 0 ? (
-                    <FlatList className = 'pt-2' data = { friends } keyExtractor = { item => item.id } showsVerticalScrollIndicator = { false }
+                    <FlatList className = 'pt-2' data = { friends } keyExtractor = { item => item.id } showsVerticalScrollIndicator = { false } refreshControl = { refreshControl }
                         renderItem = { ({ item }) =>
                             renderUserCard( item,
                                 <Pressable  onPress = { () => removeFriend.mutate(item.id) } className = 'h-9 w-9 items-center justify-center rounded-full bg-secondary/80 active:bg-primary/90 active:scale-[0.98]' hitSlop = { 6 }>
@@ -178,7 +184,7 @@ const FriendsScreen = () => {
                     ) : (received?.length ?? 0) === 0 && (sent?.length ?? 0) === 0 ? (
                         <ComingSoon icon = { <Users size = { 40 } color = '#C45135'/> } title = 'Nessuna richiesta' subtitle = 'Le richieste di amicizia inviate e ricevute compariranno qui.'/>
                     ) : (
-                        <SectionList className = 'pt-2' showsVerticalScrollIndicator = { false }
+                        <SectionList className = 'pt-2' showsVerticalScrollIndicator = { false } refreshControl = { refreshControl }
                             sections = { [
                                 {
                                     title: 'Richieste Ricevute',
