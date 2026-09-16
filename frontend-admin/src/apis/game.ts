@@ -122,3 +122,20 @@ export const uploadRankIndex = async (file: File): Promise<BggRankIndex> => {
 		});
 	}
 }
+
+export const getGame = async (gameId: string): Promise<AdminGame> => {
+	try {
+		const res = await axiosInstance.get<AdminGame>(`/admin/games/${gameId}`);
+		return res.data;
+	} catch (error) {
+		handleApiError(error, {
+			fallback: 'Unable to fetch game details.',
+			statusMessages: {
+				401: 'Session expired. Please sign in again.',
+				403: 'Access denied. Admin privileges required.',
+				404: 'Game not found.',
+			},
+			toastError: true,
+		});
+	}
+}

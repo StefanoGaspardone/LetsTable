@@ -430,8 +430,8 @@ const GameDetailScreen = () => {
 												<Text className = 'font-display text-base text-foreground'>Componenti e Sleeve</Text>
 											</View>
 											<View className = 'gap-2'>
-												{game.sleeves.map((sleeve, index) => (
-													<View key = { `${sleeve.name}-${sleeve.width}-${sleeve.height}` } className = 'flex-row items-center gap-2 rounded-xl bg-background px-3 py-2.5 border border-border'>
+												{game.sleeves.map(sleeve => (
+													<View key = { sleeve.id } className = 'flex-row items-center gap-2 rounded-xl bg-background px-3 py-2.5 border border-border'>
 														<Ruler size = { 14 } color = '#736E65'/>
 														<View className = 'flex-1'>
 															<Text className = 'text-sm text-foreground'>

@@ -245,4 +245,8 @@ class ExceptionsHandler {
     @ExceptionHandler(InvalidExpansionForGameException::class)
     fun handleInvalidExpansionForGame(ex: InvalidExpansionForGameException) =
         buildResponse(HttpStatus.BAD_REQUEST, ex)
+
+    @ExceptionHandler(InvalidRankIndexFileException::class)
+    fun handleInvalidRankIndexFile(ex: InvalidRankIndexFileException) =
+        buildResponse(HttpStatus.BAD_REQUEST, ex)
 }

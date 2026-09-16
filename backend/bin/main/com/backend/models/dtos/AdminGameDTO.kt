@@ -109,3 +109,8 @@ data class AdminGameDTO(
         )
     }
 }
+
+data class BggRankIndexDTO(
+    @field:Schema(description = "Number of entries in the BGG rank index")
+    val count: Long,
+)

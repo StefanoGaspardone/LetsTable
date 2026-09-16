@@ -2,25 +2,25 @@ package com.backend.services
 
 import com.backend.clients.BggClient
 import com.backend.exceptions.GameNotFoundOnBggException
-import com.backend.models.dtos.BggThingItemXml
 import com.backend.models.dtos.GameDTO
 import com.backend.models.dtos.GameSleeveDTO
 import com.backend.models.dtos.PageDTO
 import com.backend.models.entities.Game
 import com.backend.models.entities.GameSleeve
 import com.backend.models.mappers.toPageDTO
+import com.backend.repositories.BggRankIndexRepository
 import com.backend.repositories.CollectionItemRepository
 import com.backend.repositories.GameRepository
 import com.backend.repositories.GameSleeveRepository
 import com.backend.security.CurrentUser
-import org.jsoup.Jsoup
+import com.backend.utils.BggDetails
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.UUID
+import java.util.*
 
 @Service
 class GameService(
@@ -30,6 +30,7 @@ class GameService(
     private val gameSleeveRepository: GameSleeveRepository,
     private val hotGamesPersistenceService: HotGamesPersistenceService,
     private val gameSleevePersistenceService: GameSleevePersistenceService,
+    private val bggRankIndexRepository: BggRankIndexRepository
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -195,7 +196,7 @@ class GameService(
                 val details = detailsByBggId[item.id]
 
                 val game = if(details != null) {
-                    applyBggDetails(
+                    BggDetails.applyBggDetails(
                         existing ?: Game(
                             bggId = item.id,
                             name = "",
@@ -453,7 +454,7 @@ class GameService(
             val details = detailsByBggId[item.id]
 
             val game = if(details != null) {
-                applyBggDetails(
+                BggDetails.applyBggDetails(
                     existing ?: Game(bggId = item.id, name = "", lastSyncedAt = Instant.now()),
                     details
                 )
@@ -477,6 +478,64 @@ class GameService(
         logger.info("\n\t[INFO] [game_service][force_refresh_hot_games] Hot games cache refreshed with {} entries", gamesToSave.size)
     }
 
+    fun getOverallGames(page: Int, size: Int): PageDTO<GameDTO> {
+        logger.debug("\n\t[DEBUG] [game_service][get_overall_games] Retrieving overall ranking\n\tpage={}\n\tsize={}", page, size)
+
+        try {
+            val pageSafe = if(page < 0) 0 else page
+            val sizeSafe = size.coerceIn(1, 50)
+            val pageable = PageRequest.of(pageSafe, sizeSafe)
+
+            val rankPage = bggRankIndexRepository.findAllByOrderByRankAsc(pageable)
+            val bggIds = rankPage.content.map { it.bggId }
+
+            if(bggIds.isEmpty()) {
+                val emptyPage = PageImpl<GameDTO>(emptyList(), pageable, rankPage.totalElements)
+                return emptyPage.toPageDTO { it }
+            }
+
+            val existingGamesByBggId = gameRepository.findAllByBggIdIn(bggIds).associateBy { it.bggId }
+            val now = Instant.now()
+            val staleThreshold = now.minus(STALE_AFTER_DAYS, ChronoUnit.DAYS)
+
+            val freshGames = mutableMapOf<Long, Game>()
+            val idsToSync = mutableListOf<Long>()
+
+            bggIds.forEach { bggId ->
+                val existing = existingGamesByBggId[bggId]
+                if(existing != null && !existing.lastSyncedAt.isBefore(staleThreshold)) {
+                    freshGames[bggId] = existing
+                } else {
+                    idsToSync.add(bggId)
+                }
+            }
+
+            val syncedGames = if(idsToSync.isNotEmpty()) {
+                enrichWithBatchDetails(idsToSync, existingGamesByBggId)
+            } else {
+                emptyMap()
+            }
+
+            val gamesByBggId = freshGames + syncedGames
+            val savedGameIds = gamesByBggId.values.mapNotNull { it.id }
+            val inCollectionMap = buildInCollectionMap(savedGameIds)
+
+            val content = bggIds.mapNotNull { bggId ->
+                gamesByBggId[bggId]?.let { game ->
+                    GameDTO.from(game, inCollectionMap[game.id])
+                }
+            }
+
+            val pageResult = PageImpl(content, pageable, rankPage.totalElements)
+
+            logger.info("\n\t[INFO] [game_service][get_overall_games] Retrieved {} games for overall ranking page {}", content.size, pageSafe)
+            return pageResult.toPageDTO { it }
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [game_service][get_overall_games] Error retrieving overall ranking: {}", e.message, e)
+            throw e
+        }
+    }
+
     private fun enrichWithBatchDetails(bggIds: List<Long>, existingGamesByBggId: Map<Long, Game>): Map<Long, Game> {
         if(bggIds.isEmpty()) {
             return emptyMap()
@@ -498,7 +557,7 @@ class GameService(
 
             val existing = existingGamesByBggId[id]
 
-            applyBggDetails(
+            BggDetails.applyBggDetails(
                 existing ?: Game(
                     bggId = id,
                     name = "",
@@ -516,80 +575,6 @@ class GameService(
             .saveGames(gamesToSave)
 
         return savedGames.associateBy { it.bggId }
-    }
-
-    private fun applyBggDetails(game: Game, details: BggThingItemXml): Game {
-        val cleanDescription = details.description
-            ?.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
-            ?.let { Jsoup.parse(it).body().wholeText() }
-            ?.replace(Regex("""[—–-]\s*description from (the )?(publisher|designer|artist|manufacturer)\.?\s*$""", RegexOption.IGNORE_CASE), "")
-            ?.replace(Regex("\n{3,}"), "\n\n")
-            ?.trim()
-
-        game.name = details.primaryName() ?: game.name
-        game.yearPublished = details.yearPublished?.value?.toIntOrNull()
-        game.thumbnailUrl = details.thumbnail
-        game.imageUrl = details.image
-        game.minPlayers = details.minPlayers
-                ?.value
-                ?.toIntOrNull()
-                ?.takeIf { it > 0 }
-
-        game.maxPlayers =
-            details.maxPlayers
-                ?.value
-                ?.toIntOrNull()
-                ?.takeIf { it > 0 }
-
-        game.playingTimeMinutes =
-            details.playingTime
-                ?.value
-                ?.toIntOrNull()
-                ?.takeIf { it > 0 }
-
-        game.description =
-            cleanDescription
-
-        game.bestWith =
-            parsePlayerCountRecommendation(
-                details.pollSummaryValue("bestwith")
-            )
-        game.recommendedWith = parsePlayerCountRecommendation(details.pollSummaryValue("recommmendedwith"))
-        game.expansionRefs = details.expansionRefs()
-        game.lastSyncedAt = Instant.now()
-        game.isExpansion = details.type != "boardgame"
-
-        val baseGameRef =
-            details.baseGameRef()
-
-        game.baseGameBggId = baseGameRef?.bggId
-        game.difficulty =
-            details.statistics
-                ?.ratings
-                ?.averageWeight
-                ?.value
-                ?.toDoubleOrNull()
-                ?.takeIf { it > 0 }
-
-        game.bggRank = details.bggRank()
-        game.avgRating = details.averageRating()
-
-        game.designers =
-            details.links
-                .filter { it.type == "boardgamedesigner" }
-                .map { it.value }
-
-        game.artists =
-            details.links
-                .filter { it.type == "boardgameartist" }
-                .map { it.value }
-
-        game.publishers =
-            details.links
-                .filter { it.type == "boardgamepublisher" }
-                .map { it.value }
-
-        return game
     }
 
     private fun syncSleeves(game: Game) {
@@ -640,26 +625,11 @@ class GameService(
         )
 
         return gameRepository.save(
-            applyBggDetails(
+            BggDetails.applyBggDetails(
                 game,
                 details
             )
         )
-    }
-
-    private val PLAYER_COUNT_REGEX =
-        Regex("""(\d+(?:[–-]\d+)?)""")
-
-    private fun parsePlayerCountRecommendation(raw: String?): String? {
-        if(raw.isNullOrBlank()) return null
-
-        if(raw == "(no votes)" || raw == "(Undetermined)") {
-            return null
-        }
-
-        return PLAYER_COUNT_REGEX
-            .find(raw)
-            ?.value
     }
 
     private fun buildInCollectionMap(gameIds: List<UUID>): Map<UUID, Boolean> {

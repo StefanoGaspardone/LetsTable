@@ -28,6 +28,7 @@ export interface AdminGame {
 }
 
 export interface GameSleeve {
+	id: string;
 	name: string | null;
 	height: number | null;
 	width: number | null;

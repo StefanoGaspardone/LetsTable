@@ -122,4 +122,24 @@ class AdminGameService(
             throw e
         }
     }
+
+    fun getGame(gameId: UUID): AdminGameDTO {
+        logger.debug("\n\t[DEBUG] [admin_game_service][get_game] Retrieving game {}", gameId)
+
+        try {
+            val game = gameRepository.findById(gameId)
+                .orElseThrow { GameNotFoundException(gameId) }
+
+            val sleeves = gameSleeveRepository.findAllByGameId(gameId)
+
+            logger.info("\n\t[INFO] [admin_game_service][get_game] Retrieved game {}", gameId)
+            return AdminGameDTO.from(game, sleeves)
+        } catch(e: GameNotFoundException) {
+            logger.warn("\n\t[WARN] [admin_game_service][get_game] Game {} not found", gameId)
+            throw e
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [admin_game_service][get_game] Error retrieving game {}: {}", gameId, e.message)
+            throw e
+        }
+    }
 }

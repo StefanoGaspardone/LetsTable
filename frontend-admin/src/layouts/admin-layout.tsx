@@ -12,8 +12,8 @@ import { getAvatarUrl } from '@/lib/files';
 
 const navItems = [
 	{ to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-	{ to: '/users', label: 'Utenti', icon: Users },
 	{ to: '/games', label: 'Giochi', icon: Dices },
+	{ to: '/users', label: 'Utenti', icon: Users },
 ]
 
 interface AdminLayoutProps {

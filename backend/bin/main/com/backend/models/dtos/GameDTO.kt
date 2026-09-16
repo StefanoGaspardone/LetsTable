@@ -138,6 +138,9 @@ data class GameDTO(
 
 @Schema(description = "A sleeve/component type recommendation for this game")
 data class GameSleeveDTO(
+    @field:Schema(description = "Internal sleeve id")
+    val id: UUID?,
+
     @field:Schema(description = "Component name")
     val name: String?,
 
@@ -155,6 +158,7 @@ data class GameSleeveDTO(
 ) {
     companion object {
         fun from(sleeve: GameSleeve) = GameSleeveDTO(
+            id = sleeve.id,
             name = sleeve.name,
             height = sleeve.height,
             width = sleeve.width,

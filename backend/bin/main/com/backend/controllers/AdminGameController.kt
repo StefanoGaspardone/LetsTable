@@ -3,8 +3,10 @@ package com.backend.controllers
 import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.AdminGameDTO
 import com.backend.models.dtos.AdminUploadedFileDTO
+import com.backend.models.dtos.BggRankIndexDTO
 import com.backend.models.dtos.PageDTO
 import com.backend.services.AdminGameService
+import com.backend.services.BggRankIndexService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -16,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.multipart.MultipartFile
 import java.util.UUID
 
 @Tag(name = "Admin - Games", description = "Administrative endpoints for managing the BGG game cache")
@@ -24,6 +27,7 @@ import java.util.UUID
 @PreAuthorize("hasRole('ADMIN')")
 class AdminGameController(
     private val adminGameService: AdminGameService,
+    private val bggRankIndexService: BggRankIndexService
 ) {
 
     @Operation(summary = "Force refresh a game", description = "Forces a fresh sync of a single game from BoardGameGeek, bypassing the normal staleness check.")
@@ -124,4 +128,46 @@ class AdminGameController(
         @Parameter(description = "Sort field and direction, e.g. 'name-asc', 'rank-desc', 'lastSyncedAt-desc', 'isExpansion-asc'") @RequestParam(required = false) sort: String?,
     ): ResponseEntity<PageDTO<AdminGameDTO>> =
         ResponseEntity.ok(adminGameService.listGames(page, size, search, isExpansion, sort))
+
+    @Operation(summary = "Upload BGG rank index", description = "Uploads the official BoardGameGeek rank export CSV file (downloaded and extracted manually from boardgamegeek.com/data_dumps/bg_ranks) to refresh the internal rank index used for the 'Overall' ranking.")
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "Ok - Rank index refreshed"),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Invalid or unparseable file",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                )]
+            ),
+        ]
+    )
+    @PostMapping("/rank-index/upload", consumes = ["multipart/form-data"])
+    fun uploadRankIndex(@RequestParam("file") file: MultipartFile): ResponseEntity<BggRankIndexDTO> =
+        ResponseEntity.ok(bggRankIndexService.uploadRankIndex(file))
+
+    @Operation(summary = "Get game details", description = "Retrieves the full administrative details of a single cached game by its internal id.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Game details",
+                content = [Content(schema = Schema(implementation = AdminGameDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "404", description = "Not Found - Game does not exist",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "GameNotFoundExample",
+                        summary = "Game not found example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Game not found: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
+                    )]
+                )]
+            ),
+        ]
+    )
+    @GetMapping("/{gameId}")
+    fun getGame(@Parameter(description = "Internal Let's Table id of the game") @PathVariable gameId: UUID): ResponseEntity<AdminGameDTO> =
+        ResponseEntity.ok(adminGameService.getGame(gameId))
 }

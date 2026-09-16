@@ -145,4 +145,29 @@ class AdminGameController(
     @PostMapping("/rank-index/upload", consumes = ["multipart/form-data"])
     fun uploadRankIndex(@RequestParam("file") file: MultipartFile): ResponseEntity<BggRankIndexDTO> =
         ResponseEntity.ok(bggRankIndexService.uploadRankIndex(file))
+
+    @Operation(summary = "Get game details", description = "Retrieves the full administrative details of a single cached game by its internal id.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Game details",
+                content = [Content(schema = Schema(implementation = AdminGameDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "404", description = "Not Found - Game does not exist",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "GameNotFoundExample",
+                        summary = "Game not found example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Game not found: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
+                    )]
+                )]
+            ),
+        ]
+    )
+    @GetMapping("/{gameId}")
+    fun getGame(@Parameter(description = "Internal Let's Table id of the game") @PathVariable gameId: UUID): ResponseEntity<AdminGameDTO> =
+        ResponseEntity.ok(adminGameService.getGame(gameId))
 }

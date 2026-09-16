@@ -1,6 +1,5 @@
 import type { User } from '@/types/user';
-import type { Game } from '@/types/game';
-
+import type { AdminGame } from '@/types/game';
 export interface MatchPlayerRef {
     id: string;
     user: User | null;
@@ -29,7 +28,7 @@ export interface MatchPlayer {
 
 export interface Match {
     id: string;
-    game: Game;
+    game: AdminGame;
     createdBy: User;
     isTeamBased: boolean;
     playedAt: string;
@@ -39,5 +38,5 @@ export interface Match {
     createdAt: string;
     teams: MatchTeam[] | null;
     players: MatchPlayer[] | null;
-    expansionsUsed: Game[];
+    expansionsUsed: AdminGame[];
 }
