@@ -170,7 +170,8 @@ const MatchDetailScreen = () => {
 			return [...teams].sort((a, b) => {
                 if(a.isWinner) return -1;
                 if(b.isWinner) return 1;
-                return (b.score ?? 0) - (a.score ?? 0);
+                
+				return (b.score ?? 0) - (a.score ?? 0);
             });
         } else {
             const players = match.players?.map(p => ({
