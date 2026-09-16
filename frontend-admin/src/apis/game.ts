@@ -105,7 +105,7 @@ export const uploadRankIndex = async (file: File): Promise<BggRankIndex> => {
 
 		const res = await axiosInstance.post<BggRankIndex>('/admin/games/rank-index/upload', formData, {
 			headers: { 'Content-Type': 'multipart/form-data' },
-			timeout: 120000,
+			timeout: 1800000,
 		});
 
 		toast.add({ type: 'success', description: `Rank index aggiornato: ${res.data.count} voci.` });
