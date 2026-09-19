@@ -454,7 +454,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 					{mode === 'team' && (
                         <View className = 'mb-4 gap-3'>
                             {teams.map((team, teamIndex) => (
-                                <View key = { `${team.color}-${team.name}-${team.players.length}` } className = 'rounded-xl border border-border bg-card p-3'>
+                                <View key = { teamIndex } className = 'rounded-xl border border-border bg-card p-3'>
                                     <View className = 'mb-2 flex-row items-center gap-2'>
                                         <ColorSwatchPicker value = { team.color } onChange = { color => handleTeamColorChange(teamIndex, color) }/>
                                         <Input value = { team.name } onChangeText = { name => handleTeamNameChange(teamIndex, name) } placeholder = { `Squadra ${teamIndex + 1}` } className = 'h-9 flex-1'/>

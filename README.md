@@ -222,7 +222,5 @@ No frontend automated test suite yet (manual testing against the real backend du
 - friend section in create match
 - edit match
 - fix push notifications
-- better email templates
-- when typing on a input, the foud goes to another input after a character types
 - games with only 1 team, win o not
 - friends section of a user
