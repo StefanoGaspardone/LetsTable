@@ -1,6 +1,6 @@
 # Let's Table (TODO finish and update this README)
 
-A personal board-game tracking app for a private group of friends - collection, wishlists, play sessions, and friend management - built with Spring Boot / Kotlin on the backend and React Native / Expo on the frontend.
+A personal board-game tracking app for a private group of friends - collection, wishlists, play sessions, and friend management
 
 ## Table of Contents
 

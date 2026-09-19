@@ -20,8 +20,8 @@ import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 
 const RANKING_OPTIONS = [
-	{ value: 'overall', label: 'Overall' },
-	{ value: 'hotness', label: 'Hotness' },
+	{ value: 'overall', label: 'Classifica' },
+	{ value: 'hotness', label: 'In Tendenza' },
 ];
 
 const BrowseScreen = () => {
@@ -66,7 +66,7 @@ const BrowseScreen = () => {
 
 		if(!activeQuery.hasNextPage && items.length > 0) {
 			return (
-				<View className = 'py-6'>
+				<View className = 'pt-6'>
 					<Text className = 'text-center text-sm text-muted-foreground'>
 						{isSearching ? 'Fine dei risultati' : 'Fine della classifica'}
 					</Text>

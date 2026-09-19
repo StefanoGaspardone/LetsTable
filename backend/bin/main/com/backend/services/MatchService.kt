@@ -188,16 +188,12 @@ class MatchService(
     }
 
     @Transactional
-    fun getMatch(matchId: UUID, userId: UUID): MatchDTO {
+    fun getMatch(matchId: UUID): MatchDTO {
         logger.debug("\n\t[DEBUG] [match_service][get_match] Retrieving match {}", matchId)
 
         try {
             val match = matchRepository.findById(matchId)
                 .orElseThrow { MatchNotFoundException(matchId) }
-
-            if(match.durationMinutes == null && match.createdBy.id != userId) {
-                throw NotMatchCreatorException()
-            }
 
             val response = mapMatchToResponse(match)
 

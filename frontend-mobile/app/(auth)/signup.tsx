@@ -73,12 +73,10 @@ const SignupScreen = () => {
 		>
 			<Controller control = { control } name = 'username'
 				render = { ({ field: { onChange, onBlur, value } }) => (
-					<AuthField label = 'Username giocatore' placeholder = 'es. MeepleKing99' autoCapitalize = 'none' value = { value } onChangeText = { onChange } onBlur = { onBlur } error = { errors.username?.message }/>
+					<AuthField label = 'Username giocatore' placeholder = 'MeepleKing99' autoCapitalize = 'none' value = { value } onChangeText = { onChange } onBlur = { onBlur } error = { errors.username?.message }/>
 				)}
 			/>
-			<Controller
-				control = { control }
-				name = 'email'
+			<Controller control = { control } name = 'email'
 				render = { ({ field: { onChange, onBlur, value } }) => (
 					<AuthField label = 'Email' placeholder = 'nome@esempio.it' autoCapitalize = 'none' keyboardType = 'email-address' value = { value } onChangeText = { onChange } onBlur = { onBlur } error = { errors.email?.message }/>
 				)}
@@ -96,9 +94,7 @@ const SignupScreen = () => {
 			</View>
 			<View className = 'mb-2'>
 				<Text className = 'mb-1.5 text-sm font-medium text-foreground'>Conferma password</Text>
-				<Controller
-					control = { control }
-					name = 'confirmPassword'
+				<Controller control = { control } name = 'confirmPassword'
 					render = { ({ field: { onChange, onBlur, value } }) => (
 						<PasswordInput placeholder = 'Ripeti la password' value = { value } onChangeText = { onChange } onBlur = { onBlur }/>
 					)}
@@ -108,9 +104,7 @@ const SignupScreen = () => {
 				)}
 			</View>
 			<View className = 'mb-2 mt-2'>
-                <Controller
-                    control = { control }
-                    name = 'acceptTerms'
+                <Controller control = { control } name = 'acceptTerms'
                     render = { ({ field: { onChange, value } }) => (
                         <View className  ='flex-row items-center space-x-2'>
                             <Pressable onPress = { () => onChange(!value) } className = { `h-5 w-5 rounded border items-center justify-center mr-2 ${value ? 'bg-primary border-primary' : 'border-input bg-background'}` }>

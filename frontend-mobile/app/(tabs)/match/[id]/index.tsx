@@ -244,6 +244,14 @@ const MatchDetailScreen = () => {
 						<Text className = 'text-sm font-medium text-[#C45135]'>Partita in corso</Text>
 					</View>
 				)}
+				{isInProgress && !isCreator && (
+					<View className = 'mt-3 flex-row items-start gap-2.5 rounded-2xl border border-border bg-secondary p-3'>
+						<Clock size = { 16 } color = '#736E65' style = {{ marginTop: 1 }}/>
+						<Text className = 'flex-1 text-sm text-muted-foreground'>
+							Questa partita è ancora in corso. Chiedi a <Text className = 'font-semibold text-sm text-foreground'>{match.createdBy.username}</Text> di terminarla e segnare i risultati.
+						</Text>
+					</View>
+				)}
 				<View className = 'mt-4 flex-row items-center rounded-2xl border border-border bg-white p-3 shadow-sm'>
 					<View className = 'flex-1 items-center px-2'>
 						<View className = 'mb-1 flex-row items-center gap-1.5'>

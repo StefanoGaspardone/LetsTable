@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { View, ScrollView, Pressable, Switch, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
+import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import { Bell, Moon, Shield, LogOut, ChevronRight, Camera, Users, Trophy, Gamepad2, Edit3, Trash2 } from 'lucide-react-native';
 
@@ -256,7 +257,7 @@ const ProfileScreen = () => {
 					</Pressable>
 				</View>
 				<Text className = 'mt-2 text-center text-xs text-muted-foreground/60'>
-					Versione 1.0.0
+					Versione { Constants.expoConfig?.version ?? '1.0.0' }
 				</Text>
 			</ScrollView>
 			<ThemePickerSheet ref = { themeSheetRef }/>

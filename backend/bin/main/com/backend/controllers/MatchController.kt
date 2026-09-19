@@ -189,7 +189,7 @@ class MatchController(
         ]
     )
     @GetMapping("/{matchId}")
-    fun getMatch(@PathVariable matchId: UUID): MatchDTO = matchService.getMatch(matchId, CurrentUser.id())
+    fun getMatch(@PathVariable matchId: UUID): MatchDTO = matchService.getMatch(matchId)
 
     @Operation(
         summary = "List my matches",
