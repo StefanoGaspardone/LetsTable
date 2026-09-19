@@ -221,9 +221,8 @@ No frontend automated test suite yet (manual testing against the real backend du
 
 - friend section in create match
 - edit match
-- create match sheet padding bottom
-- slide down to refresh
-- dark mode + dark palette
 - fix push notifications
-- input durata partita in termina partita
 - better email templates
+- when typing on a input, the foud goes to another input after a character types
+- games with only 1 team, win o not
+- friends section of a user

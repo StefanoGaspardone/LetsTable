@@ -7,7 +7,6 @@ import com.backend.repositories.MatchTeamRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Instant
-import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 @Component
@@ -46,9 +45,9 @@ class MatchSeeder(
                 )
             )
             listOf(
-                MatchPlayer(match = individualMatch, user = marco, color = COLOR_1, score = 145, isWinner = true, startingPosition = 1),
-                MatchPlayer(match = individualMatch, user = anna, color = COLOR_2, score = 132, isWinner = false, startingPosition = 2),
-                MatchPlayer(match = individualMatch, user = null, guestName = "Giulia", color = COLOR_3, score = 98, isWinner = false, startingPosition = 3),
+                MatchPlayer(match = individualMatch, user = marco, color = COLOR_1, score = 145, isWinner = true, isStartingFirst = true),
+                MatchPlayer(match = individualMatch, user = anna, color = COLOR_2, score = 132, isWinner = false),
+                MatchPlayer(match = individualMatch, user = null, guestName = "Giulia", color = COLOR_3, score = 98, isWinner = false),
             ).forEach { matchPlayerRepository.save(it) }
 
             val teamMatch = matchRepository.save(
@@ -64,19 +63,19 @@ class MatchSeeder(
             )
 
             val teamA = matchTeamRepository.save(
-                MatchTeam(match = teamMatch, name = "Impero", color = COLOR_1, score = 12, isWinner = true, startingPosition = 1)
+                MatchTeam(match = teamMatch, name = "Impero", color = COLOR_1, score = 12, isWinner = true, isStartingFirst = true)
             )
             val teamB = matchTeamRepository.save(
-                MatchTeam(match = teamMatch, name = "Ribelli", color = COLOR_2, score = 8, isWinner = false, startingPosition = 2)
+                MatchTeam(match = teamMatch, name = "Ribelli", color = COLOR_2, score = 8, isWinner = false)
             )
             val teamC = matchTeamRepository.save(
-                MatchTeam(match = teamMatch, name = "Mercanti", color = COLOR_3, score = 6, isWinner = false, startingPosition = 3)
+                MatchTeam(match = teamMatch, name = "Mercanti", color = COLOR_3, score = 6, isWinner = false)
             )
             val teamD = matchTeamRepository.save(
-                MatchTeam(match = teamMatch, name = "Nomadi", color = "#B08968", score = 9, isWinner = false, startingPosition = 4)
+                MatchTeam(match = teamMatch, name = "Nomadi", color = "#B08968", score = 9, isWinner = false)
             )
             val teamE = matchTeamRepository.save(
-                MatchTeam(match = teamMatch, name = "Federazione", color = "#7C5CBF", score = 5, isWinner = false, startingPosition = 5)
+                MatchTeam(match = teamMatch, name = "Federazione", color = "#7C5CBF", score = 5, isWinner = false)
             )
 
             listOf(

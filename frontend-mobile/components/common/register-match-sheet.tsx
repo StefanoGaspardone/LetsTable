@@ -14,8 +14,8 @@ import GamePickerSheet, { GamePickerSheetRef, PickedGame } from '@/components/co
 import SegmentedControl from '@/components/common/segmented-control';
 import PlayerIdentityPickerSheet, { PickedIdentity, PlayerIdentityPickerSheetRef } from '@/components/common/player-identity-picker-sheet';
 import ColorSwatchPicker from '@/components/common/color-swatch-picker';
-import FingerOrderPicker from '@/components/common/finger-order-picker';
 import ExpansionPickerSheet, { ExpansionPickerSheetRef, PickedExpansion } from '@/components/common/expansion-picker-sheet';
+import SpinWheel from '@/components/common/spin-wheel';
 
 import { createMatch } from '@/api/match';
 
@@ -80,12 +80,18 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 	const [playedAt, setPlayedAt] = useState(new Date().toISOString().slice(0, 10));
 	const [players, setPlayers] = useState<LocalPlayer[]>([]);
 	const [isSubmitting, setIsSubmitting] = useState(false);
-    const [mode, setMode] = useState('individual');
+    const [mode, setModeRaw] = useState('individual');
     const [teams, setTeams] = useState<LocalTeam[]>([]);
     const [identityPickerTargetTeamIndex, setIdentityPickerTargetTeamIndex] = useState<number | null>(null);
-    const [isFingerPickerOpen, setIsFingerPickerOpen] = useState(false);
+    const [isWheelOpen, setIsWheelOpen] = useState(false);
+    const [startingIndex, setStartingIndex] = useState<number | null>(null);
     const [place, setPlace] = useState('');
     const [selectedExpansions, setSelectedExpansions] = useState<PickedExpansion[]>([]);
+
+    const setMode = (value: string) => {
+        setModeRaw(value);
+        setStartingIndex(null);
+    }
 
     useImperativeHandle(ref, () => ({
 		present: (game, initialExpansions) => {
@@ -101,6 +107,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
             setIdentityPickerTargetTeamIndex(null);
             setPlace('');
             setSelectedExpansions(initialExpansions ?? []);
+            setStartingIndex(null);
 
 			sheetRef.current?.present();
 		},
@@ -180,6 +187,11 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 
 	const handleRemovePlayer = (index: number) => {
 		setPlayers(prev => prev.filter((_, i) => i !== index));
+		setStartingIndex(prev => (prev === index ? null : prev !== null && prev > index ? prev - 1 : prev));
+	}
+
+	const handleToggleStarting = (index: number) => {
+		setStartingIndex(prev => (prev === index ? null : index));
 	}
 
 	const handleColorChange = (index: number, color: string) => {
@@ -192,6 +204,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 
     const handleRemoveTeam = (index: number) => {
         setTeams(prev => prev.filter((_, i) => i !== index));
+        setStartingIndex(prev => (prev === index ? null : prev !== null && prev > index ? prev - 1 : prev));
     }
 
     const handleTeamNameChange = (index: number, name: string) => {
@@ -269,22 +282,24 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                 expansionIds: selectedExpansions.map(e => e.id),
                 teams:
                     mode === 'team'
-                        ? teams.map((t) => ({
+                        ? teams.map((t, index) => ({
                                 name: t.name.trim() || null,
                                 color: t.color,
                                 score: 0,
                                 isWinner: false,
+                                isStartingFirst: startingIndex === index,
                                 players: t.players.map((p) => ({ userId: p.userId, guestName: p.guestName })),
                             }))
                         : null,
                 players:
                     mode === 'individual'
-                        ? players.map((p) => ({
+                        ? players.map((p, index) => ({
                                 userId: p.userId,
                                 guestName: p.guestName,
                                 color: p.color,
                                 score: 0,
                                 isWinner: false,
+                                isStartingFirst: startingIndex === index,
                             }))
                         : null,
             });
@@ -403,7 +418,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 					{mode === 'individual' && (
                         <View className = 'mb-4 gap-2'>
                             {players.map((player, index) => (
-                                <View key = { player.userId } className = 'flex-row items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5'>
+                                <View key = { `${player.userId}-${player.displayName}-${player.guestName}` } className = 'flex-row items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5'>
                                     <View style = {{ width: 32, height: 32 }} className = 'overflow-hidden rounded-full bg-secondary'>
                                         <Image source = {{ uri: getAvatarUrl(player.avatarId ?? null, player.displayName ?? '') }} style = {{ width: 32, height: 32 }} contentFit = 'cover'/>
                                     </View>
@@ -412,6 +427,9 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                         {player.userId === user?.id && <Text className = 'text-xs text-primary font-semibold'> (io)</Text>}
                                     </Text>
                                     <ColorSwatchPicker value = { player.color } onChange = { color => handleColorChange(index, color) }/>
+                                    <Pressable onPress = { () => handleToggleStarting(index) } className = { `rounded-full px-2.5 py-1.5 ${startingIndex === index ? 'bg-[#C45135]' : 'bg-secondary'}` }>
+                                        <Text className = { `text-[11px] font-bold ${startingIndex === index ? 'text-white' : 'text-muted-foreground'}` }>1st</Text>
+                                    </Pressable>
                                     {player.userId !== user?.id && (
                                         <Pressable onPress = { () => handleRemovePlayer(index) } hitSlop = { 8 } className = 'active:rounded-full active:bg-primary/90 p-2'>
                                             {({ pressed }) => (
@@ -440,6 +458,9 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                     <View className = 'mb-2 flex-row items-center gap-2'>
                                         <ColorSwatchPicker value = { team.color } onChange = { color => handleTeamColorChange(teamIndex, color) }/>
                                         <Input value = { team.name } onChangeText = { name => handleTeamNameChange(teamIndex, name) } placeholder = { `Squadra ${teamIndex + 1}` } className = 'h-9 flex-1'/>
+                                        <Pressable onPress = { () => handleToggleStarting(teamIndex) } className = { `rounded-full px-2.5 py-1.5 ${startingIndex === teamIndex ? 'bg-[#C45135]' : 'bg-secondary'}` }>
+                                            <Text className = { `text-[11px] font-bold ${startingIndex === teamIndex ? 'text-white' : 'text-muted-foreground'}` }>1st</Text>
+                                        </Pressable>
                                         <Pressable onPress = { () => handleRemoveTeam(teamIndex) } hitSlop = { 8 } className = 'active:rounded-full active:bg-primary/90 p-2'>
                                             {({ pressed }) => (
                                                 <Trash2 size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65'}/>
@@ -511,15 +532,15 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                             {isSubmitting ? 'Creazione...' : 'Inizia Partita'}
                         </Text>
                     </Button>
-                    <Text onPress = { () => setIsFingerPickerOpen(true) } className = 'text-sm text-center active:underline text-[#C45135] font-medium mt-2'>
-                        {mode === 'team' ? 'Scegli la squadra iniziale' : 'Scegli giocatore iniziale'}
+                    <Text onPress = { () => setIsWheelOpen(true) } className = 'text-sm text-center active:underline text-[#C45135] font-medium mt-2'>
+                        {mode === 'team' ? 'Scegli la squadra iniziale' : 'Scegli il giocatore iniziale'}
                     </Text>
                 </BottomSheetScrollView>
             </AppBottomSheet>
             <GamePickerSheet ref = { gamePickerRef } onSelect = { handleGameSelected } onBack = { () => { gamePickerRef.current?.dismiss(); sheetRef.current?.present(); } }/>
             <PlayerIdentityPickerSheet ref = { identityPickerRef } excludeUserIds = { excludeUserIds } excludeGuestNames = { excludeGuestNames } onConfirm = { handleIdentitiesConfirmed } onBack = { () => { identityPickerRef.current?.dismiss(); sheetRef.current?.present(); } }/>
             <ExpansionPickerSheet ref = { expansionPickerRef } onConfirm = { handleExpansionsConfirmed } onBack = { () => { expansionPickerRef.current?.dismiss(); sheetRef.current?.present(); } }/>
-            <FingerOrderPicker visible = { isFingerPickerOpen } onClose = { () => setIsFingerPickerOpen(false) }/>
+            <SpinWheel visible = { isWheelOpen } entries = { mode === 'team' ? teams.map((t, index) => ({ id: index.toString(), label: t.name.trim() || `Squadra ${index + 1}`, color: t.color })) : players.map((p, index) => ({ id: index.toString(), label: p.displayName, color: p.color })) } onClose = { () => setIsWheelOpen(false) } onResult = { id => { setStartingIndex(Number(id)); setIsWheelOpen(false); } }/>
         </>
 	)
 });

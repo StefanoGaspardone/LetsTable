@@ -29,8 +29,8 @@ class MatchTeam(
     @Column(name = "is_winner", nullable = false)
     var isWinner: Boolean = false,
 
-    @Column(name = "starting_position", nullable = true)
-    var startingPosition: Int? = null,
+    @Column(name = "is_starting_first", nullable = false)
+    var isStartingFirst: Boolean = false,
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

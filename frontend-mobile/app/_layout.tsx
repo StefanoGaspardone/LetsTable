@@ -3,8 +3,9 @@ import '@/lib/calendar';
 
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Stack, DefaultTheme, ThemeProvider, router } from 'expo-router';
+import { Stack, DefaultTheme, ThemeProvider, router, DarkTheme } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { KeyboardAvoidingView, Platform, useColorScheme } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
@@ -13,13 +14,12 @@ import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { ToastProvider } from '@/contexts/toast-context';
 import { ConfirmDialogProvider } from '@/contexts/confirm-dialog-context';
-import { ThemeProvider as AppThemeProvider } from '@/contexts/theme-context';
+import { ThemeProvider as AppThemeProvider, useTheme as useAppTheme } from '@/contexts/theme-context';
 import { NavigationStackProvider } from '@/contexts/navigation-stack-context';
 
 import { useHealthCheck } from '@/hooks/use-health-check';
 
 import ServerDownOverlay from '@/components/common/server-down-overlay';
-import { KeyboardAvoidingView, Platform } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,6 +27,8 @@ const queryClient = new QueryClient();
 
 const RootLayoutNav = () => {
 	const { isLoading } = useAuth();
+	const { themePreference } = useAppTheme();
+	const systemColorScheme = useColorScheme();
 	const [fontsLoaded] = useFonts({
 		PlayfairDisplay_700Bold,
 		PlusJakartaSans_400Regular,
@@ -45,13 +47,18 @@ const RootLayoutNav = () => {
 		return null;
 	}
 
+	const resolvedScheme = themePreference === 'system' ? systemColorScheme : themePreference;
+	const navigationTheme = resolvedScheme === 'dark' ? DarkTheme : DefaultTheme;
+
 	return (
 		<KeyboardAvoidingView style = {{ flex: 1 }} behavior = { Platform.OS === 'ios' ? 'padding' : 'height' }>
-			<Stack screenOptions = {{ headerShown: false }}>
-				<Stack.Screen name = 'index'/>
-				<Stack.Screen name = '(auth)'/>
-				<Stack.Screen name = '(tabs)'/>
-			</Stack>
+			<ThemeProvider value = { navigationTheme }>
+				<Stack screenOptions = {{ headerShown: false }}>
+					<Stack.Screen name = 'index'/>
+					<Stack.Screen name = '(auth)'/>
+					<Stack.Screen name = '(tabs)'/>
+				</Stack>
+			</ThemeProvider>
 		</KeyboardAvoidingView>
 	)
 }
@@ -86,10 +93,8 @@ const RootLayout = () => {
 							<ToastProvider>
 								<ConfirmDialogProvider>
 									<NavigationStackProvider>
-										<ThemeProvider value = { DefaultTheme }>
-											<RootLayoutNav/>
-											{!isHealthy && <ServerDownOverlay isChecking = { isChecking } onRetry = { retryNow }/>}
-										</ThemeProvider>
+										<RootLayoutNav/>
+										{!isHealthy && <ServerDownOverlay isChecking = { isChecking } onRetry = { retryNow }/>}
 									</NavigationStackProvider>
 								</ConfirmDialogProvider>
 							</ToastProvider>

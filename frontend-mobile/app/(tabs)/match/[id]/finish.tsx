@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, ScrollView, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Trophy, Users, Award, Star } from 'lucide-react-native';
+import { Trophy, Users, Award } from 'lucide-react-native';
 import { Image } from 'expo-image';
 
 import { Text } from '@/components/ui/text';
@@ -27,6 +27,7 @@ interface ScoreEntry {
 	isWinner: boolean;
 	userId: string | null;
 	guestName: string | null;
+	isStartingFirst: boolean;
 }
 
 const FinishMatchScreen = () => {
@@ -45,14 +46,15 @@ const FinishMatchScreen = () => {
 	const scrollRef = useRef<ScrollView>(null);
 
 	const [entries, setEntries] = useState<ScoreEntry[]>([]);
-	const [startingId, setStartingId] = useState<string | null>(null);
 	const [notes, setNotes] = useState('');
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [durationMinutes, setDurationMinutes] = useState('');
 
 	useFocusEffect(
 		useCallback(() => {
-			setStartingId(null);
 			setNotes('');
+			setDurationMinutes('');
+
 			scrollRef.current?.scrollTo({ y: 0, animated: false });
 		}, [id])
 	);
@@ -71,6 +73,7 @@ const FinishMatchScreen = () => {
 					isWinner: false,
 					userId: null,
 					guestName: null,
+					isStartingFirst: team.isStartingFirst,
 				})) ?? []
 			);
 		} else {
@@ -84,6 +87,7 @@ const FinishMatchScreen = () => {
 					isWinner: false,
 					userId: p.user?.id ?? null,
 					guestName: p.guestName,
+					isStartingFirst: p.isStartingFirst,
 				})) ?? []
 			);
 		}
@@ -95,10 +99,6 @@ const FinishMatchScreen = () => {
 
 	const handleToggleWinner = (id: string) => {
 		setEntries(prev => prev.map(e => (e.id === id ? { ...e, isWinner: !e.isWinner } : e)));
-	}
-
-	const handleSetStarting = (id: string) => {
-		setStartingId(prev => (prev === id ? null : id));
 	}
 
 	const handleSubmit = async () => {
@@ -113,6 +113,7 @@ const FinishMatchScreen = () => {
 					playedAt: match.playedAt,
 					place: match.place,
 					notes: notes.trim() || null,
+					durationMinutes: durationMinutes.trim() ? Number(durationMinutes) : null,
 					isTeamBased: true,
 					expansionIds: match.expansionsUsed.map(e => e.id!),
 					players: null,
@@ -123,7 +124,7 @@ const FinishMatchScreen = () => {
 							color: team.color,
 							score: Number(entry.score) || 0,
 							isWinner: entry.isWinner,
-							startingPosition: startingId === team.id ? 1 : null,
+							isStartingFirst: entry.isStartingFirst,
 							players: team.players.map(p => ({
 								userId: p.user?.id ?? null,
 								guestName: p.guestName,
@@ -137,6 +138,7 @@ const FinishMatchScreen = () => {
 					playedAt: match.playedAt,
 					place: match.place,
 					notes: notes.trim() || null,
+					durationMinutes: durationMinutes.trim() ? Number(durationMinutes) : null,
 					isTeamBased: false,
 					expansionIds: match.expansionsUsed.map(e => e.id!),
 					teams: null,
@@ -146,7 +148,7 @@ const FinishMatchScreen = () => {
 						color: entry.color,
 						score: Number(entry.score) || 0,
 						isWinner: entry.isWinner,
-						startingPosition: startingId === entry.id ? 1 : null,
+						isStartingFirst: entry.isStartingFirst,
 					})),
 				});
 			}
@@ -163,9 +165,7 @@ const FinishMatchScreen = () => {
 	}
 
 	const isValid = entries.length > 0
-		&& entries.every(entry => entry.score.trim() !== '')
-		&& startingId !== null
-		&& entries.some(entry => entry.isWinner);
+		&& entries.every(entry => entry.score.trim() !== '');
 
 	if(isLoading || !match) {
 		return (
@@ -190,9 +190,6 @@ const FinishMatchScreen = () => {
 						<View key = { entry.id } className = { `rounded-xl border p-4 ${entry.isWinner ? 'border-primary bg-primary/5' : 'border-border bg-card'}` }>
 							<View className = 'mb-3 flex-row items-center justify-between'>
 								<View className = 'flex-1 flex-row items-center gap-1.5'>
-									<Pressable onPress = { () => handleSetStarting(entry.id) } hitSlop = { 8 }>
-										<Star size = { 18 } color = { startingId === entry.id ? '#C45135' : '#DDD8CE' } fill = { startingId === entry.id ? '#C45135' : 'transparent' }/>
-									</Pressable>
 									<Image source = {{ uri: getAvatarUrl(entry.avatarId ?? null, entry.displayName ?? '') }} style = {{ width: 32, height: 32, borderRadius: 100 }} contentFit = 'cover'/>
 									<Text className = 'flex-1 font-medium text-base text-foreground' numberOfLines = { 1 }>
 										{entry.displayName}
@@ -210,35 +207,19 @@ const FinishMatchScreen = () => {
 							</View>
 							<View className = 'flex-row items-center gap-3'>
 								<Text className = 'text-sm font-medium text-muted-foreground'>Punteggio:</Text>
-								<TextInput
-									className = 'h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground'
-									keyboardType = 'numeric'
-									placeholder = '0'
-									placeholderTextColor = '#A0A0A0'
-									value = { entry.score }
-									onChangeText = { val => handleScoreChange(entry.id, val) }
-								/>
+								<TextInput className = 'h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground' keyboardType = 'numeric' placeholder = '0' placeholderTextColor = '#A0A0A0' value = { entry.score } onChangeText = { val => handleScoreChange(entry.id, val) }/>
 							</View>
 						</View>
 					))}
 				</View>
-				<View className = 'mt-3 flex-row items-center gap-2'>
-					<Star size = { 12 } color = '#736E65' fill = '#736E65'/>
-					<Text className = 'text-xs text-muted-foreground'>Indica chi ha iniziato la partita</Text>
-				</View>
-
+				<Text className = 'mb-1.5 mt-6 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
+					Durata (opzionale)
+				</Text>
+				<TextInput value = { durationMinutes } onChangeText = { setDurationMinutes } placeholder = 'Lascia vuoto per calcolarla automaticamente' keyboardType = 'numeric' className = 'h-11 rounded-xl border border-border bg-secondary px-3 text-sm text-foreground'/>
 				<Text className = 'mb-1.5 mt-6 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
 					Note (opzionale)
 				</Text>
-				<TextInput
-					value = { notes }
-					onChangeText = { setNotes }
-					placeholder = "Com'è andata? Dettagli sulla partita..."
-					multiline
-					numberOfLines = { 4 }
-					textAlignVertical = 'top'
-					className = 'min-h-[100px] rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-foreground'
-				/>
+				<TextInput value = { notes } onChangeText = { setNotes } placeholder = "Com'è andata? Dettagli sulla partita..." multiline numberOfLines = { 4 } textAlignVertical = 'top' className = 'min-h-[100px] rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-foreground'/>
 				<Button className = 'mt-6 h-12 rounded-full active:scale-[0.98]' disabled = { isSubmitting || !isValid } onPress = { handleSubmit }>
 					{isSubmitting ? (
 						<ActivityIndicator color = '#FFFFFF'/>

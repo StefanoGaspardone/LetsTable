@@ -37,8 +37,8 @@ class MatchPlayer(
     @Column(name = "is_winner", nullable = true)
     var isWinner: Boolean? = null,
 
-    @Column(name = "starting_position", nullable = true)
-    var startingPosition: Int? = null,
+    @Column(name = "is_starting_first", nullable = false)
+    var isStartingFirst: Boolean = false,
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

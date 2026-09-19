@@ -120,7 +120,9 @@ class MatchService(
             match.notes = request.notes
             match.expansionsUsed = resolveExpansions(request.expansionIds, game).toMutableSet()
 
-            if(match.durationMinutes == null) {
+            if(request.durationMinutes != null) {
+                match.durationMinutes = request.durationMinutes
+            } else if(match.durationMinutes == null) {
                 val elapsedMinutes = Duration.between(match.createdAt, Instant.now()).toMinutes().toInt()
                 match.durationMinutes = elapsedMinutes.coerceAtLeast(1)
             }
@@ -357,7 +359,7 @@ class MatchService(
                         color = teamRequest.color,
                         score = teamRequest.score,
                         isWinner = teamRequest.isWinner,
-                        startingPosition = teamRequest.startingPosition,
+                        isStartingFirst = teamRequest.isStartingFirst,
                     )
                 )
 
@@ -407,7 +409,7 @@ class MatchService(
                 color = request.color,
                 score = request.score,
                 isWinner = request.isWinner,
-                startingPosition = request.startingPosition,
+                isStartingFirst = request.isStartingFirst,
             )
         )
     }

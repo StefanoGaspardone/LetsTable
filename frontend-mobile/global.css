@@ -3,26 +3,57 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 40 24% 93%;
-    --foreground: 30 7% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 30 7% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 30 7% 11%;
-    --primary: 12 57% 49%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 38 24% 89%;
-    --secondary-foreground: 30 7% 11%;
-    --muted: 38 24% 89%;
-    --muted-foreground: 38 7% 42%;
-    --accent: 12 57% 49%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 4 65% 48%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 40 18% 84%;
-    --input: 38 24% 89%;
-    --ring: 12 57% 49%;
-    --radius: 1rem;
-  }
+	:root {
+		--background: 40 24% 93%;
+		--foreground: 30 7% 11%;
+		--card: 0 0% 100%;
+		--card-foreground: 30 7% 11%;
+		--popover: 0 0% 100%;
+		--popover-foreground: 30 7% 11%;
+		--primary: 12 57% 49%;
+		--primary-foreground: 0 0% 100%;
+		--secondary: 38 24% 89%;
+		--secondary-foreground: 30 7% 11%;
+		--muted: 38 24% 89%;
+		--muted-foreground: 38 7% 42%;
+		--accent: 12 57% 49%;
+		--accent-foreground: 0 0% 100%;
+		--destructive: 4 65% 48%;
+		--destructive-foreground: 0 0% 100%;
+		--border: 40 18% 84%;
+		--input: 38 24% 89%;
+		--ring: 12 57% 49%;
+		--radius: 1rem;
+	}
+
+	.dark:root {
+		--background: 224 71% 4%;        /* Blu scuro quasi nero (Zinc/Slate dark) */
+--background: 222 47% 11%;       /* Slate scuro ma morbido (stile GitHub/Discord) */
+        --foreground: 210 40% 98%;
+
+        --card: 217 33% 17%;              /* Card più chiara e ben distinta dallo sfondo */
+        --card-foreground: 210 40% 98%;
+
+        --popover: 217 33% 17%;
+        --popover-foreground: 210 40% 98%;
+
+        --primary: 250 84% 67%;           /* Viola/Indigo luminoso e meno saturo */
+        --primary-foreground: 210 40% 98%;
+
+        --secondary: 215 25% 23%;         /* Grigio-blu medio per elementi secondari */
+        --secondary-foreground: 210 40% 98%;
+
+        --muted: 215 25% 23%;
+        --muted-foreground: 215 20% 65%;
+
+        --accent: 250 84% 67%;
+        --accent-foreground: 210 40% 98%;
+
+        --destructive: 0 63% 45%;
+        --destructive-foreground: 210 40% 98%;
+
+        --border: 217 20% 25%;            /* Bordi più visibili per separare bene i blocchi */
+        --input: 215 25% 23%;
+        --ring: 250 84% 67%;        /* Anello di focus per accessori e form */
+	}
 }

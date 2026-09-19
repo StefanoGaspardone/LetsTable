@@ -13,7 +13,7 @@ export interface MatchTeam {
 	color: string;
 	score: number;
 	isWinner: boolean;
-	startingPosition: number | null;
+	isStartingFirst: boolean;
 	players: MatchPlayerRef[];
 }
 
@@ -24,7 +24,7 @@ export interface MatchPlayer {
 	color: string | null;
 	score: number | null;
 	isWinner: boolean | null;
-	startingPosition: number | null;
+	isStartingFirst: boolean;
 }
 
 export interface Match {
@@ -82,6 +82,7 @@ export interface UpdateMatchPayload {
 	gameId: string;
 	playedAt: string;
 	place: string | null;
+	durationMinutes: number | null;
 	notes: string | null;
 	isTeamBased: boolean;
 	expansionIds: string[];
