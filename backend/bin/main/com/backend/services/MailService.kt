@@ -27,7 +27,7 @@ class MailService(
             setVariable("expiresInMinutes", expiresInMinutes)
         }
 
-        send(to = to, subject = "Your Let's Table activation code", template = "emails/otp", context = context)
+        send(to = to, subject = "Codice di attivazione - Let's Table", template = "emails/otp", context = context)
     }
 
     @Async
@@ -37,7 +37,7 @@ class MailService(
             setVariable("expiresInMinutes", expiresInMinutes)
         }
 
-        send(to = to, subject = "Reset your Let's Table password", template = "emails/password-reset", context = context)
+        send(to = to, subject = "Reimposta la tua password - Let's Table", template = "emails/password-reset", context = context)
     }
 
     private fun send(to: String, subject: String, template: String, context: Context) {

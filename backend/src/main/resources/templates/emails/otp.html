@@ -1,26 +1,27 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="it" xml:lang="it">
-    <head>
-        <meta charset="UTF-8" />
-        <title>Codice di attivazione</title>
-    </head>
-    <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 24px;">
-        <table role="presentation" style="width: 100%; max-width: 480px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; padding: 32px;">
-            <tr>
-                <td>
-                    <h2 style="color: #1a1a1a; margin-top: 0;">Verifica la tua email</h2>
-                    <p style="color: #444444; font-size: 15px; line-height: 1.5;">
-                        Usa il codice sottostante per attivare il tuo account Let's Table.
-                    </p>
-                    <div style="text-align: center; margin: 32px 0;">
-                        <span style="display: inline-block; font-size: 32px; letter-spacing: 8px; font-weight: bold; color: #1a1a1a; background-color: #f0f0f0; padding: 16px 24px; border-radius: 6px;"
-                              th:text="${otpCode}">123456</span>
-                    </div>
-                    <p style="color: #777777; font-size: 13px;">
-                        Questo codice scadrà tra <span th:text="${expiresInMinutes}">10</span> minuti. Se non hai richiesto tu questo codice, puoi ignorare questa email.
-                    </p>
-                </td>
-            </tr>
-        </table>
-    </body>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:with="emailTitle='Attivazione Account'"
+      th:replace="~{emails/layout :: body(content=~{::#main-content})}">
+<head>
+    <meta charset="UTF-8" />
+</head>
+<body>
+<div id="main-content">
+    <h2 style="color: #1f1b18; font-size: 22px; font-weight: 700; margin: 8px 0 12px 0; text-align: center;">
+        Verifica la tua email
+    </h2>
+    <p style="color: #57504a; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0; text-align: center;">
+        Usa il codice monouso sottostante per completare la registrazione ed attivare il tuo account.
+    </p>
+
+    <div style="text-align: center; margin: 24px 0; background-color: #faf6f0; border: 1px solid #eedec8; border-radius: 12px; padding: 20px 16px;">
+            <span style="display: inline-block; font-family: 'Courier New', Courier, monospace; font-size: 34px; letter-spacing: 10px; font-weight: 800; color: #b84929;"
+                  th:text="${otpCode}">123456</span>
+    </div>
+
+    <p style="color: #8c827a; font-size: 13px; line-height: 1.5; text-align: center; margin: 0;">
+        ⏱️ Questo codice scadrà tra <strong style="color: #57504a;" th:text="${expiresInMinutes}">10</strong> minuti.
+    </p>
+</div>
+</body>
 </html>
