@@ -3,7 +3,7 @@ FROM eclipse-temurin:21-jdk-jammy AS build
 
 WORKDIR /app
 
-ENV GRADLE_OPTS="-Dorg.gradle.jvmargs='-Xmx384m -XX:MaxMetaspaceSize=128m'"
+ENV GRADLE_OPTS="-Dorg.gradle.jvmargs='-Xmx384m -XX:MaxMetaspaceSize=384m'"
 
 COPY gradlew .
 COPY gradle gradle
