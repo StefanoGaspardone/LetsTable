@@ -3,7 +3,7 @@ import '@/lib/calendar';
 
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Stack, DefaultTheme, ThemeProvider, router, DarkTheme } from 'expo-router';
+import { Stack, DefaultTheme, ThemeProvider, DarkTheme, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { KeyboardAvoidingView, Platform, useColorScheme } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

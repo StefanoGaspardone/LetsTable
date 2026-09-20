@@ -8,7 +8,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, Plus, UserCheck, ArrowLeftRight, Puzzle, Gauge, PenTool, Palette, Building2, Trash2, Library, Check, Heart, Layers, Ruler, Download } from 'lucide-react-native';
+import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, Plus, UserCheck, ArrowLeftRight, Puzzle, Gauge, PenTool, Palette, Building2, Trash2, Library, Check, Heart, Layers, Ruler, Download, Award } from 'lucide-react-native';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, interpolate, interpolateColor, Extrapolation, useDerivedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,9 +22,11 @@ import FabMenu from '@/components/common/fab-menu';
 import SegmentedControl from '@/components/common/segmented-control';
 import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/register-match-sheet';
 import GameListItem from '@/components/common/game-list-item';
+import MatchListItem from '@/components/common/match-list-item';
 
 import { getGameByBggId, getGameExpansions } from '@/api/game';
 import { downloadRuleFile, listGameRules, uploadGameRule } from '@/api/game-rules';
+import { listMatches } from '@/api/match';
 
 import { useToast } from '@/contexts/toast-context';
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
@@ -41,7 +43,7 @@ const BADGE_SIZE = 48;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const INFINITE_SCROLL_THRESHOLD = 400;
 
-type TabKey = 'info' | 'file' | 'expansions';
+type TabKey = 'info' | 'file' | 'expansions' | 'matches';
 
 const GameDetailScreen = () => {
 	const insets = useSafeAreaInsets();
@@ -67,9 +69,11 @@ const GameDetailScreen = () => {
 		info: 300,
 		file: 300,
 		expansions: 300,
+		matches: 300,
 	});
 	const [shouldFetchExpansions, setShouldFetchExpansions] = useState(false);
 	const [shouldFetchRules, setShouldFetchRules] = useState(false);
+	const [shouldFetchMatches, setShouldFetchMatches] = useState(false);
 
 	const HEADER_HEIGHT = measuredHeaderHeight;
 	const COLLAPSE_DISTANCE = IMAGE_HEIGHT - SHEET_OVERLAP - HEADER_HEIGHT;
@@ -92,6 +96,17 @@ const GameDetailScreen = () => {
 	});
 
 	const expansions = expansionsData?.pages.flatMap(page => page.content) ?? [];
+
+	const { data: matchesData, isLoading: isLoadingMatches, fetchNextPage: fetchNextMatchesPage, hasNextPage: hasNextMatchesPage, isFetchingNextPage: isFetchingNextMatchesPage } = useInfiniteQuery({
+		queryKey: ['matches', 'list', game?.id ?? null],
+		queryFn: ({ pageParam }) => listMatches({ page: pageParam, size: 20, gameId: game!.id, sort: 'playedAt-desc' }),
+		initialPageParam: 0,
+		getNextPageParam: lastPage => (lastPage.last ? undefined : lastPage.number + 1),
+		enabled: shouldFetchMatches && !!game?.id,
+	});
+
+	const matches = matchesData?.pages.flatMap(page => page.content) ?? [];
+	const totalMatches = matchesData?.pages[0]?.totalElements ?? 0;
 
 	const { data: ruleFiles, isLoading: isLoadingRules } = useQuery({
 		queryKey: ['games', 'rules', game?.id],
@@ -162,14 +177,16 @@ const GameDetailScreen = () => {
 	const TABS: { key: TabKey; label: string }[] = [
 		{ key: 'info', label: 'Info' },
 		{ key: 'file', label: 'File' },
-		...(!game?.isExpansion ? [{ key: 'expansions' as TabKey, label: `Espansioni (${game?.expansions ?? 0})` }] : []),
-	];
+		...(!game?.isExpansion ? [{ key: 'expansions' as TabKey, label: `Espansioni` }] : []),
+		{ key: 'matches', label: `Partite` },
+	]
 
 	const activateTab = (key: TabKey) => {
 		setActiveTab(key);
 		
 		if(key === 'file' && !shouldFetchRules) setShouldFetchRules(true);
 		if(key === 'expansions' && !shouldFetchExpansions) setShouldFetchExpansions(true);
+		if(key === 'matches' && !shouldFetchMatches) setShouldFetchMatches(true);
 	}
 
 	const handleTabPress = (value: string) => {
@@ -190,6 +207,7 @@ const GameDetailScreen = () => {
 
 	const loadMoreExpansions = () => {
 		if(activeTab === 'expansions' && hasNextPage && !isFetchingNextPage) fetchNextPage();
+		if(activeTab === 'matches' && hasNextMatchesPage && !isFetchingNextMatchesPage) fetchNextMatchesPage();
 	}
 
 	const scrollHandler = useAnimatedScrollHandler({
@@ -251,6 +269,7 @@ const GameDetailScreen = () => {
 			setActiveTab('info');
 			setShouldFetchExpansions(false);
 			setShouldFetchRules(false);
+			setShouldFetchMatches(false);
 
 			mainScrollRef.current?.scrollTo({ y: 0, animated: false });
 			pagerRef.current?.scrollTo({ x: 0, animated: false });
@@ -452,7 +471,10 @@ const GameDetailScreen = () => {
 									)}
 									{hasCredits && (
 										<View className = 'rounded-2xl border border-border bg-card p-4'>
-											<Text className = 'mb-3 font-display text-base text-foreground'>Crediti</Text>
+											<View className = 'mb-3 flex-row items-center gap-2'>
+												<Award size = { 16 } color = '#C45135'/>
+												<Text className = 'font-display text-base text-foreground'>Crediti</Text>
+											</View>
 											{game.designers.length > 0 && (
 												<View className = 'mb-2 flex-row items-start gap-2'>
 													<PenTool size = { 14 } color = '#736E65' style = {{ marginTop: 1 }}/>
@@ -550,6 +572,28 @@ const GameDetailScreen = () => {
 									</View>
 								</View>
 							)}
+							<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { const height = e.nativeEvent?.layout?.height; if(height) setTabHeights(prev => ({ ...prev, matches: height })); } }>
+								<View className = 'px-4'>
+									{isLoadingMatches ? (
+										<View className = 'items-center py-4'>
+											<ActivityIndicator color = '#C45135'/>
+										</View>
+									) : matches.length > 0 ? (
+										<View className = 'gap-2'>
+											{matches.map(match => (
+												<MatchListItem key = { match.id } match = { match }/>
+											))}
+											{isFetchingNextMatchesPage && (
+												<View className = 'items-center py-3'>
+													<ActivityIndicator size = 'small' color = '#C45135'/>
+												</View>
+											)}
+										</View>
+									) : (
+										<Text className = 'py-2 text-sm text-muted-foreground'>Nessuna partita registrata per questo gioco.</Text>
+									)}
+								</View>
+							</View>
 						</ScrollView>
 					</View>
 				</View>
