@@ -21,8 +21,8 @@ jobs:
 
       - name: Install OCI CLI
         run: |
-          python -m pip install --upgrade --only-binary :all: pip
-          pip install --only-binary :all: oci-cli==2.146.0
+          python -m pip install --upgrade pip
+          pip install "oci-cli>=3.0.0,<4.0.0"
 
       - name: Configure OCI CLI Credentials
         env:
