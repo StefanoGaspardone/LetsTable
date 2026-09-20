@@ -1,0 +1,55 @@
+name: Oracle Cloud VM Auto Create
+
+on:
+  schedule:
+    # Esegue lo script ogni 10 minuti
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Permette di avviarlo manualmente
+
+jobs:
+  create-vm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install OCI CLI
+        run: |
+          python -m pip install --upgrade --only-binary :all: pip
+          pip install --only-binary :all: oci-cli==2.146.0
+
+      - name: Configure OCI CLI Credentials
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        run: |
+          mkdir -p ~/.oci
+          echo "$OCI_CLI_KEY_CONTENT" > ~/.oci/oci_api_key.pem
+          chmod 600 ~/.oci/oci_api_key.pem
+
+          cat <<EOF > ~/.oci/config
+          [DEFAULT]
+          user=${OCI_CLI_USER}
+          fingerprint=${OCI_CLI_FINGERPRINT}
+          key_file=~/.oci/oci_api_key.pem
+          tenancy=${OCI_CLI_TENANCY}
+          region=${OCI_CLI_REGION}
+          EOF
+
+          chmod 600 ~/.oci/config
+
+      - name: Esegui auto_create.sh
+        env:
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+        run: |
+          chmod +x ./auto_create.sh
+          ./auto_create.sh
