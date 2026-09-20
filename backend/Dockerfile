@@ -3,8 +3,6 @@ FROM eclipse-temurin:21-jdk-jammy AS build
 
 WORKDIR /app
 
-ENV GRADLE_OPTS="-Dorg.gradle.jvmargs='-Xmx384m -XX:MaxMetaspaceSize=384m'"
-
 COPY gradlew .
 COPY gradle gradle
 COPY build.gradle.kts settings.gradle.kts ./
@@ -31,6 +29,6 @@ USER spring
 EXPOSE 8080
 
 ENV SPRING_PROFILES_ACTIVE=prod
-ENV JAVA_OPTS="-Xmx256m -Xss512k -XX:MaxMetaspaceSize=128m"
+ENV JAVA_OPTS="-Xmx350m -Xss256k -XX:MaxMetaspaceSize=100m -XX:+UseSerialGC -XX:MaxRAM=450m"
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
