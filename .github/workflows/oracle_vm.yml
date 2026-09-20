@@ -26,11 +26,11 @@ jobs:
 
       - name: Configure OCI CLI Credentials
         env:
-          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
-          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
-          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
-          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
-          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+          OCI_CLI_USER: ${{ secrets.USER_OCID }}
+          OCI_CLI_TENANCY: ${{ secrets.TENANCY_OCID }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.PRIVATE_KEY }}
+          OCI_CLI_REGION: ${{ secrets.REGION }}
         run: |
           mkdir -p ~/.oci
           echo "$OCI_CLI_KEY_CONTENT" > ~/.oci/oci_api_key.pem
@@ -49,7 +49,7 @@ jobs:
 
       - name: Esegui auto_create.sh
         env:
-          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_TENANCY: ${{ secrets.TENANCY_OCID }}
         run: |
           chmod +x ./auto_create.sh
           ./auto_create.sh
