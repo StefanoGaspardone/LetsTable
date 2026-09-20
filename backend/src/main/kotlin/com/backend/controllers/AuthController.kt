@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
-@Tag(name = "Auth", description = "REST API for authentication: signup, activation, login, token refresh and password reset")
+@Tag(name = "Auth", description = "REST APIs for authentication: signup, activation, login, token refresh and password reset")
 @RestController
 @RequestMapping("/api/v1/auth")
 class AuthController(

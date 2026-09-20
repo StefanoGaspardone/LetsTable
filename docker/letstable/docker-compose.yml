@@ -34,21 +34,6 @@ services:
     restart: "no"
 
   # ============================================
-  # MAIL
-  # ============================================
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: letstable_mailpit
-    ports:
-      - "1025:1025"
-      - "8025:8025"
-    volumes:
-      - mailpit_data:/data
-    environment:
-      MP_DATABASE: /data/mailpit.db
-    restart: unless-stopped
-
-  # ============================================
   # MINIO
   # ============================================
   minio:
@@ -67,5 +52,4 @@ services:
 volumes:
   db_data:
   pgadmin_data:
-  mailpit_data:
   minio_data:

@@ -1,4 +1,4 @@
-# Let's Table (TODO finish and update this README)
+# Let's Table
 
 A personal board-game tracking app for a private group of friends - collection, wishlists, play sessions, and friend management
 
@@ -6,216 +6,322 @@ A personal board-game tracking app for a private group of friends - collection, 
 
 - [Overview](#overview)
 - [Architecture](#architecture)
-  - [Stack](#stack)
-  - [Authentication model](#authentication-model)
-  - [BoardGameGeek integration](#boardgamegeek-integration)
-  - [Match lifecycle](#match-lifecycle)
+  - [High-Level System Overview](#high-level-system-overview)
+  - [Key Technical Components](#key-technical-components)
 - [How to Run](#how-to-run)
-  - [Dependencies](#dependencies)
-  - [Run the infrastructure containers](#run-the-infrastructure-containers)
-  - [Environment variables](#environment-variables)
-  - [Run the backend](#run-the-backend)
-  - [Run the mobile app](#run-the-mobile-app)
-- [Endpoints](#endpoints)
-- [Frontend](#frontend)
-  - [Stack](#stack-1)
-  - [Design system](#design-system)
-  - [Navigation structure](#navigation-structure)
-  - [Notable screens](#notable-screens)
-- [Health monitoring](#health-monitoring)
+  - [Prerequisites](#prerequisites)
+  - [Clone the Repository](#clone-the-repository)
+  - [Run the Backend Service](#run-the-backend-service)
+    - [Configure the Environment Variables](#configure-the-environment-variables)
+    - [Run the Docker Compose for Local Development](#run-the-docker-compose-for-local-development)
+    - [Run the Backend](#run-the-backend)
+  - [Run the Mobile Frontend](#run-the-mobile-frontend)
+    - [Configure Environment Variables](#configure-environment-variables)
+    - [Install Dependencies](#install-dependencies)
+    - [Launch the Application](#launch-the-application)
+  - [Run the Web Admin Frontend](#run-the-web-admin-frontend)
+    - [Configure Environment Variables](#configure-environment-variables-1)
+    - [Install Dependencies](#install-dependencies-1)
+    - [Launch the Application](#launch-the-application-1)
 - [Tests](#tests)
-- [Notable bugs found and fixed](#notable-bugs-found-and-fixed)
 - [Backlog](#backlog)
 
 ## Overview
 
 Let's Table is a board game companion app for a small, private friend group - the kind of thing a BoardGameGeek power user and their regular game night crew would actually use day to day: track who owns what, what everyone wants next, who's won the most, and what you played last Tuesday. It is not a general-audience product; it is built and seeded for a known, closed set of users (friends, added via friend requests, not public discovery).
 
-The project is split into:
-
-- **Backend**: a single Spring Boot / Kotlin monolith, backed by PostgreSQL and MinIO
-- **Frontend**: a React Native / Expo mobile app (Android/iOS), the only client - there is no companion web app
-
 ## Architecture
 
-Let's Table is a single-service monolith - the scale (a handful of users) doesn't justify splitting bounded contexts across services, and a monolith keeps local development to "start one process, start one app."
+The application follows a decoupled client-server architecture. The mobile application and web administration dashboard communicate with a centralized Spring Boot backend, which handles core business logic, database persistence, media storage, and third-party API integrations.
 
-### Stack
+### High-Level System Overview
 
-- **Backend**: Spring Boot 4 / Kotlin, PostgreSQL (Flyway migrations), MinIO for object storage (uploaded rulebook PDFs, user avatars), stateless JWT auth
-- **Frontend**: React Native (Expo SDK 57), NativeWind v4 (Tailwind-style styling), Expo Router, TanStack Query, Axios.
+```mermaid
+graph TD
+    %% Clients
+    subgraph Clients [" Client Layer "]
+        MobileApp["Mobile App<br/>(React Native / Android)"]
+        AdminWeb["Admin Dashboard<br/>(React Web)"]
+    end
 
-### Authentication model
+    %% Backend Layer
+    subgraph Backend [" Backend Layer (Spring Boot + Kotlin) "]
+        API["REST Controllers & JWT Auth"]
+        Services["Business Logic & Schedulers"]
+        ExternalClient["BGG Client Integration"]
+    end
 
-- **Access tokens**: short-lived JWTs (15 minutes).
-- **Refresh tokens**: opaque random strings, hashed (SHA-256) and persisted server-side, rotated on every use (old token revoked, new one issued). The mobile app's Axios client queues concurrent requests that hit a `401` while a refresh is already in flight, so a burst of simultaneous calls triggers exactly one refresh, not one per request.
-- **Email verification / password reset**: OTP-based, with a bounded attempt counter and a resend cooldown, mirroring the same shape for both flows.
-- Every controller is annotated `@PreAuthorize("hasRole('USER')")` — there is no separate admin role; every account has the same permissions over its own data.
+    %% Storage & External Services
+    subgraph External [" Data & External Services "]
+        DB[("PostgreSQL Database")]
+        S3[("AWS S3 Bucket")]
+        BGG["BoardGameGeek API"]
+    end
 
-### BoardGameGeek integration
+    %% Connections
+    MobileApp -->|HTTPS / REST| API
+    AdminWeb -->|HTTPS / REST| API
+    
+    API --> Services
+    Services --> DB
+    Services -->|Upload / Fetch Assets| S3
+    Services --> ExternalClient
+    ExternalClient -->|Fetch Game Data| BGG
+```
 
-Games are not manually entered — they're pulled from the public BGG XML API on first reference (search, or adding a game not yet cached) and cached locally:
+### Key Technical Components
 
-- A background scheduler refreshes BGG's "hot games" list periodically, so the app always has a ready-made browse list without a live API call on every request.
-- Game detail sync (name, image, player count, playtime, description, designers/artists/publishers, expansions) happens on demand, with a staleness check — a cached game older than the configured TTL is re-synced transparently the next time it's requested.
-- Game descriptions from BGG often end with a trailing editorial note ("—description from the publisher", "—description from the designer", etc.); this is stripped during sync via a small regex pass, along with normalizing BGG's raw HTML (`<br>` tags, entity encoding) into plain text.
-- Cover images and uploaded rulebook PDFs are stored in MinIO, not the database — `Game`/`GameRuleFile` hold only a reference.
+- **Frontend Clients:**
+  - **React Native (Android App):** Serves end-users for managing game collections, wishlists, match tracking, and social interactions.
+  - **React (Web Admin):** Provides administrators with management tools for users, system stats, and global board game data.
 
-### Match lifecycle
+- **Backend Service (Spring Boot + Kotlin):**
+  - **REST API Layer:** Exposes endpoints using standard Controllers, DTOs, and JPA Specifications for flexible queries.
+  - **Authentication & Security:** Uses stateless **JWT (JSON Web Tokens)** with custom security filters (`JwtAuthFilter`) and role-based access control (User vs. Admin).
+  - **Integrations & Services:**
+    - `BggClient` for fetching board game information and hotness rankings directly from BoardGameGeek.
+    - Automated background tasks via `HotGamesScheduler` to keep game data up-to-date.
+    - `StorageService` for managing image uploads (e.g., user avatars, game assets) stored in **AWS S3**.
 
-A match can be **in progress** or **completed** — this is a derived state (`durationMinutes == null` means in progress), not a stored enum:
-
-- Registering a match creates it immediately in progress, with players/teams and starting colors chosen up front, but no scores or winner yet.
-- "Terminate match" is a separate step: it collects final scores, winner(s) (supports ties — more than one entry can be marked winner), and which player/team went first, then computes `durationMinutes` server-side from `now - createdAt` — the client never sends a duration directly.
-- Matches support two shapes: **individual** (a flat list of `MatchPlayer`s, each with an optional linked `User` or a free-text guest name) or **team-based** (`MatchTeam`s, each owning a subset of `MatchPlayer`s) — a match is one or the other, never both, enforced at the request-validation level.
-- A player slot can be a registered friend or a **guest** (name only, no account) — useful for game nights that include people who aren't in the app.
+- **Data Layer:**
+  - **PostgreSQL:** Primary relational database storing user profiles, friendships, collections, match records, and game statistics.
+  - **AWS S3:** Cloud storage for game files and user avatar images.
 
 ## How to Run
 
-### Dependencies
+Follow these instructions to get a local copy of the project up and running on your development machine.
 
-- JDK 21+
-- Gradle (wrapper included)
-- Node.js 20+ and npm (for the mobile app)
-- Docker and Docker Compose
-- Expo Go (or an Android/iOS simulator) to run the mobile app
+### Prerequisites
 
-### Run the infrastructure containers
+Ensure you have the following tools installed before proceeding:
 
-From the repository root:
+- **Backend:**
+  - Java JDK 21 or higher
+  - Docker & Docker Compose (recommended for local PostgreSQL and S3 emulation)
 
-```bash
-docker compose up -d
-```
+- **Frontend Mobile:**
+  - Node.js (24+) and npm/pnpm
+  - Android Studio & Android SDK (for running the Android emulator)
 
-This starts:
+- **Frontend Web:**
+  - Node.js (v24+) and npm/pnpm
 
-- **PostgreSQL** — the app's single database
-- **MinIO** — object storage for game cover images, uploaded rulebook PDFs, and user avatars
-
-The backend itself is **not** containerized during development — it runs directly from the IDE (`./gradlew bootRun`) for hot reload and debugging. A multi-stage Dockerfile exists for production builds (Gradle build stage → slim `eclipse-temurin` JRE runtime stage), with a `.dockerignore` alongside it in `backend/`.
-
-### Environment variables
-
-The backend seeds demo data on first startup when `seeding.enabled=true` (used in dev; disabled in the test profile). Notable configuration:
-
-```.env
-JWT_SECRET=...                      # HS256 signing secret
-JWT_ACCESS_TOKEN_TTL_MINUTES=15
-JWT_REFRESH_TOKEN_TTL_DAYS=7
-MINIO_URL=http://localhost:9000
-MINIO_ACCESS_KEY=...
-MINIO_SECRET_KEY=...
-MINIO_BUCKET=...
-```
-
-### Run the backend
+### Clone the Repository
 
 ```bash
-cd backend
-./gradlew bootRun
+git clone https://github.com/StefanoGaspardone/LetsTable.git
 ```
 
-Swagger UI: `http://localhost:8080/swagger-ui.html`.
+### Run the Backend Service
 
-### Run the mobile app
+#### Configure the Environment Variables
+
+The backend can be configured using environment variables (or an `.env` file). Variables defined as **Required** must be explicitly provided in your environment, while **Optional** variables have a pre-configured default fallback value.
+
+| Variable Name | Required | Default / Fallback Value | Description |
+| :--- | :---: | :--- | :--- |
+| **Database & System** | | | |
+| `SPRING_PROFILES_ACTIVE` | ❌ Optional | `dev` | Active Spring profile. |
+| `PORT` | ❌ Optional | `8080` | Port on which the Spring Boot server runs. |
+| **Email Service (Brevo)** | | | |
+| `MAIL_FROM_ADDRESS` | ❌ Optional | `noreply@letstable.com` | Sender email address for outgoing system emails. |
+| `MAIL_ENABLED` | ❌ Optional | `true` | Enables or disables email notification sending. Usually, this is set to `false` in development and `true` in production. |
+| `BREVO_API_KEY` | ⚠️ **Required** | *None* | API Key for transactional email service. In production, this should be a secure, generated key, from Brevo. |
+| **Security & Authentication** | | | |
+| `JWT_SECRET` | ❌ Optional | `59e01dfd...` | Secret key used to sign JWT tokens. You are encouraged to generate a new, secure key for production use. |
+| **External Integrations** | | | |
+| `BGG_API_TOKEN` | ⚠️ **Required** | *None* | API Token for BoardGameGeek API integration. |
+| **S3 Storage / Object Storage** | | | |
+| `S3_URL` | ❌ Optional | `http://localhost:9000` | S3 endpoint URL (defaults to local MinIO). |
+| `S3_ACCESS_KEY` | ❌ Optional | `minioadmin` | S3 Access Key. |
+| `S3_SECRET_KEY` | ❌ Optional | `minioadmin` | S3 Secret Key. |
+| `S3_BUCKET` | ❌ Optional | `uploads` | Target bucket name for uploads. |
+| `S3_REGION` | ❌ Optional | `eu-central-1` | S3 Region. |
+| **CORS Configuration** | | | |
+| `CORS_ALLOWED_ORIGINS` | ❌ Optional | `http://localhost:5173` | Allowed origins for CORS requests. Without this, the frontend admin application will not be able to make cross-origin requests. |
+| **Database Seeding** | | | |
+| `SEEDING_ENABLED` | ❌ Optional | `false` | Enables database seeding on startup. Set to `false` in production. |
+| `SEEDING_ADMIN_USERNAME` | ❌ Optional | `admin` | Default admin username created during seeding. |
+| `SEEDING_ADMIN_EMAIL` | ❌ Optional | `admin@letstable.com` | Default admin email created during seeding. |
+| `SEEDING_ADMIN_PASSWORD` | ❌ Optional | `admin123` | Default admin password created during seeding. |
+
+To properly configure the backend, you can create a `application.properties` file in the root directory of the backend project and populate it with the required variables. For example:
+
+```bash
+# application.properties
+SPRING_PROFILES_ACTIVE=dev
+
+JWT_SECRET=your_secure_jwt_secret_key_here
+
+DATABASE_URL=your_database_url_here
+DATABASE_USERNAME=your_database_username_here
+DATABASE_PASSWORD=your_database_password_here
+
+MAIL_FROM_ADDRESS=your_email_address_here
+MAIL_ENABLED=true|false
+BREVO_API_KEY=your_brevo_api_key_here
+
+BGG_API_TOKEN=your_bgg_api_token_here
+
+SEEDING_ENABLED=true
+SEEDING_ADMIN_USERNAME=your_admin_username_here
+SEEDING_ADMIN_EMAIL=your_admin_email_here
+SEEDING_ADMIN_PASSWORD=your_admin_password_here
+
+S3_URL=your_s3_endpoint_here
+S3_ACCESS_KEY=your_s3_access_key_here
+S3_SECRET_KEY=your_s3_secret_key_here
+S3_BUCKET=your_s3_bucket_name_here
+S3_REGION=your_s3_region_here
+
+PORT=8080
+
+CORS_ALLOWED_ORIGINS=your_frontend_origin_here
+```
+
+Moreover, set up a `gradle.properties` file in the root directory of the backend project to define the flyway migration configuration for Gradle:
+
+```bash
+flywayUrl=your_database_url_here (must match the DATABASE_URL in application.properties)
+flywayUser=your_database_username_here (must match the DATABASE_USERNAME in application.properties)
+flywayPassword=your_database_password_here (must match the DATABASE_PASSWORD in application.properties)
+```
+
+### Run the Docker Compose for Local Development
+
+Before launching the backend, you need to spin up the required infrastructure services (e.g., PostgreSQL database and MinIO for local S3 storage) using Docker Compose.
+
+1. Navigate to the directory containing the `docker-compose.yml` file
+
+    ```bash
+    cd docker/letstable
+    ```
+
+2. Create a `.env` file in the same directory as your `docker-compose.yml` to set custom credentials, or rely on the predefined local defaults.
+
+    | Docker Variable | Required | Default / Fallback Value | Connected Backend Property | Description |
+    | :--- | :---: | :--- | :--- | :--- |
+    | **PostgreSQL** | | | | |
+    | `POSTGRES_USER` | ❌ Optional | `letstable_user` | `SPRING_DATASOURCE_USERNAME` | Database user. Must match the backend datasource username. |
+    | `POSTGRES_PASSWORD` | ❌ Optional | `letstable_pass` | `SPRING_DATASOURCE_PASSWORD` | Database password. Must match the backend datasource password. |
+    | `POSTGRES_DB` | ❌ Optional | `letstable_db` | `SPRING_DATASOURCE_URL` | Database name (e.g., `jdbc:postgresql://localhost:5432/letstable_db`). |
+    | **PgAdmin** | | | | |
+    | `PGADMIN_EMAIL` | ❌ Optional | `admin@letstable.com` | N/A | Admin email to access PgAdmin dashboard (`http://localhost:5050`). |
+    | `PGADMIN_PASSWORD` | ❌ Optional | `admin_letstable` | N/A | Password to access PgAdmin dashboard. |
+    | **MinIO (S3 Storage)** | | | | |
+    | `MINIO_ROOT_USER` | ❌ Optional | `minioadmin` | `S3_ACCESS_KEY` | MinIO Access Key. Must match the backend S3 access key. |
+    | `MINIO_ROOT_PASSWORD` | ❌ Optional | `minioadmin` | `S3_SECRET_KEY` | MinIO Secret Key. Must match the backend S3 secret key. |
+
+3. Start all services in detached mode:
+
+    ```bash
+    docker compose up -d
+    ```
+
+### Run the Backend
+
+1. Navigate to the backend project directory:
+
+    ```bash
+    cd backend
+    ```
+
+2. Build and run the Spring Boot application:
+
+    ```bash
+    ./gradlew bootRun
+    ```
+
+3. The backend service should now be running at `http://localhost:<your_configured_port>`, also you can see the ip address of the service running on the local network. You can verify the health of the service by accessing the health endpoint:
+
+    ```bash
+    curl http://localhost:8080/api/v1/health
+    ```
+
+    Also, a full API documentation is available at the `/swagger-ui.html` endpoint of the service.
+
+## Run the Mobile Frontend
+
+The mobile app is built using React Native and targets Android devices.
+
+### Configure Environment Variables
+
+Navigate to the mobile frontend directory and set up your local environment file:
 
 ```bash
 cd frontend-mobile
-npm install
-npx expo start
 ```
 
-Scan the QR code with Expo Go, or launch an Android/iOS simulator from the Expo CLI menu.
+Create a `.env.local` file in the root of the frontend-mobile directory with your local backend URL:
 
-## Endpoints
-
-Grouped by resource; full detail in Swagger.
-
-| Resource | Notable endpoints |
-|---|---|
-| Auth | `POST /auth/signup`, `/activate`, `/login`, `/refresh`, `/logout`, `/forgot-password`, `/reset-password` |
-| Games | `GET /games/search`, `/games/hot`, `/games/{bggId}`, `/games/{bggId}/expansions`; rule files under `/games/{id}/rules` |
-| Collection | `GET/POST /collection`, `GET /collection/status/{gameId}` |
-| Wishlists | `GET /wishlists` (mine), `GET/POST/PATCH/DELETE /wishlists/{id}`, item and member management |
-| Matches | `POST /matches`, `GET /matches` (filterable, paginated), `GET /matches/{id}`, `PATCH /matches/{id}` (also used to "finish" a match), `DELETE /matches/{id}`, `GET /matches/calendar`, `GET /matches/recent-games`, `GET /matches/win-stats` |
-| Friends | send/accept/reject/cancel requests, list friends/received/sent, remove friend |
-| Users | search, profile, delete account (anonymizing, with cascading cleanup of solo matches and refresh tokens) |
-| Push tokens | register/unregister device push tokens |
-| Health | `GET /health` — unauthenticated, polled by the mobile app (see [Health monitoring](#health-monitoring)) |
-
-`GET /matches/recent-games` returns the distinct games played across a user's last 10 matches, most recent first, unpaginated — used to surface "recent games" at the top of the game picker instead of always showing the full collection first.
-
-`GET /matches/win-stats` returns total completed matches and total wins for the current user, counting both individual wins (`MatchPlayer.isWinner`) and team wins where the user was a member of the winning team — used for the win-rate card on the home screen.
-
-## Frontend
-
-### Stack
-
-Expo Router (file-based navigation, `(tabs)` group for the five bottom-tab root screens plus nested detail routes), NativeWind v4, TanStack Query for all server state (no separate client-state store), `react-native-reanimated` for the collapsing game-detail header, the animated pill on the custom tab bar, and the staggered FAB menu.
-
-### Design system
-
-Warm cream/terracotta palette (`#C45135` as the primary accent), `Playfair Display` for screen titles and section headers, `Plus Jakarta Sans` for body/UI text. Light theme only.
-
-### Navigation structure
-
-```
-app/
-├── (tabs)/
-│   ├── home.tsx
-│   ├── collection.tsx
-│   ├── matches.tsx
-│   ├── friends.tsx
-│   ├── profile.tsx
-│   ├── game/[bggId]/index.tsx
-│   ├── match/[id]/index.tsx
-│   ├── match/[id]/finish.tsx
-│   ├── match/[id]/edit.tsx
-│   ├── my-wishlists.tsx
-│   └── wishlist/[id].tsx
-├── (auth)/welcome, login, signup, activate
-├── browse (modal)
-└── +not-found.tsx
+```env
+EXPO_PUBLIC_API_URL=<your_backend_url>/api/v1
+EXPO_PUBLIC_TERMS_URL=<your_backend_url>/terms.html
 ```
 
-Detail routes (`game/[bggId]`, `match/[id]`) live **inside** the `(tabs)` group rather than as siblings outside it, with `options={{ href: null }}` on their `<Tabs.Screen>` entries — this keeps the custom animated tab bar visible while browsing a game or match's detail page, rather than hiding it the moment the user navigates one level deep, which is the more common pattern but felt disorienting for an app this shallow.
+### Install Dependencies
 
-A shared `useRefetchOnFocus(queryKey)` hook invalidates a TanStack Query key by prefix every time a screen regains focus (`expo-router`'s `useFocusEffect`), so returning to a list after creating/editing something elsewhere always shows fresh data without every screen re-implementing its own invalidation logic.
-
-### Notable screens
-
-- **Home**: a win-rate card (a horizontal bar showing wins as a fraction of total completed matches, hidden entirely rather than showing "0/0" when the user has no matches yet), quick-stat cards for collection size and friend count, the latest match as a large highlight card followed by up to four more recent matches as compact cards, and a horizontally-condensed wishlist section — each section has a "View all" link that only appears once there's something to view.
-- **Game detail**: a collapsing hero image (BGG's cover art) behind a segmented Info/File/Expansions tab pager, with a sticky tab bar that fades in only once the inline one scrolls out from under the header — timed off a measured layout position, not a fixed scroll offset, so it stays correct regardless of how much content (base-game badge, credits, sleeve info) sits above the tabs for a given game.
-- **Match detail**: a podium (1st/2nd/3rd) for completed matches, individual players showing avatar + name, team-based matches showing a colored initial-letter avatar per team with a tap-to-open bottom sheet listing that team's actual members in a small grid.
-- **Match finish flow**: one row per player/team, with a tap-to-star control for who started, a score field, and a winner toggle supporting ties; the submit button is disabled until every row has a score, a starting player is chosen, and at least one winner is marked.
-- **Player/guest picker**: search results and already-selected identities render as the same avatar-and-name grid card (registered users and free-text guests alike), so adding people to a match feels the same regardless of whether they have an account.
-
-## Health monitoring
-
-The mobile app polls `GET /health` every 15 seconds (plus once immediately on launch) from the root layout, independent of whatever screen is active. If a check fails (timeout or non-2xx), a full-screen overlay appears — "Qualcosa è andato storto, verifica che il server sia attivo" with a manual retry button — blocking interaction until a health check succeeds again, either from the next automatic poll or the retry button. The polling loop itself keeps running underneath the overlay, so the app recovers on its own the moment the backend comes back, without requiring the user to tap anything.
-
-## Tests
+Install the required npm packages using your preferred package manager (`pnpm` or `npm`):
 
 ```bash
-cd backend
-./gradlew test
+pnpm install
+# or
+npm install
 ```
 
-- **Unit** (MockK/Mockito) — services, BGG XML client (against `mockwebserver3`), schedulers.
-- **Integration** (Testcontainers: Postgres + MinIO, singleton container pattern shared across the test run) — full controller-through-repository coverage for auth, games, collection, matches, friends, wishlists, push tokens, and account deletion.
+### Launch the Application
 
-No frontend automated test suite yet (manual testing against the real backend during development) — see [Backlog](#backlog).
+Make sure you have an Android Virtual Device (AVD) running in Android Studio or a physical device connected, run:
 
-## Notable bugs found and fixed
+```bash
+pnpm dev
+# or
+npm dev
+```
 
-- **`LazyInitializationException` on friend request lists.** `FriendRequestRepository`'s finder methods returned `FriendRequest` entities with `sender`/`receiver` left lazy; serializing them to a DTO outside the transaction threw. Fixed by adding `JOIN FETCH fr.sender JOIN FETCH fr.receiver` to every finder used by a response-returning endpoint.
-- **`TransientPropertyValueException` on account deletion.** `UserService.deleteAccount` deleted a user's solo matches by cascading through `Match`, but `MatchPlayer` rows referencing that match weren't deleted first — Hibernate tried to null out a foreign key on an already-removed parent. Fixed by explicitly deleting the match's `MatchPlayer` rows before deleting the `Match` itself.
-- **Sort parameter using the wrong separator.** `resolveSort` expected `field-direction` (e.g. `playedAt-desc`), but several call sites were built with `field,direction` (a comma), silently falling through to a default sort instead of erroring — easy to miss since nothing looked broken, results were just never actually sorted as requested.
-- **Tab bar indicator animating through hidden tabs.** The custom animated pill under the active tab computed its position from `state.index` against the *full* route list — once detail routes (`game/[bggId]`, `match/[id]`) were added to the same `(tabs)` navigator with `href: null` to keep the tab bar visible on them, the full route list no longer matched the five visible icons, so the indicator slid to the wrong position (or off-screen) whenever a hidden route was focused. Fixed by computing the active index against a list filtered to only the icon-mapped routes, and freezing the indicator's last known valid position (rather than clamping to index 0) while fading out on a route with no icon, so it dissolves in place instead of visibly sliding across the bar.
-- **`onLayout`-driven tab-pager height overwritten by the wrong tab.** The game-detail screen's horizontal Info/File/Expansions pager used a single `pageHeight` state updated by each tab's `onLayout`, guarded by `if (activeTab === key)` — but `onLayout` only re-fires when a tab's *own* layout actually changes, not every time it becomes active again. Switching away and back to a tab whose content hadn't changed left the shared height stuck at whatever the *previously* active tab had last reported, clipping content. Fixed by keeping one height per tab key in a small record instead of a single shared value, so each tab's height is remembered independently of which one is currently visible.
-- **`useEffect` never re-opening a bottom sheet for the same selection.** A team-detail bottom sheet was opened via `useEffect(() => { if (selectedTeam) sheetRef.current?.present() }, [selectedTeam])` — tapping the *same* team twice in a row passed the identical object reference to `setSelectedTeam`, so React saw no state change and the effect never re-ran, leaving the sheet closed on the second tap. Fixed by calling `.present()` directly inside each row's `onPress` alongside `setSelectedTeam`, rather than relying on an effect keyed to a value that isn't guaranteed to change.
-- **Team win/loss counting swapped between the two match modes.** A stats query meant to branch on `match.isTeamBased` had its two branches accidentally reading from the wrong relation — the team-based branch queried `match.players` (always empty for a team match) and the individual branch queried `match.teams` (always empty for an individual match), so win/loss totals came back as zero for every match regardless of mode. Caught immediately once actual data was checked against the raw seeded rows, since a match known to have a winner still reported `0/0`.
+and then, simply follow the instructions provided by Expo on the terminal to open the app on your device or emulator.
+
+### Run the Web Admin Frontend
+
+The web admin dashboard is built using React and can be run locally for development purposes.
+
+#### Configure Environment Variables
+
+Navigate to the web admin frontend directory:
+
+```bash
+cd frontend-admin
+```
+
+Create a .env file in the root of the frontend-admin directory with your local backend URL:
+
+```env
+VITE_SERVER_URL=<your_backend_url>/api/v1
+```
+
+#### Install Dependencies
+
+Install the required npm packages using your preferred package manager (`pnpm` or `npm`):
+
+```bash
+pnpm install
+# or
+npm install
+```
+
+#### Launch the Application
+
+Run the web admin frontend:
+
+```bash
+pnpm dev
+# or
+npm dev
+```
+
+The web admin dashboard should now be accessible at `http://localhost:5173` (or the port specified in your environment). Remember to set this address in the `CORS_ALLOWED_ORIGINS` variable of your backend configuration to allow cross-origin requests.
+
+## Tests
 
 ## Backlog
 
