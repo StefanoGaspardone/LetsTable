@@ -247,7 +247,7 @@ class MatchController(
     ): List<MatchDayCountDTO> =
         matchService.getMatchCalendar(CurrentUser.id(), year, month)
 
-    @Operation(summary = "Recent games", description = "Distinct games played in the user's last 10 matches (created or participated), most recent first. Not paginated.")
+    @Operation(summary = "Recent games", description = "Distinct games played in the user's matches (created or participated), most recent first. Not paginated.")
     @ApiResponses(
         value = [
             ApiResponse(

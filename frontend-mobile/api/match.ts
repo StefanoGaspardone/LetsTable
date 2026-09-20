@@ -1,6 +1,7 @@
 import { apiClient } from '@/api/client';
 
 import { CreateMatchPayload, Match, MatchDayCount, MatchWinStats, UpdateMatchPayload } from '@/types/match';
+import { Game } from '@/types/game';
 import { PageDTO } from '@/types/page';
 
 export interface ListMatchesParams {
@@ -54,5 +55,10 @@ export const updateMatch = async (matchId: string, payload: UpdateMatchPayload):
 
 export const getWinStats = async (): Promise<MatchWinStats> => {
 	const { data } = await apiClient.get<MatchWinStats>('/matches/win-stats');
+	return data;
+}
+
+export const getRecentGames = async (): Promise<Game[]> => {
+	const { data } = await apiClient.get<Game[]>('/matches/recent-games');
 	return data;
 }
