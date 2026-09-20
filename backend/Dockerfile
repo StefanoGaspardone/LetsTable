@@ -29,6 +29,6 @@ USER spring
 EXPOSE 8080
 
 ENV SPRING_PROFILES_ACTIVE=prod
-ENV JAVA_OPTS="-Xmx350m -Xss256k -XX:MaxMetaspaceSize=100m -XX:+UseSerialGC -XX:MaxRAM=450m"
+ENV JAVA_OPTS="-Xmx220m -Xss256k -XX:MaxMetaspaceSize=200m -XX:+UseSerialGC -XX:MaxRAM=450m"
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
