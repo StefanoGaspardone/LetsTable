@@ -18,7 +18,7 @@ const CONTAINER_PADDING = 4;
 const PILL_INSET = 1;
 const SCROLLABLE_THRESHOLD = 3;
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCROLLABLE_TAB_WIDTH = (SCREEN_WIDTH - CONTAINER_PADDING * 2 - 32) / 3.5;
+const SCROLLABLE_TAB_WIDTH = (SCREEN_WIDTH - CONTAINER_PADDING * 2 - 32) / 3.6;
 
 const NonScrollableSegmentedControl = ({ options, selected, onSelect }: SegmentedControlProps) => {
 	const [innerWidth, setInnerWidth] = useState(0);

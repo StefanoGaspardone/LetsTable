@@ -330,3 +330,4 @@ The web admin dashboard should now be accessible at `http://localhost:5173` (or 
 - fix push notifications
 - games with only 1 team, win o not
 - friends section of a user
+- render podium for tie
