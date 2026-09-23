@@ -2,11 +2,13 @@ package com.backend.integration.controllers
 
 import com.backend.clients.BggClient
 import com.backend.models.dtos.*
+import com.backend.models.entities.BggRankIndex
 import com.backend.models.entities.ExpansionRef
 import com.backend.models.entities.Game
 import com.backend.models.entities.User
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.UserRole
+import com.backend.repositories.BggRankIndexRepository
 import com.backend.repositories.GameRepository
 import com.backend.repositories.GameSleeveRepository
 import com.backend.repositories.UserRepository
@@ -41,6 +43,9 @@ class GameControllerTest : AbstractIntegrationTest() {
 
     @Autowired
     private lateinit var gameSleeveRepository: GameSleeveRepository
+
+    @Autowired
+    private lateinit var bggRankIndexRepository: BggRankIndexRepository
 
     @Autowired
     private lateinit var jwtService: JwtService
@@ -102,6 +107,7 @@ class GameControllerTest : AbstractIntegrationTest() {
 
     @AfterEach
     fun cleanUp() {
+        bggRankIndexRepository.deleteAll()
         gameSleeveRepository.deleteAll()
         gameRepository.deleteAll()
         userRepository.deleteAll()
@@ -393,6 +399,100 @@ class GameControllerTest : AbstractIntegrationTest() {
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].name").value("Good Expansion"))
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // GET /api/v1/games/overall
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("GET /api/v1/games/overall")
+    inner class OverallGamesTests {
+
+        @Test
+        fun `should return games ordered by the uploaded rank index using cached data`() {
+            val user = persistUser()
+            persistGame(bggId = 2000L, name = "Rank One Game", lastSyncedAt = Instant.now())
+            persistGame(bggId = 2001L, name = "Rank Two Game", lastSyncedAt = Instant.now())
+            bggRankIndexRepository.saveAndFlush(BggRankIndex(bggId = 2000L, rank = 1))
+            bggRankIndexRepository.saveAndFlush(BggRankIndex(bggId = 2001L, rank = 2))
+
+            mockMvc.perform(
+                get("/api/v1/games/overall")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].name").value("Rank One Game"))
+                .andExpect(jsonPath("$.content[1].name").value("Rank Two Game"))
+        }
+
+        @Test
+        fun `should sync a game from BGG when it is not cached yet`() {
+            val user = persistUser()
+            bggRankIndexRepository.saveAndFlush(BggRankIndex(bggId = 2100L, rank = 1))
+
+            whenever(bggClient.getGameDetailsBatch(listOf(2100L)))
+                .thenReturn(BggThingResponseXml(items = listOf(bggThingItem(id = 2100L, name = "Newly Synced"))))
+
+            mockMvc.perform(
+                get("/api/v1/games/overall")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Newly Synced"))
+
+            assertThat(gameRepository.findByBggId(2100L)).isPresent
+        }
+
+        @Test
+        fun `should return an empty page when the rank index is empty`() {
+            val user = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/games/overall")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0))
+        }
+
+        @Test
+        fun `should skip a rank entry when batch enrichment fails and no cached game exists`() {
+            val user = persistUser()
+            bggRankIndexRepository.saveAndFlush(BggRankIndex(bggId = 2200L, rank = 1))
+
+            whenever(bggClient.getGameDetailsBatch(listOf(2200L))).thenThrow(RuntimeException("BGG unreachable"))
+
+            mockMvc.perform(
+                get("/api/v1/games/overall")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(0))
+        }
+
+        @Test
+        fun `should respect pagination parameters`() {
+            val user = persistUser()
+            persistGame(bggId = 2300L, name = "First Page Game", lastSyncedAt = Instant.now())
+            persistGame(bggId = 2301L, name = "Second Page Game", lastSyncedAt = Instant.now())
+            bggRankIndexRepository.saveAndFlush(BggRankIndex(bggId = 2300L, rank = 1))
+            bggRankIndexRepository.saveAndFlush(BggRankIndex(bggId = 2301L, rank = 2))
+
+            mockMvc.perform(
+                get("/api/v1/games/overall")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("page", "1")
+                    .param("size", "1")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Second Page Game"))
+                .andExpect(jsonPath("$.totalElements").value(2))
         }
     }
 }

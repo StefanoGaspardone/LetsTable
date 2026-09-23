@@ -96,7 +96,7 @@ class MailServiceTest {
 
             @Suppress("UNCHECKED_CAST")
             val payload = payloadCaptor.value as Map<String, Any>
-            assertThat(payload["subject"]).isEqualTo("Your Let's Table activation code")
+            assertThat(payload["subject"]).isEqualTo("Codice di attivazione - Let's Table")
             assertThat(payload["htmlContent"]).isEqualTo(expectedHtml)
 
             @Suppress("UNCHECKED_CAST")
@@ -141,7 +141,7 @@ class MailServiceTest {
 
             @Suppress("UNCHECKED_CAST")
             val payload = payloadCaptor.value as Map<String, Any>
-            assertThat(payload["subject"]).isEqualTo("Reset your Let's Table password")
+            assertThat(payload["subject"]).isEqualTo("Reimposta la tua password - Let's Table")
         }
 
         @Test

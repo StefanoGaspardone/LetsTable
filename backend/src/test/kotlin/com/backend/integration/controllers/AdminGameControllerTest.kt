@@ -324,4 +324,178 @@ class AdminGameControllerTest : AbstractIntegrationTest() {
             ).andExpect(status().isForbidden)
         }
     }
+
+    // ---------------------------------------------------------------------
+    // GET /api/v1/admin/games
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("GET /api/v1/admin/games")
+    inner class ListGamesTests {
+
+        @Test
+        fun `should return a paginated list of games`() {
+            val admin = persistUser(role = UserRole.ADMIN)
+            persistGame(bggId = 900L, name = "Alpha Game")
+            persistGame(bggId = 901L, name = "Beta Game")
+
+            mockMvc.perform(
+                get("/api/v1/admin/games")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(2))
+        }
+
+        @Test
+        fun `should filter games by search term`() {
+            val admin = persistUser(role = UserRole.ADMIN)
+            persistGame(bggId = 902L, name = "Catan")
+            persistGame(bggId = 903L, name = "Ark Nova")
+
+            mockMvc.perform(
+                get("/api/v1/admin/games")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
+                    .param("search", "Catan")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Catan"))
+        }
+
+        @Test
+        fun `should sort games by name descending`() {
+            val admin = persistUser(role = UserRole.ADMIN)
+            persistGame(bggId = 904L, name = "Alpha Game")
+            persistGame(bggId = 905L, name = "Zeta Game")
+
+            mockMvc.perform(
+                get("/api/v1/admin/games")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
+                    .param("sort", "name-desc")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content[0].name").value("Zeta Game"))
+                .andExpect(jsonPath("$.content[1].name").value("Alpha Game"))
+        }
+
+        @Test
+        fun `should return 404 when sort field is not allowed`() {
+            val admin = persistUser(role = UserRole.ADMIN)
+
+            mockMvc.perform(
+                get("/api/v1/admin/games")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
+                    .param("sort", "notAllowedField-asc")
+            ).andExpect(status().isNotFound)
+        }
+
+        @Test
+        fun `should return 403 when requested by a non-admin user`() {
+            val user = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/admin/games")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            ).andExpect(status().isForbidden)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // GET /api/v1/admin/games/{gameId}
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("GET /api/v1/admin/games/{gameId}")
+    inner class GetGameTests {
+
+        @Test
+        fun `should return the game details`() {
+            val admin = persistUser(role = UserRole.ADMIN)
+            val game = persistGame(bggId = 950L, name = "Detailed Game")
+
+            mockMvc.perform(
+                get("/api/v1/admin/games/${game.id}")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.id").value(game.id.toString()))
+                .andExpect(jsonPath("$.name").value("Detailed Game"))
+        }
+
+        @Test
+        fun `should return 404 when the game does not exist`() {
+            val admin = persistUser(role = UserRole.ADMIN)
+
+            mockMvc.perform(
+                get("/api/v1/admin/games/${UUID.randomUUID()}")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
+            ).andExpect(status().isNotFound)
+        }
+
+        @Test
+        fun `should return 403 when requested by a non-admin user`() {
+            val user = persistUser()
+            val game = persistGame(bggId = 951L)
+
+            mockMvc.perform(
+                get("/api/v1/admin/games/${game.id}")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            ).andExpect(status().isForbidden)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // POST /api/v1/admin/games/rank-index/upload
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("POST /api/v1/admin/games/rank-index/upload")
+    inner class UploadRankIndexTests {
+
+        private fun csvFile(content: String, filename: String = "ranks.csv") =
+            org.springframework.mock.web.MockMultipartFile("file", filename, "text/csv", content.toByteArray())
+
+        @Test
+        fun `should upload a valid CSV and return the number of entries indexed`() {
+            val admin = persistUser(role = UserRole.ADMIN)
+            val csvContent = """
+                id,name,yearpublished,rank,bayesaverage,average,usersrated,is_expansion,abstracts_rank,cgs_rank,childrensgames_rank,familygames_rank,partygames_rank,strategygames_rank,thematic_rank,wargames_rank
+                224517,"Brass: Birmingham",2018,1,8.39028,8.55979,60175,0,,,,,,1,,
+                342942,"Ark Nova",2021,2,8.35429,8.53813,63067,0,,,,,,2,,
+            """.trimIndent()
+
+            mockMvc.perform(
+                multipart("/api/v1/admin/games/rank-index/upload")
+                    .file(csvFile(csvContent))
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.count").value(2))
+        }
+
+        @Test
+        fun `should return 400 when the uploaded file has no valid rank entries`() {
+            val admin = persistUser(role = UserRole.ADMIN)
+            val csvContent = "not,a,valid,csv,header\n1,2,3,4,5"
+
+            mockMvc.perform(
+                multipart("/api/v1/admin/games/rank-index/upload")
+                    .file(csvFile(csvContent))
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
+            ).andExpect(status().isBadRequest)
+        }
+
+        @Test
+        fun `should return 403 when requested by a non-admin user`() {
+            val user = persistUser()
+            val csvContent = "id,name,yearpublished,rank\n1,Game,2020,1"
+
+            mockMvc.perform(
+                multipart("/api/v1/admin/games/rank-index/upload")
+                    .file(csvFile(csvContent))
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            ).andExpect(status().isForbidden)
+        }
+    }
 }

@@ -92,7 +92,7 @@ class MatchServiceTest {
                 color = "Red",
                 score = 10,
                 isWinner = true,
-                startingPosition = 1
+                isStartingFirst = true
             )
             val request = CreateMatchRequest(
                 gameId = gameId,
@@ -145,7 +145,7 @@ class MatchServiceTest {
                 color = "Blue",
                 score = 20,
                 isWinner = true,
-                startingPosition = 1,
+                isStartingFirst = true,
                 players = listOf(identityRequest)
             )
             val request = CreateMatchRequest(
@@ -177,7 +177,7 @@ class MatchServiceTest {
                 color = "Blue",
                 score = 20,
                 isWinner = true,
-                startingPosition = 1
+                isStartingFirst = true
             )
 
             `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(sampleGame))
@@ -209,7 +209,7 @@ class MatchServiceTest {
                 notes = null,
                 durationMinutes = 30,
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1))
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = false))
             )
 
             `when`(gameRepository.findById(gameId)).thenReturn(Optional.empty())
@@ -228,7 +228,7 @@ class MatchServiceTest {
                 notes = null,
                 durationMinutes = 30,
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1))
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = false))
             )
 
             `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(sampleGame))
@@ -258,7 +258,7 @@ class MatchServiceTest {
                 durationMinutes = 30,
                 expansionIds = listOf(expansionId),
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1)),
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = false)),
             )
 
             val createdMatch = Match(
@@ -298,7 +298,7 @@ class MatchServiceTest {
                 durationMinutes = 30,
                 expansionIds = emptyList(),
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1)),
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = false)),
             )
 
             val createdMatch = Match(
@@ -344,7 +344,7 @@ class MatchServiceTest {
                 durationMinutes = 30,
                 expansionIds = listOf(missingExpansionId),
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1)),
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = false)),
             )
 
             `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(gameWithExpansion))
@@ -377,7 +377,7 @@ class MatchServiceTest {
                 durationMinutes = 30,
                 expansionIds = listOf(unrelatedExpansionId),
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1)),
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = false)),
             )
 
             `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(gameWithExpansion))
@@ -421,8 +421,8 @@ class MatchServiceTest {
                 place = null,
                 notes = null,
                 durationMinutes = null,
-                teams = listOf(CreateMatchTeamRequest("Team", "Red", 0, false, 1, listOf(MatchPlayerIdentityRequest(userId, null)))),
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Blue", 0, false, 2))
+                teams = listOf(CreateMatchTeamRequest("Team", "Red", 0, false, isStartingFirst = false, players = listOf(MatchPlayerIdentityRequest(userId, null)))),
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Blue", 0, isWinner = false, isStartingFirst = false))
             )
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
@@ -455,8 +455,8 @@ class MatchServiceTest {
                 place = null,
                 notes = null,
                 durationMinutes = null,
-                teams = listOf(CreateMatchTeamRequest("Team", "Red", 0, false, 1, emptyList())),
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Blue", 0, false, 2))
+                teams = listOf(CreateMatchTeamRequest("Team", "Red", 0, isWinner = false, isStartingFirst = false, players = emptyList())),
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Blue", 0, isWinner = false, isStartingFirst = false))
             )
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
@@ -473,7 +473,7 @@ class MatchServiceTest {
                 notes = null,
                 durationMinutes = null,
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, "GuestJohn", "Red", 0, false, 1))
+                players = listOf(MatchIndividualPlayerRequest(userId, "GuestJohn", "Red", 0, isWinner = false, isStartingFirst = false))
             )
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
@@ -490,7 +490,7 @@ class MatchServiceTest {
                 notes = null,
                 durationMinutes = null,
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(null, null, "Red", 0, false, 1))
+                players = listOf(MatchIndividualPlayerRequest(null, null, "Red", 0, isWinner = false, isStartingFirst = false))
             )
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
@@ -508,7 +508,7 @@ class MatchServiceTest {
                 notes = null,
                 durationMinutes = null,
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(null, blankName, "Red", 0, false, 1))
+                players = listOf(MatchIndividualPlayerRequest(null, blankName, "Red", 0, isWinner = false, isStartingFirst = false))
             )
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
@@ -541,7 +541,7 @@ class MatchServiceTest {
                 place = "Updated Place",
                 notes = "Updated Notes",
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Blue", 15, true, 1))
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Blue", 15, isWinner = true, isStartingFirst = true))
             )
 
             `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
@@ -580,7 +580,7 @@ class MatchServiceTest {
                 place = null,
                 notes = null,
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1))
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = false))
             )
 
             `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
@@ -598,7 +598,7 @@ class MatchServiceTest {
                 place = null,
                 notes = null,
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1))
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = false))
             )
 
             `when`(matchRepository.findById(matchId)).thenReturn(Optional.empty())
@@ -658,7 +658,7 @@ class MatchServiceTest {
                 place = null,
                 notes = null,
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, "GuestName", "Red", 0, false, 1))
+                players = listOf(MatchIndividualPlayerRequest(userId, "GuestName", "Red", 0, isWinner = false, isStartingFirst = false))
             )
 
             `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
@@ -678,7 +678,7 @@ class MatchServiceTest {
                 place = null,
                 notes = null,
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1))
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = false))
             )
 
             `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
@@ -715,7 +715,7 @@ class MatchServiceTest {
                 notes = null,
                 expansionIds = listOf(expansionId),
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1)),
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = false)),
             )
 
             `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
@@ -761,7 +761,7 @@ class MatchServiceTest {
                 notes = null,
                 expansionIds = listOf(unrelatedExpansionId),
                 teams = null,
-                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, false, 1)),
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = false)),
             )
 
             `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
@@ -816,7 +816,7 @@ class MatchServiceTest {
     inner class GetMatchTests {
 
         @Test
-        fun `should get completed match when requested by non-creator`() {
+        fun `should get match regardless of requester`() {
             val match = Match(
                 id = matchId,
                 game = sampleGame,
@@ -829,26 +829,38 @@ class MatchServiceTest {
             `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(match))
             `when`(matchPlayerRepository.findAllByMatchId(matchId)).thenReturn(emptyList())
 
-            val result = matchService.getMatch(matchId, otherUserId)
+            val result = matchService.getMatch(matchId)
 
             assertThat(result).isNotNull
             assertThat(result.id).isEqualTo(matchId)
         }
 
         @Test
-        fun `should throw NotMatchCreatorException when in-progress match requested by non-creator`() {
+        fun `should get in-progress match regardless of requester`() {
             val match = Match(
                 id = matchId,
                 game = sampleGame,
                 createdBy = sampleUser,
                 playedAt = Instant.now(),
-                durationMinutes = null
+                durationMinutes = null,
+                isTeamBased = false
             )
 
             `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(match))
+            `when`(matchPlayerRepository.findAllByMatchId(matchId)).thenReturn(emptyList())
 
-            assertThatThrownBy { matchService.getMatch(matchId, otherUserId) }
-                .isInstanceOf(NotMatchCreatorException::class.java)
+            val result = matchService.getMatch(matchId)
+
+            assertThat(result).isNotNull
+            assertThat(result.durationMinutes).isNull()
+        }
+
+        @Test
+        fun `should throw MatchNotFoundException when match does not exist`() {
+            `when`(matchRepository.findById(matchId)).thenReturn(Optional.empty())
+
+            assertThatThrownBy { matchService.getMatch(matchId) }
+                .isInstanceOf(MatchNotFoundException::class.java)
         }
 
         @Test
@@ -869,7 +881,7 @@ class MatchServiceTest {
                 color = "Red",
                 score = 10,
                 isWinner = true,
-                startingPosition = 1
+                isStartingFirst = true
             )
             val player = MatchPlayer(
                 id = UUID.randomUUID(),
@@ -880,14 +892,14 @@ class MatchServiceTest {
                 color = "Red",
                 score = 10,
                 isWinner = true,
-                startingPosition = 1
+                isStartingFirst = true
             )
 
             `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(match))
             `when`(matchTeamRepository.findAllByMatchId(matchId)).thenReturn(listOf(team))
             `when`(matchPlayerRepository.findAllByMatchId(matchId)).thenReturn(listOf(player))
 
-            val result = matchService.getMatch(matchId, userId)
+            val result = matchService.getMatch(matchId)
 
             assertThat(result).isNotNull
             assertThat(result.isTeamBased).isTrue()

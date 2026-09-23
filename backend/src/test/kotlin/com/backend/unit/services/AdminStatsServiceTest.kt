@@ -41,6 +41,7 @@ class AdminStatsServiceTest {
         object : GamePopularityProjection {
             override val gameId = gameId
             override val gameName = gameName
+            override val gameThumbnailUrl = "https://example.com/thumbnail.jpg"
             override val count = count
         }
 
