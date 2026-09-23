@@ -187,7 +187,7 @@ flywayUser=your_database_username_here (must match the DATABASE_USERNAME in appl
 flywayPassword=your_database_password_here (must match the DATABASE_PASSWORD in application.properties)
 ```
 
-### Run the Docker Compose for Local Development
+#### Run the Docker Compose for Local Development
 
 Before launching the backend, you need to spin up the required infrastructure services (e.g., PostgreSQL database and MinIO for local S3 storage) using Docker Compose.
 
@@ -218,7 +218,7 @@ Before launching the backend, you need to spin up the required infrastructure se
     docker compose up -d
     ```
 
-### Run the Backend
+#### Run the Backend
 
 1. Navigate to the backend project directory:
 
@@ -240,11 +240,13 @@ Before launching the backend, you need to spin up the required infrastructure se
 
     Also, a full API documentation is available at the `/swagger-ui.html` endpoint of the service.
 
-## Run the Mobile Frontend
+---
+
+### Run the Mobile Frontend
 
 The mobile app is built using React Native and targets Android devices.
 
-### Configure Environment Variables
+#### Configure Environment Variables
 
 Navigate to the mobile frontend directory and set up your local environment file:
 
@@ -259,7 +261,7 @@ EXPO_PUBLIC_API_URL=<your_backend_url>/api/v1
 EXPO_PUBLIC_TERMS_URL=<your_backend_url>/terms.html
 ```
 
-### Install Dependencies
+#### Install Dependencies
 
 Install the required npm packages using your preferred package manager (`pnpm` or `npm`):
 
@@ -269,7 +271,7 @@ pnpm install
 npm install
 ```
 
-### Launch the Application
+#### Launch the Application
 
 Make sure you have an Android Virtual Device (AVD) running in Android Studio or a physical device connected, run:
 
@@ -280,6 +282,8 @@ npm dev
 ```
 
 and then, simply follow the instructions provided by Expo on the terminal to open the app on your device or emulator.
+
+---
 
 ### Run the Web Admin Frontend
 
@@ -323,6 +327,29 @@ The web admin dashboard should now be accessible at `http://localhost:5173` (or 
 
 ## Tests
 
+The project includes a full suite of tests for both backend and frontend services.  
+Especially:
+
+- Backend: Unit tests for services, jobs and clients; integration tests for controllers; end-to-end tests for some of the main flows.
+- Frontend-mobile and frontend-admin: ...
+
+To run the tests, navigate to the respective project directories and execute the test command:
+
+```bash
+cd backend
+./gradlew test jacocoTestReport
+
+cd frontend-mobile
+pnpm test
+# or
+npm test
+
+cd frontend-admin
+pnpm test
+# or
+npm test
+```
+
 ## Backlog
 
 - friend section in create match
@@ -331,3 +358,4 @@ The web admin dashboard should now be accessible at `http://localhost:5173` (or 
 - games with only 1 team, win o not
 - friends section of a user
 - render podium for tie
+- add wishlist to frontend

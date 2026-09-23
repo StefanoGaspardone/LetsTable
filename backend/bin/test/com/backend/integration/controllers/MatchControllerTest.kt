@@ -441,7 +441,7 @@ class MatchControllerTest: AbstractIntegrationTest() {
         }
 
         @Test
-        fun `should return 403 when match is in progress and user is not the creator`() {
+        fun `should allow any authenticated user to view an in-progress match`() {
             val creator = persistUser(username = "creator")
             val otherUser = persistUser(username = "other")
             val game = persistGame()
@@ -450,7 +450,7 @@ class MatchControllerTest: AbstractIntegrationTest() {
             mockMvc.perform(
                 get("/api/v1/matches/${match.id}")
                     .header(HttpHeaders.AUTHORIZATION, authHeader(otherUser))
-            ).andExpect(status().isForbidden)
+            ).andExpect(status().isOk)
         }
 
         @Test

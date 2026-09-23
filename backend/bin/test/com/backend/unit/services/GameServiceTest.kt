@@ -6,6 +6,7 @@ import com.backend.models.dtos.*
 import com.backend.models.entities.ExpansionRef
 import com.backend.models.entities.Game
 import com.backend.models.entities.GameSleeve
+import com.backend.repositories.BggRankIndexRepository
 import com.backend.repositories.CollectionItemRepository
 import com.backend.repositories.GameRepository
 import com.backend.repositories.GameSleeveRepository
@@ -53,6 +54,9 @@ class GameServiceTest {
 
     @MockK
     private lateinit var gameSleevePersistenceService: GameSleevePersistenceService
+
+    @MockK
+    private lateinit var bggRankIndexRepository: BggRankIndexRepository
 
     @InjectMockKs
     private lateinit var gameService: GameService
@@ -2004,6 +2008,178 @@ class GameServiceTest {
                 gameService.forceRefreshHotGames()
             }.isInstanceOf(RuntimeException::class.java)
                 .hasMessage("DB failure")
+        }
+    }
+
+    @Nested
+    @DisplayName("getOverallGames")
+    inner class GetOverallGames {
+
+        @Test
+        fun `should return an empty page when the rank index has no entries`() {
+            every {
+                bggRankIndexRepository.findAllByOrderByRankAsc(any())
+            } returns PageImpl(emptyList(), PageRequest.of(0, 20), 0)
+
+            val result = gameService.getOverallGames(0, 20)
+
+            assertThat(result.content).isEmpty()
+            assertThat(result.totalElements).isEqualTo(0)
+
+            verify(exactly = 0) { gameRepository.findAllByBggIdIn(any()) }
+        }
+
+        @Test
+        fun `should use fresh cached games without hitting BGG`() {
+            val rankEntry = mockk<com.backend.models.entities.BggRankIndex>()
+            every { rankEntry.bggId } returns bggId
+
+            val cachedGame = Game(
+                id = gameId,
+                bggId = bggId,
+                name = "Cached Game",
+                lastSyncedAt = Instant.now(),
+            )
+
+            every {
+                bggRankIndexRepository.findAllByOrderByRankAsc(any())
+            } returns PageImpl(listOf(rankEntry), PageRequest.of(0, 20), 1)
+
+            every {
+                gameRepository.findAllByBggIdIn(listOf(bggId))
+            } returns listOf(cachedGame)
+
+            every {
+                collectionItemRepository.findGameIdsInCollection(userId, listOf(gameId))
+            } returns emptySet()
+
+            val result = gameService.getOverallGames(0, 20)
+
+            assertThat(result.content).hasSize(1)
+            assertThat(result.content[0].name).isEqualTo("Cached Game")
+
+            verify(exactly = 0) { bggClient.getGameDetailsBatch(any()) }
+        }
+
+        @Test
+        fun `should enrich a game that is not cached yet`() {
+            val rankEntry = mockk<com.backend.models.entities.BggRankIndex>()
+            every { rankEntry.bggId } returns bggId
+
+            val details = createSampleBggThingItem(primaryName = "Newly Synced")
+            val syncedGame = Game(id = gameId, bggId = bggId, name = "Newly Synced", lastSyncedAt = Instant.now())
+
+            every {
+                bggRankIndexRepository.findAllByOrderByRankAsc(any())
+            } returns PageImpl(listOf(rankEntry), PageRequest.of(0, 20), 1)
+
+            every {
+                gameRepository.findAllByBggIdIn(listOf(bggId))
+            } returns emptyList()
+
+            every {
+                bggClient.getGameDetailsBatch(listOf(bggId))
+            } returns BggThingResponseXml(listOf(details))
+
+            every {
+                hotGamesPersistenceService.saveGames(any())
+            } returns listOf(syncedGame)
+
+            every {
+                collectionItemRepository.findGameIdsInCollection(userId, listOf(gameId))
+            } returns emptySet()
+
+            val result = gameService.getOverallGames(0, 20)
+
+            assertThat(result.content).hasSize(1)
+            assertThat(result.content[0].name).isEqualTo("Newly Synced")
+        }
+
+        @Test
+        fun `should skip a rank entry when enrichment fails and no cached game exists`() {
+            val rankEntry = mockk<com.backend.models.entities.BggRankIndex>()
+            every { rankEntry.bggId } returns bggId
+
+            every {
+                bggRankIndexRepository.findAllByOrderByRankAsc(any())
+            } returns PageImpl(listOf(rankEntry), PageRequest.of(0, 20), 1)
+
+            every {
+                gameRepository.findAllByBggIdIn(listOf(bggId))
+            } returns emptyList()
+
+            every {
+                bggClient.getGameDetailsBatch(listOf(bggId))
+            } throws RuntimeException("BGG unreachable")
+
+            val result = gameService.getOverallGames(0, 20)
+
+            assertThat(result.content).isEmpty()
+            assertThat(result.totalElements).isEqualTo(1)
+        }
+
+        @Test
+        fun `should re-enrich a stale cached game`() {
+            val rankEntry = mockk<com.backend.models.entities.BggRankIndex>()
+            every { rankEntry.bggId } returns bggId
+
+            val staleGame = Game(
+                id = gameId,
+                bggId = bggId,
+                name = "Stale Name",
+                lastSyncedAt = Instant.now().minus(10, ChronoUnit.DAYS),
+            )
+
+            val details = createSampleBggThingItem(primaryName = "Refreshed Name")
+            val refreshedGame = Game(id = gameId, bggId = bggId, name = "Refreshed Name", lastSyncedAt = Instant.now())
+
+            every {
+                bggRankIndexRepository.findAllByOrderByRankAsc(any())
+            } returns PageImpl(listOf(rankEntry), PageRequest.of(0, 20), 1)
+
+            every {
+                gameRepository.findAllByBggIdIn(listOf(bggId))
+            } returns listOf(staleGame)
+
+            every {
+                bggClient.getGameDetailsBatch(listOf(bggId))
+            } returns BggThingResponseXml(listOf(details))
+
+            every {
+                hotGamesPersistenceService.saveGames(any())
+            } returns listOf(refreshedGame)
+
+            every {
+                collectionItemRepository.findGameIdsInCollection(userId, listOf(gameId))
+            } returns emptySet()
+
+            val result = gameService.getOverallGames(0, 20)
+
+            assertThat(result.content).hasSize(1)
+            assertThat(result.content[0].name).isEqualTo("Refreshed Name")
+        }
+
+        @Test
+        fun `should clamp page and size`() {
+            every {
+                bggRankIndexRepository.findAllByOrderByRankAsc(any())
+            } returns PageImpl(emptyList(), PageRequest.of(0, 50), 0)
+
+            val result = gameService.getOverallGames(-5, 500)
+
+            assertThat(result.content).isEmpty()
+        }
+
+        @Test
+        fun `should rethrow exception when rank index repository fails`() {
+            every {
+                bggRankIndexRepository.findAllByOrderByRankAsc(any())
+            } throws RuntimeException("DB outage")
+
+            assertThatThrownBy {
+                gameService.getOverallGames(0, 20)
+            }.isInstanceOf(RuntimeException::class.java)
+                .hasMessage("DB outage")
         }
     }
 }

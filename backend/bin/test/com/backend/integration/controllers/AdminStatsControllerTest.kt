@@ -30,7 +30,7 @@ import java.time.Instant
 import java.util.UUID
 
 @AutoConfigureMockMvc
-class AdminStatsControllerTest : AbstractIntegrationTest() {
+class AdminStatsControllerTest: AbstractIntegrationTest() {
 
     @Autowired
     private lateinit var mockMvc: MockMvc

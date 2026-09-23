@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
 import java.util.Optional
 import java.util.UUID
+import java.time.Instant
 
 @Repository
 interface UserRepository: JpaRepository<User, UUID>, JpaSpecificationExecutor<User> {
@@ -32,4 +33,6 @@ interface UserRepository: JpaRepository<User, UUID>, JpaSpecificationExecutor<Us
     fun searchActiveByUsername(@Param("query") query: String): List<User>
 
     fun countByAccountStatus(accountStatus: AccountStatus): Long
+
+    fun deleteAllByAccountStatusAndCreatedAtBefore(accountStatus: AccountStatus, createdAt: Instant): Long
 }
