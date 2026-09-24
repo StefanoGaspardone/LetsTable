@@ -19,6 +19,8 @@ import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 
 import { getAvatarUrl } from '@/lib/file';
 
+import { useNavigationStack } from '@/contexts/navigation-stack-context';
+
 const getViewOptions = (pendingRequestsCount: number) => [
     { value: 'friends', label: 'Amici' },
     { value: 'requests', label: 'Richieste', badge: pendingRequestsCount },
@@ -33,6 +35,8 @@ interface UserItem {
 const FriendsScreen = () => {
     const [viewMode, setViewMode] = useState<'friends' | 'requests'>('friends');
     const [search, setSearch] = useState('');
+
+    const router = useNavigationStack();
 
     const debouncedSearch = useDebounce(search);
     const isSearching = debouncedSearch.length > 0;
@@ -76,7 +80,7 @@ const FriendsScreen = () => {
     const visibleSearchResults = (searchResults ?? []).filter(u => !friendIds.has(u.id));
 
     const renderUserCard = (user: UserItem, action: ReactNode, subtitle?: string) => (
-        <View key = { user.id } className = 'mb-2.5 flex-row items-center justify-between rounded-2xl bg-card p-3 mx-4 border border-border/50 shadow-sm'>
+        <Pressable onPress = { () => router.push(`/user/${user.id}`) } key = { user.id } className = 'mb-2.5 flex-row items-center justify-between rounded-2xl bg-card p-3 mx-4 border border-border/50 shadow-sm active:scale-[0.98] active:opacity-75'>
             <View className = 'flex-row items-center gap-3 flex-1 mr-2'>
                 <View className = 'h-12 w-12 overflow-hidden rounded-full bg-secondary items-center justify-center border border-border/30'>
                     <Image source = {{ uri: getAvatarUrl(user?.avatarId ?? null, user?.username ?? '') }} style = {{ width: 48, height: 48 }} contentFit = 'cover' transition = { 200 }/>
@@ -91,7 +95,7 @@ const FriendsScreen = () => {
                 </View>
             </View>
             <View className = 'flex-row items-center'>{action}</View>
-        </View>
+        </Pressable>
     )
 
     return (
@@ -125,7 +129,7 @@ const FriendsScreen = () => {
                             const alreadyReceived = receivedIds.has(item.id);
 
                             let actionComponent = (
-                                <Pressable onPress = { () => sendRequest.mutate(item.id) } className = 'flex-row items-center gap-1.5 rounded-full bg-[#C45135] px-3.5 py-2 active:bg-primary/90 active:scale-[0.98]'>
+                                <Pressable onPress = { e => { e.stopPropagation(); e.preventDefault(); sendRequest.mutate(item.id); } } className = 'flex-row items-center gap-1.5 rounded-full bg-[#C45135] px-3.5 py-2 active:bg-primary/90 active:scale-[0.98]'>
 									<UserPlus size = { 15 } color = '#FFFFFF'/>
 									<Text className = 'text-xs font-semibold text-white'>Aggiungi</Text>
                                 </Pressable>
@@ -164,7 +168,7 @@ const FriendsScreen = () => {
                     <FlatList className = 'pt-2' data = { friends } keyExtractor = { item => item.id } showsVerticalScrollIndicator = { false } refreshControl = { refreshControl }
                         renderItem = { ({ item }) =>
                             renderUserCard( item,
-                                <Pressable  onPress = { () => removeFriend.mutate(item.id) } className = 'h-9 w-9 items-center justify-center rounded-full bg-secondary/80 active:bg-primary/90 active:scale-[0.98]' hitSlop = { 6 }>
+                                <Pressable onPress = { e => { e.stopPropagation(); e.preventDefault(); removeFriend.mutate(item.id); } } className = 'h-9 w-9 items-center justify-center rounded-full bg-secondary/80 active:bg-primary/90 active:scale-[0.98]' hitSlop = { 6 }>
                                     {({ pressed }) => (
                                         <UserX size = { 17 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
                                     )}
@@ -207,7 +211,7 @@ const FriendsScreen = () => {
                                 if(section.type === 'received') {
                                     return renderUserCard(item,
                                         <View className = 'flex-row items-center gap-2'>
-                                            <Pressable onPress = { () => acceptRequest.mutate(item.requestId)} className = 'flex-row items-center gap-1 rounded-full bg-[#C45135] px-3 py-1.5 active:bg-primary/90 active:scale-[0.98]'>
+                                            <Pressable onPress = { e => { e.stopPropagation(); e.preventDefault(); acceptRequest.mutate(item.requestId); } } className = 'flex-row items-center gap-1 rounded-full bg-[#C45135] px-3 py-1.5 active:bg-primary/90 active:scale-[0.98]'>
                                                 <Check size = { 14 } color = '#FFFFFF'/>
                                                 <Text className = 'text-xs font-semibold text-white'>Accetta</Text>
                                             </Pressable>
@@ -222,7 +226,7 @@ const FriendsScreen = () => {
                                 }
 
                                 return renderUserCard(item,
-                                    <Pressable onPress = { () => cancelRequest.mutate(item.requestId) } className = 'rounded-full bg-secondary px-3 py-1.5 active:bg-primary/90 active:scale-[0.98]'>
+                                    <Pressable onPress = { e => { e.stopPropagation(); e.preventDefault(); cancelRequest.mutate(item.requestId); } } className = 'rounded-full bg-secondary px-3 py-1.5 active:bg-primary/90 active:scale-[0.98]'>
 										{({ pressed }) => (
 											<Text className = { `text-xs font-semibold text-muted-foreground ${pressed && 'text-white'}` }>Annulla</Text>
 										)}

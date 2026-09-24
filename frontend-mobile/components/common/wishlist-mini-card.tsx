@@ -24,6 +24,7 @@ const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
 	});
 
 	const previewItems = data?.content ?? [];
+	const remainingCount = Math.max(0, (data?.totalElements ?? 0) - previewItems.length);
 
 	const handleOpen = () => router.push(`/wishlist/${wishlist.id}`);
 
@@ -42,19 +43,28 @@ const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
 				<Text className = 'text-base font-semibold text-foreground' numberOfLines = { 1 }>
 					{wishlist.name}
 				</Text>
-				<View className = 'mt-1.5 flex-row'>
-					{previewItems.map((item, index) => (
-						<View key = { item.id } style = {{ width: THUMB_SIZE, height: THUMB_SIZE, marginLeft: index === 0 ? 0 : -12, zIndex: previewItems.length - index }} className = 'overflow-hidden rounded-xl border-2 border-card bg-secondary'>
-							{item.game.thumbnailUrl ? (
-								<Image source = {{ uri: item.game.thumbnailUrl }} style = {{ width: '100%', height: '100%' }} contentFit = 'cover'/>
-							) : (
-								<View className = 'h-full w-full items-center justify-center'>
-									<Dices size = { 14 } className = 'text-muted-foreground'/>
-								</View>
-							)}
-						</View>
-					))}
-				</View>
+				{previewItems.length > 0 ? (
+					<View className = 'mt-1.5 flex-row'>
+						{previewItems.map((item, index) => (
+							<View key = { item.id } style = {{ width: THUMB_SIZE, height: THUMB_SIZE, marginLeft: index === 0 ? 0 : -12, zIndex: previewItems.length - index }} className = 'overflow-hidden rounded-xl border-2 border-card bg-secondary'>
+								{item.game.thumbnailUrl ? (
+									<Image source = {{ uri: item.game.thumbnailUrl }} style = {{ width: '100%', height: '100%' }} contentFit = 'cover'/>
+								) : (
+									<View className = 'h-full w-full items-center justify-center'>
+										<Dices size = { 14 } className = 'text-muted-foreground'/>
+									</View>
+								)}
+							</View>
+						))}
+						{remainingCount > 0 && (
+							<View style = {{ zIndex: 0 }} className = 'items-center justify-center overflow-hidden px-1.5'>
+								<Text className = 'text-base font-medium text-muted-foreground'>+{remainingCount}</Text>
+							</View>
+						)}
+					</View>
+				) : (
+					<Text className = 'text-xs text-muted-foreground'>Nessun elemento</Text>
+				)}
 			</View>
 			<View className = 'justify-center'>
 				<ChevronRight size = { 18 } color = '#736E65'/>

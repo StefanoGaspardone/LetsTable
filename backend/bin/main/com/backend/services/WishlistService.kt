@@ -7,11 +7,14 @@ import com.backend.models.entities.Wishlist
 import com.backend.models.entities.WishlistItem
 import com.backend.models.entities.WishlistMember
 import com.backend.models.mappers.toPageDTO
+import com.backend.models.specifications.WishlistFilterType
 import com.backend.models.specifications.WishlistItemSpecification
+import com.backend.models.specifications.WishlistSpecification
 import com.backend.repositories.*
 import com.backend.utils.resolveSort
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest.of
+import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
@@ -79,14 +82,23 @@ class WishlistService(
     }
 
     @Transactional
-    fun listAccessibleWishlists(userId: UUID): List<WishlistDTO> {
-        logger.debug("\n\t[DEBUG] [wishlist_service][list_accessible_wishlists] Listing wishlists for user {}", userId)
+    fun listAccessibleWishlists(userId: UUID, page: Int, size: Int, type: WishlistFilterType?, sort: String?): PageDTO<WishlistDTO> {
+        logger.debug("\n\t[DEBUG] [wishlist_service][list_accessible_wishlists] Listing wishlists\n\tuserId={}\n\tpage={}\n\tsize={}\n\ttype={}\n\tsort={}", userId, page, size, type, sort)
 
         try {
-            val wishlists = wishlistRepository.findAllAccessibleByUser(userId).map { WishlistDTO.from(it) }
+            val pageSafe = if(page < 0) 0 else page
+            val sizeSafe = size.coerceIn(1, 100)
+            val sortObj = resolveSort(sort, setOf("updatedAt", "name", "createdAt"), "updatedAt")
+            val pageable = of(pageSafe, sizeSafe, sortObj)
 
-            logger.info("\n\t[INFO] [wishlist_service][list_accessible_wishlists] Found {} wishlists for user {}", wishlists.size, userId)
-            return wishlists
+            val spec = WishlistSpecification.withFilters(userId, type)
+            val result = wishlistRepository.findAll(spec, pageable)
+
+            logger.info("\n\t[INFO] [wishlist_service][list_accessible_wishlists] Retrieved {} wishlists for user {}", result.numberOfElements, userId)
+            return result.toPageDTO { WishlistDTO.from(it) }
+        } catch(e: InvalidSortException) {
+            logger.warn("\n\t[WARN] [wishlist_service][list_accessible_wishlists] Invalid sort field: {}", sort)
+            throw e
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [wishlist_service][list_accessible_wishlists] Error listing wishlists for user {}: {}", userId, e.message)
             throw e

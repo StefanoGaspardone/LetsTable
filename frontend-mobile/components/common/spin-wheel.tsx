@@ -110,14 +110,14 @@ const SpinWheel = ({ visible, entries, onClose, onResult }: SpinWheelProps) => {
 							</Svg>
 						</View>
 						<Animated.View
-							style={{
+							style = {{
 								width: WHEEL_SIZE,
 								height: WHEEL_SIZE,
 								transform: [
 									{ 
 										rotate: rotation.interpolate({ 
-										inputRange: [0, 360], 
-										outputRange: ['0deg', '360deg'] 
+											inputRange: [0, 360], 
+											outputRange: ['0deg', '360deg'] 
 										}) 
 									}
 								],
@@ -157,35 +157,27 @@ const SpinWheel = ({ visible, entries, onClose, onResult }: SpinWheelProps) => {
 					</View>
 					<View className = 'w-full mt-6 items-center'>
 						{resultEntry ? (
-						<View className='items-center w-full'>
-							<Text className='text-xs text-muted-foreground uppercase tracking-wider mb-1'>
-							Primo giocatore estratto
-							</Text>
-							<Text className='text-xl font-extrabold text-primary mb-4'>
-							{resultEntry.label}
-							</Text>
-							<Pressable 
-							onPress={handleConfirm} 
-							className='w-full h-12 items-center justify-center rounded-2xl bg-primary active:opacity-80 shadow'
-							>
-							<Text className='text-base font-semibold text-primary-foreground'>
-								Conferma selezione
-							</Text>
-							</Pressable>
-						</View>
+							<View className='items-center w-full'>
+								<Text className='text-xs text-muted-foreground uppercase tracking-wider mb-1'>
+									Primo giocatore estratto
+								</Text>
+								<Text className='text-xl font-extrabold text-primary mb-4'>
+									{resultEntry.label}
+								</Text>
+								<Pressable  onPress = { handleConfirm }  className = 'w-full h-12 items-center justify-center rounded-full bg-primary active:opacity-80 shadow'>
+									<Text className = 'text-base font-semibold text-primary-foreground'>
+										Conferma selezione
+									</Text>
+								</Pressable>
+							</View>
 						) : (
-						<Pressable 
-							onPress={handleSpin} 
-							disabled={isSpinning} 
-							className='w-full h-12 items-center justify-center rounded-full bg-primary active:opacity-80 shadow disabled:opacity-50'
-						>
-							<Text className='text-base font-semibold text-primary-foreground'>
-							{isSpinning ? 'Giro in corso...' : 'Gira la ruota'}
-							</Text>
-						</Pressable>
+							<Pressable  onPress = { handleSpin }  disabled = { isSpinning }  className = 'w-full h-12 items-center justify-center rounded-full bg-primary active:opacity-80 shadow disabled:opacity-50'>
+								<Text className = 'text-base font-semibold text-primary-foreground'>
+									{isSpinning ? 'Giro in corso...' : 'Gira la ruota'}
+								</Text>
+							</Pressable>
 						)}
 					</View>
-
 				</View>
 			</View>
 		</Modal>

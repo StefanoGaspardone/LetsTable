@@ -358,4 +358,5 @@ npm test
 - games with only 1 team, win o not
 - friends section of a user
 - render podium for tie
-- add wishlist to frontend
+- add game to wishlist, create another sheet to choose the game
+- edit wishlist name

@@ -55,6 +55,9 @@ data class WishlistDTO(
 
     @field:Schema(description = "When the wishlist was created")
     val createdAt: Instant,
+
+    @field:Schema(description = "When the wishlist was updated")
+    val updatedAt: Instant,
 ) {
     companion object {
         fun from(wishlist: Wishlist) = WishlistDTO(
@@ -64,6 +67,7 @@ data class WishlistDTO(
             isShared = wishlist.isShared,
             isDefault = wishlist.isDefault,
             createdAt = wishlist.createdAt,
+            updatedAt = wishlist.updatedAt,
         )
     }
 }

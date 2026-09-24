@@ -9,6 +9,7 @@ import com.backend.models.dtos.WishlistDTO
 import com.backend.models.dtos.WishlistItemDTO
 import com.backend.models.dtos.WishlistItemStatusDTO
 import com.backend.models.dtos.WishlistMemberDTO
+import com.backend.models.specifications.WishlistFilterType
 import com.backend.security.CurrentUser
 import com.backend.services.WishlistService
 import io.swagger.v3.oas.annotations.Operation
@@ -46,17 +47,23 @@ class WishlistController(
     fun createWishlist(@Valid @RequestBody request: CreateWishlistRequest): ResponseEntity<WishlistDTO> =
         ResponseEntity.status(HttpStatus.CREATED).body(wishlistService.createWishlist(CurrentUser.id(), request))
 
-    @Operation(summary = "List accessible wishlists", description = "List all wishlists owned by, or shared with, the current user.")
+    @Operation(summary = "List accessible wishlists", description = "Paginated list of wishlists owned by, shared with, or the default wishlist of the current user. Optionally filtered by type (shared/private).")
     @ApiResponses(
         value = [
             ApiResponse(
-                responseCode = "200", description = "Ok - List of wishlists",
+                responseCode = "200", description = "Ok - Page of wishlists",
                 content = [Content(schema = Schema(implementation = WishlistDTO::class))]
             ),
         ]
     )
     @GetMapping
-    fun listAccessibleWishlists(): List<WishlistDTO> = wishlistService.listAccessibleWishlists(CurrentUser.id())
+    fun listAccessibleWishlists(
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+        @RequestParam(required = false) type: WishlistFilterType?,
+        @RequestParam(required = false) sort: String?,
+    ): ResponseEntity<PageDTO<WishlistDTO>> =
+        ResponseEntity.ok(wishlistService.listAccessibleWishlists(CurrentUser.id(), page, size, type, sort))
 
     @Operation(summary = "Delete wishlist", description = "Delete a wishlist. Only the owner can delete it.")
     @ApiResponses(
@@ -249,8 +256,8 @@ class WishlistController(
         ]
     )
     @GetMapping("/{wishlistId}/members")
-    fun listMembers(@PathVariable wishlistId: UUID): List<WishlistMemberDTO> =
-        wishlistService.listMembers(wishlistId)
+    fun listMembers(@PathVariable wishlistId: UUID): ResponseEntity<List<WishlistMemberDTO>> =
+        ResponseEntity.ok(wishlistService.listMembers(wishlistId))
 
     @Operation(summary = "Add game to wishlist", description = "Add a game to a wishlist. Owner and members (if shared) can add games.")
     @ApiResponses(
@@ -365,8 +372,8 @@ class WishlistController(
         ]
     )
     @GetMapping("/{wishlistId}/items")
-    fun listItems(@PathVariable wishlistId: UUID, @RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int, @RequestParam(required = false) gameName: String?, @RequestParam(required = false) sort: String?): PageDTO<WishlistItemDTO> =
-        wishlistService.listItems(wishlistId, page, size, gameName, sort)
+    fun listItems(@PathVariable wishlistId: UUID, @RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int, @RequestParam(required = false) gameName: String?, @RequestParam(required = false) sort: String?): ResponseEntity<PageDTO<WishlistItemDTO>> =
+        ResponseEntity.ok(wishlistService.listItems(wishlistId, page, size, gameName, sort))
 
     @Operation(summary = "Get wishlist", description = "Get details of any wishlist by id. Wishlists are publicly viewable by any authenticated user.")
     @ApiResponses(
@@ -390,7 +397,8 @@ class WishlistController(
         ]
     )
     @GetMapping("/{wishlistId}")
-    fun getWishlist(@PathVariable wishlistId: UUID): WishlistDTO = wishlistService.getWishlist(wishlistId)
+    fun getWishlist(@PathVariable wishlistId: UUID): ResponseEntity<WishlistDTO> =
+        ResponseEntity.ok(wishlistService.getWishlist(wishlistId))
 
     @Operation(summary = "Check wishlist item status", description = "Check whether a game is already in a specific wishlist.")
     @ApiResponses(
@@ -414,6 +422,6 @@ class WishlistController(
         ]
     )
     @GetMapping("/{wishlistId}/items/status")
-    fun getItemStatus(@PathVariable wishlistId: UUID, @RequestParam gameId: UUID): WishlistItemStatusDTO =
-        wishlistService.getItemStatus(wishlistId, gameId)
+    fun getItemStatus(@PathVariable wishlistId: UUID, @RequestParam gameId: UUID): ResponseEntity<WishlistItemStatusDTO> =
+        ResponseEntity.ok(wishlistService.getItemStatus(wishlistId, gameId))
 }

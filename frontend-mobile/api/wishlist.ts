@@ -4,8 +4,25 @@ import { PageDTO } from '@/types/page';
 
 import { Wishlist, WishlistItem, WishlistItemStatus, WishlistMember } from '@/types/wishlist';
 
-export const listMyWishlists = async(): Promise<Wishlist[]> => {
-    const { data } = await apiClient.get<Wishlist[]>('/wishlists');
+export type WishlistFilterType = 'SHARED' | 'PRIVATE';
+
+export interface ListWishlistsParams {
+    page?: number;
+    size?: number;
+    type?: WishlistFilterType;
+    sort?: string;
+}
+
+export const listMyWishlists = async (params?: ListWishlistsParams): Promise<PageDTO<Wishlist>> => {
+    const { data } = await apiClient.get<PageDTO<Wishlist>>('/wishlists', {
+        params: {
+            page: params?.page ?? 0,
+            size: params?.size ?? 20,
+            type: params?.type,
+            sort: params?.sort,
+        },
+    });
+
     return data;
 }
 
@@ -27,6 +44,7 @@ export const listWishlistItems = async (wishlistId: string, page: number, size =
     const { data } = await apiClient.get<PageDTO<WishlistItem>>(`/wishlists/${wishlistId}/items`, {
         params: { page, size },
     });
+
     return data;
 }
 
@@ -43,6 +61,7 @@ export const getItemStatusInWishlist = async (wishlistId: string, gameId: string
     const { data } = await apiClient.get<WishlistItemStatus>(`/wishlists/${wishlistId}/items/status`, {
         params: { gameId },
     });
+    
     return data;
 }
 

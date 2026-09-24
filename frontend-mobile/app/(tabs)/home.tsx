@@ -8,7 +8,7 @@ import QuickStatCard from '@/components/home/quick-stat-card';
 import EmptyState from '@/components/common/empty-state';
 import FabMenu from '@/components/common/fab-menu';
 import LatestMatchCard from '@/components/home/latest-match-card';
-import WishlistMiniCard from '@/components/home/wishlist-mini-card';
+import WishlistMiniCard from '@/components/common/wishlist-mini-card';
 import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/register-match-sheet';
 import WinRateCard from '@/components/home/win-rate-card';
 import MatchListItem from '@/components/common/match-list-item';
@@ -25,7 +25,9 @@ const HomeScreen = () => {
 	const { totalWins, totalMatches, totalGames } = useHomeStats();
 	const { data: friends } = useFriends();
 	const { data: matchesData } = useMatches({ sort: 'playedAt-desc', size: 5 } as any);
-	const { data: wishlists } = useMyWishlists();
+	
+	const { data: wishlistsData } = useMyWishlists();
+	const wishlists = wishlistsData?.pages?.[0]?.content ?? [];
 
 	const router = useNavigationStack();
 
@@ -88,7 +90,7 @@ const HomeScreen = () => {
 					</Pressable>
 				)}
 				</View>
-				{wishlists && wishlists.length > 0 ? (
+				{wishlists.length > 0 ? (
 					<View className = 'gap-2'>
 						{[...wishlists]
 							.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0))

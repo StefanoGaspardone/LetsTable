@@ -79,8 +79,8 @@ const TeamDotStack = ({ teams }: { teams: FlatTeam[] }) => {
 				</View>
 			))}
 			{remainingCount > 0 && (
-				<View style = {{ marginLeft: -AVATAR_OVERLAP }} className = 'h-[26px] items-center justify-center rounded-full bg-secondary px-2'>
-					<Text className = 'text-xs font-semibold text-muted-foreground'>+{remainingCount}</Text>
+				<View style = {{ marginLeft: -AVATAR_OVERLAP }} className = 'h-[26px] items-center justify-center px-3'>
+					<Text className = 'text-sm font-medium text-muted-foreground'>+{remainingCount}</Text>
 				</View>
 			)}
 		</View>

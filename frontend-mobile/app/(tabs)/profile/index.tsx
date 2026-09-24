@@ -138,7 +138,7 @@ const ProfileScreen = () => {
 	return (
 		<View className = 'flex-1 bg-background'>
 			<ScreenHeader title = 'Profilo'/>
-			<ScrollView showsVerticalScrollIndicator = { false } contentContainerStyle = {{ paddingBottom: 40 }} className = 'flex-1 px-4 pt-2'>
+			<ScrollView showsVerticalScrollIndicator = { false } contentContainerStyle = {{ paddingBottom: 28 }} className = 'flex-1 px-4 pt-2'>
 				<View className = 'items-center justify-center pb-4'>
 					<View className = 'relative mb-3'>
 						<View className = 'h-28 w-28 items-center justify-center overflow-hidden rounded-full border-2 border-border/50 bg-secondary shadow-sm'>
