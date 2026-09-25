@@ -14,6 +14,8 @@ import { createWishlist } from '@/api/wishlist';
 import { useToast } from '@/contexts/toast-context';
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
+import { useThemeColors } from '@/hooks/use-theme-colors';
+
 export interface CreateWishlistSheetRef {
 	present: () => void;
 	dismiss: () => void;
@@ -26,6 +28,7 @@ const CreateWishlistSheet = forwardRef<CreateWishlistSheetRef>((_, ref) => {
 	
     const { showToast } = useToast();
 	const router = useNavigationStack();
+	const { colors } = useThemeColors();
 
 	const [name, setName] = useState('');
 	const [isShared, setIsShared] = useState(false);
@@ -69,15 +72,15 @@ const CreateWishlistSheet = forwardRef<CreateWishlistSheetRef>((_, ref) => {
 			<BottomSheetScrollView contentContainerStyle = {{ padding: 16, paddingBottom: 32 }}>
 				<Text className = 'mb-4 font-display text-xl text-foreground'>Nuova Wishlist</Text>
 				<Text className = 'mb-1.5 text-xs uppercase tracking-wide text-muted-foreground font-semibold'>Nome</Text>
-				<Input value = { name } onChangeText = { setName } placeholder = 'Es. Giochi da provare' className = 'mb-4 h-11'/>
+				<Input value = { name } onChangeText = { setName } placeholder = 'Es. Giochi da provare' className = 'mb-4 h-11 border-0'/>
 				<Text className = 'mb-1.5 text-xs uppercase tracking-wide text-muted-foreground font-semibold'>Visibilità</Text>
 				<View className = 'mb-6 flex-row gap-2'>
 					<Pressable onPress = { () => setIsShared(false) } className = { `flex-1 flex-row items-center justify-center gap-2 rounded-xl border px-3 py-3 ${!isShared ? 'border-primary bg-primary/5' : 'border-border bg-card'}` }>
-						<Lock size = { 16 } color = { !isShared ? '#C45135' : '#736E65' }/>
+						<Lock size = { 16 } color = { !isShared ? colors.primary : colors.mutedForeground }/>
 						<Text className = { `text-sm font-medium ${!isShared ? 'text-primary' : 'text-muted-foreground'}` }>Privata</Text>
 					</Pressable>
 					<Pressable onPress = { () => setIsShared(true) } className = { `flex-1 flex-row items-center justify-center gap-2 rounded-xl border px-3 py-3 ${isShared ? 'border-primary bg-primary/5' : 'border-border bg-card'}` }>
-						<Users size = { 16 } color = { isShared ? '#C45135' : '#736E65' }/>
+						<Users size = { 16 } color = { isShared ? colors.primary : colors.mutedForeground }/>
 						<Text className = { `text-sm font-medium ${isShared ? 'text-primary' : 'text-muted-foreground'}` }>Condivisa</Text>
 					</Pressable>
 				</View>

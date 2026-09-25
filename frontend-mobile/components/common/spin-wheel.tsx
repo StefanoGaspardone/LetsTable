@@ -2,9 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Animated, Easing, Pressable, Dimensions } from 'react-native';
 import Svg, { G, Path, Circle as SvgCircle, Text as SvgText, Polygon } from 'react-native-svg';
 import { X, Dices } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 
 import { Text } from '@/components/ui/text';
+
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 interface WheelEntry {
 	id: string;
@@ -42,8 +43,7 @@ const SpinWheel = ({ visible, entries, onClose, onResult }: SpinWheelProps) => {
 	const [isSpinning, setIsSpinning] = useState(false);
 	const [resultId, setResultId] = useState<string | null>(null);
 
-	const { colorScheme } = useColorScheme();
-	const cardColor = colorScheme === 'dark' ? '#21201C' : '#FFFFFF';
+	const { colors } = useThemeColors();
 
 	useEffect(() => {
 		if(visible) {
@@ -96,17 +96,17 @@ const SpinWheel = ({ visible, entries, onClose, onResult }: SpinWheelProps) => {
 				<View className = 'w-full max-w-sm items-center rounded-3xl bg-card p-6 shadow-2xl border border-border'>
 					<View className = 'w-full flex-row items-center justify-between mb-6'>
 						<View className = 'flex-row items-center gap-2'>
-							<Dices size = { 22 } className = 'text-primary'/>
+							<Dices size = { 22 } color = { colors.primary }/>
 							<Text className = 'text-lg font-bold text-foreground'>Chi inizia?</Text>
 						</View>
 						<Pressable  onPress = { onClose }  disabled = { isSpinning } className = 'h-8 w-8 items-center justify-center rounded-full bg-muted active:opacity-70'>
-							<X size = { 18 } className = 'text-muted-foreground'/>
+							<X size = { 18 } color = { colors.mutedForeground }/>
 						</Pressable>
 					</View>
 					<View style = {{ width: WHEEL_SIZE, height: WHEEL_SIZE }} className = 'items-center justify-center my-2'>
 						<View style = {{ position: 'absolute', top: -10, zIndex: 30 }}>
 							<Svg width = { 28 } height = { 26 } viewBox = '0 0 28 26'>
-								<Polygon points = '2,2 26,2 14,24' fill = '#EF4444' stroke = { cardColor } strokeWidth = { 2 } strokeLinejoin = 'round'/>
+								<Polygon points = '2,2 26,2 14,24' fill = { colors.primary } stroke = '#FFFFFF' strokeWidth = { 2 } strokeLinejoin = 'round'/>
 							</Svg>
 						</View>
 						<Animated.View

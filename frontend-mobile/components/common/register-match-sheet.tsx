@@ -26,6 +26,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
+import { useThemeColors } from '@/hooks/use-theme-colors';
+
 interface PresetGame {
 	id: string;
 	bggId: number;
@@ -73,6 +75,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 	const { user } = useAuth();
 	const { showToast } = useToast();
     const router = useNavigationStack();
+    const { colors } = useThemeColors();
 
 	const queryClient = useQueryClient();
 
@@ -338,26 +341,26 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                 <BottomSheetScrollView contentContainerStyle = {{ padding: 16, paddingBottom: 32 }}>
                     <Text className = 'mb-4 font-display text-xl text-foreground'>Nuova Partita</Text>
                     {presetGame ? (
-                        <Pressable onPress = { handleOpenGamePicker } className = 'mb-4 flex-row items-center gap-3 rounded-2xl border border-border bg-card p-2 active:bg-[#DDD8CE]'>
+                        <Pressable onPress = { handleOpenGamePicker } className = 'mb-4 flex-row items-center gap-3 rounded-2xl border border-border bg-secondary p-2 active:bg-card active:scale-[0.98]'>
                             <View style = {{ width: 52, height: 52 }} className = 'overflow-hidden rounded-xl bg-secondary'>
                                 {presetGame.thumbnailUrl ? (
                                     <Image source = {{ uri: presetGame.thumbnailUrl }} style = {{ width: 52, height: 52 }}/>
                                 ) : (
                                     <View className = 'h-full w-full items-center justify-center'>
-                                        <Dices size = { 18 } color = '#736E65'/>
+                                        <Dices size = { 18 } color = { colors.mutedForeground }/>
                                     </View>
                                 )}
                             </View>
                             <Text className = 'flex-1 font-medium text-sm text-foreground' numberOfLines = { 1 }>
                                 {presetGame.name}
                             </Text>
-                            <Text className = 'text-xs text-card rounded-lg py-2 px-3 bg-[#C45135]'>Cambia</Text>
+                            <Text className = 'text-xs text-card rounded-lg py-2 px-3 bg-primary'>Cambia</Text>
                         </Pressable>
                     ) : (
-                        <Pressable onPress = { handleOpenGamePicker } className = 'mb-4 flex-row items-center gap-2 rounded-xl border border-dashed border-border px-3 py-3 active:border-solid active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
+                        <Pressable onPress = { handleOpenGamePicker } className = 'mb-4 flex-row items-center gap-2 rounded-xl border border-dashed border-border px-3 py-3 active:border-solid active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: colors.primary, borderColor: colors.primary }] }>
                             {({ pressed }) => (
                                 <>
-                                    <Dices size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+                                    <Dices size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
                                     <Text className = { `text-sm ${pressed ? 'text-white' : 'text-muted-foreground'}` }>
                                         Scegli un gioco
                                     </Text>
@@ -371,7 +374,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                     </View>
                     <Text className = 'mb-1.5 text-xs uppercase tracking-wide text-muted-foreground font-semibold'>Luogo (opzionale)</Text>
                     <View className = 'mb-4'>
-                        <Input value = { place } onChangeText = { setPlace } placeholder = 'Es. Casa di Ale' className = 'h-11'/>
+                        <Input value = { place } onChangeText = { setPlace } placeholder = 'Es. Casa di Ale' className = 'h-11 bg-secondary border-0'/>
                     </View>
                     {presetGame && (
                         <>
@@ -384,7 +387,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                                 <Image source = {{ uri: expansion.thumbnailUrl }} style = {{ width: 32, height: 32 }} contentFit = 'cover'/>
                                             ) : (
                                                 <View className = 'h-full w-full items-center justify-center'>
-                                                    <Puzzle size = { 14 } color = '#736E65'/>
+                                                    <Puzzle size = { 14 } color = { colors.mutedForeground }/>
                                                 </View>
                                             )}
                                         </View>
@@ -393,15 +396,15 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                         </Text>
                                         <Pressable onPress = { () => handleRemoveExpansion(expansion.id) } hitSlop = { 8 } className = 'active:rounded-full active:bg-primary/90 p-2'>
                                             {({ pressed }) => (
-                                                <X size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+                                                <X size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
                                             )}
                                         </Pressable>
                                     </View>
                                 ))}
-                                <Pressable onPress = { handleOpenExpansionPicker } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
+                                <Pressable onPress = { handleOpenExpansionPicker } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: colors.primary, borderColor: colors.primary }] }>
                                     {({ pressed }) => (
                                         <>
-                                            <Puzzle size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+                                            <Puzzle size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
                                             <Text className = { `text-sm ${pressed ? 'text-white' : 'text-muted-foreground'}` }>
                                                 {selectedExpansions.length > 0 ? 'Modifica espansioni' : 'Aggiungi espansioni'}
                                             </Text>
@@ -427,22 +430,22 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                         {player.userId === user?.id && <Text className = 'text-xs text-primary font-semibold'> (io)</Text>}
                                     </Text>
                                     <ColorSwatchPicker value = { player.color } onChange = { color => handleColorChange(index, color) }/>
-                                    <Pressable onPress = { () => handleToggleStarting(index) } className = { `rounded-full px-2.5 py-1.5 ${startingIndex === index ? 'bg-[#C45135]' : 'bg-secondary'}` }>
+                                    <Pressable onPress = { () => handleToggleStarting(index) } className = { `rounded-full px-2.5 py-1.5 ${startingIndex === index ? 'bg-primary' : 'bg-secondary'}` }>
                                         <Text className = { `text-[11px] font-bold ${startingIndex === index ? 'text-white' : 'text-muted-foreground'}` }>1st</Text>
                                     </Pressable>
                                     {player.userId !== user?.id && (
                                         <Pressable onPress = { () => handleRemovePlayer(index) } hitSlop = { 8 } className = 'active:rounded-full active:bg-primary/90 p-2'>
                                             {({ pressed }) => (
-                                                <X size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65'}/>
+                                                <X size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
                                             )}
                                         </Pressable>
                                     )}
                                 </View>
                             ))}
-                            <Pressable onPress = { () => handleOpenIdentityPicker(null) } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
+                            <Pressable onPress = { () => handleOpenIdentityPicker(null) } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: colors.primary, borderColor: colors.primary }] }>
                                 {({ pressed }) => (
                                     <>
-                                        <Plus size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+                                        <Plus size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
                                         <Text className = { `text-sm ${pressed ? 'text-white' : 'text-muted-foreground'}` }>
                                             Aggiungi giocatore
                                         </Text>
@@ -458,12 +461,12 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                     <View className = 'mb-2 flex-row items-center gap-2'>
                                         <ColorSwatchPicker value = { team.color } onChange = { color => handleTeamColorChange(teamIndex, color) }/>
                                         <Input value = { team.name } onChangeText = { name => handleTeamNameChange(teamIndex, name) } placeholder = { `Squadra ${teamIndex + 1}` } className = 'h-9 flex-1'/>
-                                        <Pressable onPress = { () => handleToggleStarting(teamIndex) } className = { `rounded-full px-2.5 py-1.5 ${startingIndex === teamIndex ? 'bg-[#C45135]' : 'bg-secondary'}` }>
+                                        <Pressable onPress = { () => handleToggleStarting(teamIndex) } className = { `rounded-full px-2.5 py-1.5 ${startingIndex === teamIndex ? 'bg-primary' : 'bg-secondary'}` }>
                                             <Text className = { `text-[11px] font-bold ${startingIndex === teamIndex ? 'text-white' : 'text-muted-foreground'}` }>1st</Text>
                                         </Pressable>
                                         <Pressable onPress = { () => handleRemoveTeam(teamIndex) } hitSlop = { 8 } className = 'active:rounded-full active:bg-primary/90 p-2'>
                                             {({ pressed }) => (
-                                                <Trash2 size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65'}/>
+                                                <Trash2 size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
                                             )}
                                         </Pressable>
                                     </View>
@@ -477,18 +480,18 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                                     {player.displayName}
                                                 </Text>
                                                 <Pressable onPress = { () => handleRemoveTeamPlayer(teamIndex, playerIndex) } hitSlop = { 8 }>
-                                                    <X size = { 14 } color = '#736E65'/>
+                                                    <X size = { 14 } color = { colors.mutedForeground }/>
                                                 </Pressable>
                                             </View>
                                         ))}
                                     </View>
                                     <View className='mt-2 flex-row gap-1.5'>
-                                        <Pressable onPress = { () => handleToggleSelfInTeam(teamIndex) } className = { `flex-1 flex-row items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 border ${isSelfInTeam(teamIndex) ? 'border-solid bg-[#C45135]' : 'border-dashed border-border'} active:border-solid active:bg-primary/90 active:border-primary/90` }>
+                                        <Pressable onPress = { () => handleToggleSelfInTeam(teamIndex) } className = { `flex-1 flex-row items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 border ${isSelfInTeam(teamIndex) ? 'border-solid bg-primary' : 'border-dashed border-border'} active:border-solid active:bg-primary/90 active:border-primary/90` }>
                                             {({ pressed }) => {
                                                 const isInTeam = isSelfInTeam(teamIndex);
                                                 const isHighlighted = pressed || isInTeam;
 
-                                                const iconColor = isHighlighted ? '#FFFFFF' : '#736E65';
+                                                const iconColor = isHighlighted ? '#FFFFFF' : colors.mutedForeground;
                                                 const textClassName = `text-sm ${isHighlighted ? 'text-white' : 'text-muted-foreground'}`;
                                                 const buttonText = isInTeam ? 'Sei in questa squadra' : 'Sono qui';
 
@@ -505,7 +508,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                        <Pressable onPress = { () => handleOpenIdentityPicker(teamIndex) } className = 'flex-row flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90'>
                                             {({ pressed }) => (
                                                 <>
-                                                    <Plus size = { 14 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+                                                    <Plus size = { 14 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
                                                     <Text className = { `text-sm ${pressed ? 'text-white' : 'text-muted-foreground'}` }>
                                                         Aggiungi giocatore
                                                     </Text>
@@ -515,10 +518,10 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                                     </View>
                                 </View>
                             ))}
-                            <Pressable onPress = { handleAddTeam } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
+                            <Pressable onPress = { handleAddTeam } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: colors.primary, borderColor: colors.primary }] }>
                                 {({ pressed }) => (
                                     <>
-                                        <Plus size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+                                        <Plus size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
                                         <Text className = { `text-sm ${pressed ? 'text-white' : 'text-muted-foreground'}` }>
                                             Aggiungi Squadra
                                         </Text>
@@ -532,7 +535,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
                             {isSubmitting ? 'Creazione...' : 'Inizia Partita'}
                         </Text>
                     </Button>
-                    <Text onPress = { () => setIsWheelOpen(true) } className = 'text-sm text-center active:underline text-[#C45135] font-medium mt-2'>
+                    <Text onPress = { () => setIsWheelOpen(true) } className = 'text-sm text-center active:underline text-primary font-medium mt-2'>
                         {mode === 'team' ? 'Scegli la squadra iniziale' : 'Scegli il giocatore iniziale'}
                     </Text>
                 </BottomSheetScrollView>

@@ -7,15 +7,18 @@ import { Button } from '@/components/ui/button';
 
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
+import { useThemeColors } from '@/hooks/use-theme-colors';
+
 const NotFoundScreen = () => {
 	const router = useNavigationStack();
+	const { colors } = useThemeColors();  
 
 	return (
 		<>
 			<Stack.Screen options = {{ headerShown: false }}/>
 			<View className = 'flex-1 items-center justify-center bg-background px-8'>
-				<View className = 'h-20 w-20 items-center justify-center rounded-full bg-[#C45135]/10'>
-					<Compass size = { 40 } color = '#C45135'/>
+				<View className = 'h-20 w-20 items-center justify-center rounded-full bg-primary/10'>
+					<Compass size = { 40 } color = { colors.primary }/>
 				</View>
 				<Text className = 'mt-6 font-display text-3xl text-foreground'>404</Text>
 				<Text className = 'mt-2 text-center font-display text-xl text-foreground'>

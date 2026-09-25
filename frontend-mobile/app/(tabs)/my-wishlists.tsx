@@ -15,6 +15,7 @@ import CreateWishlistSheet, { CreateWishlistSheetRef } from '@/components/common
 import { useDefaultWishlist, useMyWishlists } from '@/hooks/use-wishlist';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 import { WishlistFilterType } from '@/api/wishlist';
 
@@ -31,6 +32,8 @@ const MyWishlistsScreen = () => {
 	const { data: defaultWishlist } = useDefaultWishlist();
 	const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useMyWishlists(filter === 'all' ? undefined : { type: filter });
 
+	const { colors } = useThemeColors();  
+
 	useRefetchOnFocus(['wishlists']);
 	const { refreshing, onRefresh } = usePullToRefresh([['wishlists']]);
 
@@ -45,10 +48,10 @@ const MyWishlistsScreen = () => {
 			</View>
 			{isLoading ? (
 				<View className = 'flex-1 items-center justify-center'>
-					<ActivityIndicator color = '#C45135'/>
+					<ActivityIndicator color = { colors.primary }/>
 				</View>
 			) : (otherWishlists.length > 0 || showDefaultSection) ? (
-				<FlatList className = 'mt-3' data = { otherWishlists } keyExtractor = { item => item.id } contentContainerStyle = {{ paddingHorizontal: 16, paddingBottom: 100 }} ItemSeparatorComponent = { () => <View className = 'h-2'/> } refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = '#C45135' colors = { ['#C45135'] } progressBackgroundColor = '#F2EFE9'/> }
+				<FlatList className = 'mt-3' data = { otherWishlists } keyExtractor = { item => item.id } contentContainerStyle = {{ paddingHorizontal: 16, paddingBottom: 100 }} ItemSeparatorComponent = { () => <View className = 'h-2'/> } refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.card }/> }
 					ListHeaderComponent = {
 						showDefaultSection ? (
 							<View className = 'mb-4'>
@@ -64,19 +67,19 @@ const MyWishlistsScreen = () => {
 					ListFooterComponent = {
 						isFetchingNextPage ? (
 							<View className = 'py-6'>
-								<ActivityIndicator color = '#C45135'/>
+								<ActivityIndicator color = { colors.primary }/>
 							</View>
 						) : null
 					}
 				/>
 			) : (
-				<ComingSoon icon = { filter === 'all' ? <Heart size = { 40 } color = '#C45135'/> : filter === 'SHARED' ? <Users size = { 40 } color = '#C45135'/> : <Lock size = { 40 } color = '#C45135'/> } title = { filter === 'all' ? 'Nessuna wishlist' : filter === 'SHARED' ? 'Nessuna wishlist condivisa' : 'Nessuna wishlist privata' } subtitle = { filter === 'all' ? 'Crea la tua prima lista dei desideri con il pulsante qui sotto.' : 'Prova a cambiare filtro, oppure creane una nuova.' }/>
+				<ComingSoon icon = { filter === 'all' ? <Heart size = { 40 } color = { colors.primary }/> : filter === 'SHARED' ? <Users size = { 40 } color = { colors.primary }/> : <Lock size = { 40 } color = { colors.primary }/> } title = { filter === 'all' ? 'Nessuna wishlist' : filter === 'SHARED' ? 'Nessuna wishlist condivisa' : 'Nessuna wishlist privata' } subtitle = { filter === 'all' ? 'Crea la tua prima lista dei desideri con il pulsante qui sotto.' : 'Prova a cambiare filtro, oppure creane una nuova.' }/>
 			)}
 			<FabMenu
 				actions = { [
 					{
 						label: 'Nuova wishlist',
-						icon: <Heart size = { 18 } className = 'text-foreground'/>,
+						icon: <Heart size = { 18 }/>,
 						onPress: () => createWishlistSheetRef.current?.present(),
 					},
 				] }

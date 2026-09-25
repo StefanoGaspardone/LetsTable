@@ -356,7 +356,6 @@ npm test
 - edit match
 - fix push notifications
 - games with only 1 team, win o not
-- friends section of a user
 - render podium for tie
-- add game to wishlist, create another sheet to choose the game
+- in add game to wishlist, create another sheet to choose the game
 - edit wishlist name

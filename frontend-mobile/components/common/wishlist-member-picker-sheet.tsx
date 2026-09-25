@@ -10,6 +10,7 @@ import AppBottomSheet from '@/components/common/app-bottom-sheet';
 
 import { useDebounce } from '@/hooks/use-debounce';
 import { useUserSearch } from '@/hooks/use-user';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 import { getAvatarUrl } from '@/lib/file';
 
@@ -29,6 +30,8 @@ const WishlistMemberPickerSheet = forwardRef<WishlistMemberPickerSheetRef, Wishl
 
 	const [search, setSearch] = useState('');
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+	const { colors } = useThemeColors();
 
 	const debouncedSearch = useDebounce(search);
 
@@ -58,15 +61,15 @@ const WishlistMemberPickerSheet = forwardRef<WishlistMemberPickerSheetRef, Wishl
 		<AppBottomSheet ref = { sheetRef }>
 			<View className = 'px-4 pt-2'>
 				<View className = 'mb-3 flex-row items-center gap-2'>
-					<Pressable onPress = { onBack } hitSlop = { 10 } className = 'h-10 w-10 items-center justify-center rounded-full bg-secondary active:bg-[#DDD8CE]'>
-						<ChevronLeft size = { 24 } color = '#736E65'/>
+					<Pressable onPress = { onBack } hitSlop = { 10 } className = 'h-10 w-10 items-center justify-center rounded-full bg-secondary active:bg-card'>
+						<ChevronLeft size = { 24 } color = { colors.mutedForeground }/>
 					</Pressable>
 					<Text className = 'font-display text-lg text-foreground'>Invita membri</Text>
 				</View>
 				<View className = 'relative mb-3'>
 					<TextInput value = { search } onChangeText = { setSearch } placeholder = 'Cerca per nome utente...' autoCapitalize = 'none' className = 'h-11 rounded-2xl bg-secondary pl-10 pr-3 text-sm text-foreground'/>
 					<View className = 'pointer-events-none absolute left-3 top-0 h-full justify-center'>
-						<Search size = { 16 } color = '#736E65'/>
+						<Search size = { 16 } color = { colors.mutedForeground }/>
 					</View>
 					{search.length > 0 && (
 						<Pressable onPress = { () => setSearch('') } hitSlop = { 8 } className = 'absolute right-3 top-0 h-full justify-center'>
@@ -80,7 +83,7 @@ const WishlistMemberPickerSheet = forwardRef<WishlistMemberPickerSheetRef, Wishl
 
 						return (
 							<View style = {{ width: '25%', padding: 4 }}>
-								<Pressable onPress = { () => toggleUser(item.id) } className = { `items-center gap-1.5 rounded-2xl border py-3 active:scale-[0.98] active:opacity-75 ${isSelected ? 'border-[#C45135] bg-[#C45135]/5' : 'border-border bg-card'}` }>
+								<Pressable onPress = { () => toggleUser(item.id) } className = { `items-center gap-1.5 rounded-2xl border py-3 active:scale-[0.98] active:opacity-75 ${isSelected ? 'border-primary bg-primary/5' : 'border-border bg-card'}` }>
 									<Image source = {{ uri: getAvatarUrl(item.avatarId ?? null, item.username ?? '') }} style = {{ width: 56, height: 56, borderRadius: 100 }} contentFit = 'cover'/>
 									<Text className = 'text-center text-sm font-medium text-foreground' numberOfLines = { 1 }>
 										{item.username}

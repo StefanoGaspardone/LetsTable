@@ -5,6 +5,8 @@ import { Plus } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 
+import { useThemeColors } from '@/hooks/use-theme-colors';
+
 export interface FabMenuAction {
 	label: string;
 	icon: React.ReactNode;
@@ -21,6 +23,8 @@ const FabMenuItem = ({ action, index, isOpen, onPress }: { action: FabMenuAction
 	const opacity = useSharedValue(0);
 	const translateY = useSharedValue(16);
 	const scale = useSharedValue(0.85);
+
+	const { colors, isDark } = useThemeColors();
 
 	useEffect(() => {
 		const openDelay = index * STAGGER_DELAY_MS;
@@ -43,15 +47,15 @@ const FabMenuItem = ({ action, index, isOpen, onPress }: { action: FabMenuAction
 
 	return (
 		<Animated.View style = { itemStyle }>
-			<Pressable onPress = { onPress } className = 'flex-row items-center gap-3 rounded-full border border-border bg-card px-4 py-3 shadow-md active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
+			<Pressable onPress = { onPress } className = 'flex-row items-center gap-3 rounded-full border border-border bg-card px-4 py-3 shadow-md active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: colors.primary, borderColor: colors.primary }] }>
 				{({ pressed }) => (
 					<>
-						<Text className = { `text-sm font-semibold ${pressed ? 'text-white' : 'text-foreground'}` }>
+						<Text className = { `text-sm font-semibold ${(pressed || isDark) ? 'text-white' : 'text-foreground'}` }>
 							{action.label}
 						</Text>
 						{isValidElement(action.icon)
 							? cloneElement(action.icon as React.ReactElement<any>, {
-									color: pressed ? '#FFFFFF' : (action.icon as React.ReactElement<any>).props.color,
+									color: (pressed || isDark) ? '#FFFFFF' : (action.icon as React.ReactElement<any>).props.color,
 									strokeWidth: 2,
 								})
 							: action.icon}

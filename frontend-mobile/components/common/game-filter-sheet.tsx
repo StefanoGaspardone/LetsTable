@@ -2,6 +2,7 @@ import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { Image } from 'expo-image';
+import { useQuery } from '@tanstack/react-query';
 import { Dices, Check } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
@@ -10,7 +11,7 @@ import AppBottomSheet from '@/components/common/app-bottom-sheet';
 
 import { getRecentGames } from '@/api/match';
 
-import { useQuery } from '@tanstack/react-query';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 interface FilterGame {
 	id: string;
@@ -30,7 +31,10 @@ interface GameFilterSheetProps {
 
 const GameFilterSheet = forwardRef<GameFilterSheetRef, GameFilterSheetProps>(({ selectedGameId, onSelect }, ref) => {
 	const sheetRef = useRef<BottomSheetModal>(null);
+
 	const [search, setSearch] = useState('');
+
+	const { colors } = useThemeColors();
 
 	useImperativeHandle(ref, () => ({
 		present: () => {
@@ -56,11 +60,11 @@ const GameFilterSheet = forwardRef<GameFilterSheetRef, GameFilterSheetProps>(({ 
 		<AppBottomSheet ref = { sheetRef }>
 			<BottomSheetScrollView contentContainerStyle = {{ padding: 16, paddingBottom: 32 }}>
 				<Text className = 'mb-4 font-display text-xl text-foreground'>Filtra per gioco</Text>
-				<Input placeholder = 'Cerca...' value = { search } onChangeText = { setSearch } className = 'mb-4 h-11 rounded-xl'/>
+				<Input placeholder = 'Cerca...' value = { search } onChangeText = { setSearch } className = 'mb-4 h-11 rounded-xl border-0'/>
 				<View className = 'gap-2'>
 					<Pressable onPress = { () => handleSelect(null) } className = { `flex-row items-center gap-2.5 rounded-xl border px-3 py-3 ${selectedGameId === null ? 'border-primary bg-primary/5' : 'border-border bg-card'}` }>
 						<Text className = 'flex-1 text-sm font-medium text-foreground'>Tutti i giochi</Text>
-						{selectedGameId === null && <Check size = { 16 } color = '#C45135'/>}
+						{selectedGameId === null && <Check size = { 16 } color = { colors.primary }/>}
 					</Pressable>
 					{isLoading ? null : filteredGames.map(game => (
 						<Pressable key = { game.id } onPress = { () => handleSelect(game) } className = { `flex-row items-center gap-2.5 rounded-xl border px-2.5 py-2 ${selectedGameId === game.id ? 'border-primary bg-primary/5' : 'border-border bg-card'}` }>
@@ -69,12 +73,12 @@ const GameFilterSheet = forwardRef<GameFilterSheetRef, GameFilterSheetProps>(({ 
 									<Image source = {{ uri: game.thumbnailUrl }} style = {{ width: 36, height: 36 }} contentFit = 'cover'/>
 								) : (
 									<View className = 'h-full w-full items-center justify-center'>
-										<Dices size = { 14 } color = '#736E65'/>
+										<Dices size = { 14 } color = { colors.mutedForeground }/>
 									</View>
 								)}
 							</View>
 							<Text className = 'flex-1 text-sm font-medium text-foreground' numberOfLines = { 1 }>{game.name}</Text>
-							{selectedGameId === game.id && <Check size = { 16 } color = '#C45135'/>}
+							{selectedGameId === game.id && <Check size = { 16 } color = { colors.primary }/>}
 						</Pressable>
 					))}
 				</View>

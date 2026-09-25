@@ -17,6 +17,7 @@ import WishlistMemberPickerSheet, { WishlistMemberPickerSheetRef } from '@/compo
 import { useWishlist, useWishlistItems, useWishlistMembers, useAddItemToWishlist, useRemoveItemFromWishlist, useAddMemberToWishlist, useRemoveMemberFromWishlist, useDeleteWishlist, useLeaveWishlist } from '@/hooks/use-wishlist';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
@@ -37,6 +38,8 @@ const WishlistDetailScreen = () => {
 	const { user } = useAuth();
 	const { showToast } = useToast();
 	const { confirm } = useConfirmDialog();
+
+	const { colors } = useThemeColors();
 
 	const gamePickerRef = useRef<GamePickerSheetRef>(null);
 	const memberPickerRef = useRef<WishlistMemberPickerSheetRef>(null);
@@ -161,7 +164,7 @@ const WishlistDetailScreen = () => {
 	if(isLoadingWishlist || !wishlist) {
 		return (
 			<View className = 'flex-1 items-center justify-center bg-background'>
-				<ActivityIndicator color = '#C45135'/>
+				<ActivityIndicator color = { colors.primary }/>
 			</View>
 		)
 	}
@@ -172,22 +175,22 @@ const WishlistDetailScreen = () => {
 	const fabActions = [
 		...(isOwner && !wishlist.isDefault ? [{
 			label: 'Elimina wishlist',
-			icon: <Trash2 size = { 18 } color = '#C45135'/>,
+			icon: <Trash2 size = { 18 }/>,
 			onPress: handleDelete,
 		}] : []),
 		...(isMember ? [{
 			label: 'Abbandona wishlist',
-			icon: <LogOut size = { 18 } color = '#C45135'/>,
+			icon: <LogOut size = { 18 }/>,
 			onPress: handleLeave,
 		}] : []),
 		...(isOwner ? [{
 			label: 'Invita membri',
-			icon: <UserPlus size = { 18 } className = 'text-foreground' color = '#C45135'/>,
+			icon: <UserPlus size = { 18 }/>,
 			onPress: () => memberPickerRef.current?.present(),
 		}] : []),
 		...(canEdit ? [{
 			label: 'Aggiungi gioco',
-			icon: <Dices size = { 18 } className = 'text-foreground' color = '#C45135'/>,
+			icon: <Dices size = { 18 }/>,
 			onPress: () => gamePickerRef.current?.present(),
 		}] : []),
 	];
@@ -198,22 +201,22 @@ const WishlistDetailScreen = () => {
 			<View className = 'px-4 pt-3'>
 				<View className = 'mb-3 flex-row items-center justify-between gap-3'>
 					<Text className = 'flex-1 font-display text-2xl text-foreground'>{wishlist.name}</Text>
-					<View className = 'flex-row items-center gap-1 rounded-full bg-[#C45135]/10 px-2 py-1'>
+					<View className = 'flex-row items-center gap-1 rounded-full bg-primary/10 px-3 py-2'>
 						{wishlist.isDefault ? (
-							<Heart size = { 13 } color = '#C45135' strokeWidth = { 2.5 }/>
+							<Heart size = { 16 } color = { colors.primary } strokeWidth = { 2.5 }/>
 						) : wishlist.isShared ? (
-							<Users size = { 13 } color = '#C45135' strokeWidth = { 2.5 }/>
+							<Users size = { 13 } color = { colors.primary } strokeWidth = { 2.5 }/>
 						) : (
-							<Lock size = { 13 } color = '#C45135' strokeWidth = { 2.5 }/>
+							<Lock size = { 13 } color = { colors.primary } strokeWidth = { 2.5 }/>
 						)}
-						<Text className = 'text-xs font-medium text-[#C45135]'>
+						<Text className = 'text-sm font-medium text-primary'>
 							{wishlist.isDefault ? 'Principale' : wishlist.isShared ? 'Condivisa' : 'Privata'}
 						</Text>
 					</View>
 				</View>
-				<View className = 'mb-4 flex-row items-center gap-4'>
+				<View className = 'mb-4 flex-row items-center justify-between gap-4'>
 					<Pressable className = 'flex-row items-center gap-1.5 group' onPress = { () => router.push(wishlist.owner.id === user?.id ? `/user/${wishlist.owner.id}` : `/profile`) }>
-						<Image source = {{ uri: getAvatarUrl(wishlist.owner.avatarId ?? null, wishlist.owner.username) }} style = {{ width: 20, height: 20, borderRadius: 100 }} contentFit = 'cover'/>
+						<Image source = {{ uri: getAvatarUrl(wishlist.owner.avatarId ?? null, wishlist.owner.username) }} style = {{ width: 24, height: 24, borderRadius: 100 }} contentFit = 'cover'/>
 						<Text className = 'text-xs font-medium text-muted-foreground group-active:underline'>{wishlist.owner.username}</Text>
 					</Pressable>
 					<Text className = 'text-xs text-muted-foreground'>Aggiornata il {formatFullDate(wishlist.createdAt)}</Text>
@@ -224,11 +227,11 @@ const WishlistDetailScreen = () => {
 					</View>
 				)}
 			</View>
-			<ScrollView className = 'flex-1' contentContainerStyle = {{ padding: 16, paddingTop: 8, paddingBottom: 100, flexGrow: 1 }} refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = '#C45135' colors = { ['#C45135'] } progressBackgroundColor = '#F2EFE9'/> }>
+			<ScrollView className = 'flex-1' contentContainerStyle = {{ padding: 16, paddingTop: 8, paddingBottom: 100, flexGrow: 1 }} refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.card }/> }>
 				{activeTab === 'games' ? (
 					isLoadingItems ? (
 						<View className = 'flex-1 items-center justify-center'>
-							<ActivityIndicator color = '#C45135'/>
+							<ActivityIndicator color = { colors.primary }/>
 						</View>
 					) : items.length > 0 ? (
 						<View className = 'gap-2'>
@@ -239,7 +242,7 @@ const WishlistDetailScreen = () => {
 											<Image source = {{ uri: item.game.thumbnailUrl }} style = {{ width: 48, height: 48 }} contentFit = 'cover'/>
 										) : (
 											<View className = 'h-full w-full items-center justify-center'>
-												<Dices size = { 18 } color = '#736E65'/>
+												<Dices size = { 18 } color = { colors.mutedForeground }/>
 											</View>
 										)}
 									</View>
@@ -249,7 +252,7 @@ const WishlistDetailScreen = () => {
 									</View>
 									{canEdit && (
 										<Pressable onPress = { () => handleRemoveItem(item.id) } hitSlop = { 8 } className = 'p-2'>
-											<X size = { 16 } color = '#736E65'/>
+											<X size = { 16 } color = { colors.mutedForeground }/>
 										</Pressable>
 									)}
 								</Pressable>
@@ -257,16 +260,16 @@ const WishlistDetailScreen = () => {
 							{hasNextPage && (
 								<Pressable onPress = { () => { if(!isFetchingNextPage) fetchNextPage(); } } className = 'items-center py-3'>
 									{isFetchingNextPage ? (
-										<ActivityIndicator color = '#C45135'/>
+										<ActivityIndicator color = { colors.primary }/>
 									) : (
-										<Text className = 'text-sm font-medium text-[#C45135]'>Carica altri</Text>
+										<Text className = 'text-sm font-medium text-primary'>Carica altri</Text>
 									)}
 								</Pressable>
 							)}
 						</View>
 					) : (
 						<View className = 'flex-1 items-center justify-center'>
-							<ComingSoon icon = { <Dices size = { 40 } color = '#C45135'/> } title = 'Nessun gioco' subtitle = 'Aggiungi il primo gioco con il pulsante qui sotto.'/>
+							<ComingSoon icon = { <Dices size = { 40 } color = { colors.primary }/> } title = 'Nessun gioco' subtitle = 'Aggiungi il primo gioco con il pulsante qui sotto.'/>
 						</View>
 					)
 				) : (
@@ -282,7 +285,7 @@ const WishlistDetailScreen = () => {
 								<Text className = 'flex-1 text-sm font-medium text-foreground' numberOfLines = { 1 }>{member.user.username}</Text>
 								{isOwner && (
 									<Pressable onPress = { () => handleRemoveMember(member.user.id, member.user.username) } hitSlop = { 8 }>
-										<X size = { 16 } color = '#736E65'/>
+										<X size = { 16 } color = { colors.mutedForeground }/>
 									</Pressable>
 								)}
 							</View>

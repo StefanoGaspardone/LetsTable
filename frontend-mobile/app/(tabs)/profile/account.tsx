@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View, ScrollView, Pressable, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from 'expo-router';
@@ -16,6 +16,7 @@ import { useToast } from '@/contexts/toast-context';
 import { useConfirmDialog } from '@/contexts/confirm-dialog-context';
 
 import { useUpdateMe } from '@/hooks/use-user';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 import { uploadAvatar, deleteAvatar } from '@/api/avatar';
 
@@ -25,6 +26,8 @@ const AccountScreen = () => {
 	const { user, updateUser } = useAuth();
 	const { showToast } = useToast();
 	const { confirm } = useConfirmDialog();
+
+	const { colors } = useThemeColors();
 	const updateMe = useUpdateMe(updateUser);
 
 	const [username, setUsername] = useState(user?.username ?? '');
@@ -142,7 +145,7 @@ const AccountScreen = () => {
 	}
 
 	return (
-		<KeyboardAvoidingView behavior = { Platform.OS === 'ios' ? 'padding' : undefined } className = 'flex-1 bg-background'>
+		<View className = 'flex-1 bg-background'>
 			<ScreenHeader title = 'Modifica Profilo' leftElement = { <BackButton/> }/>
 			<ScrollView showsVerticalScrollIndicator = { false } contentContainerStyle = {{ paddingBottom: 40 }} className = 'flex-1 px-4 pt-2'>
 				<View className = 'mb-8 items-center justify-center'>
@@ -150,7 +153,7 @@ const AccountScreen = () => {
 						<View className = 'h-28 w-28 items-center justify-center overflow-hidden rounded-full border-2 border-border/50 bg-secondary shadow-sm'>
 							<Image source = {{ uri: getAvatarUrl(user?.avatarId ?? null, user?.username ?? '') }} style = {{ width: 112, height: 112 }} contentFit = 'cover'/>
 						</View>
-						<Pressable onPress = { handlePickImage } disabled = { isUploadingAvatar } className = 'absolute bottom-0 left-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-[#C45135] shadow-md active:opacity-80'>
+						<Pressable onPress = { handlePickImage } disabled = { isUploadingAvatar } className = 'absolute bottom-0 left-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-primary shadow-md active:opacity-80'>
 							{isUploadingAvatar ? (
 								<ActivityIndicator size = 'small' color = '#FFFFFF'/>
 							) : (
@@ -158,7 +161,7 @@ const AccountScreen = () => {
 							)}
 						</Pressable>
 						{user?.avatarId && (
-							<Pressable onPress = { handleRemoveImage } disabled = { isRemovingAvatar } className = 'absolute bottom-0 right-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-red-500 shadow-md active:opacity-80'>
+							<Pressable onPress = { handleRemoveImage } disabled = { isRemovingAvatar } className = 'absolute bottom-0 right-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-primary shadow-md active:opacity-80'>
 								{isRemovingAvatar ? (
 									<ActivityIndicator size = 'small' color = '#FFFFFF'/>
 								) : (
@@ -177,7 +180,7 @@ const AccountScreen = () => {
 						<View className = 'relative'>
 							<Input value = { username } onChangeText = { setUsername } placeholder = 'Inserisci username' className = 'h-11 rounded-xl border-0 bg-secondary/70 pl-10 text-sm' autoCapitalize = 'none'/>
 							<View className = 'pointer-events-none absolute bottom-0 left-3 top-0 justify-center'>
-								<User size = { 17 } color = '#8E8E93'/>
+								<User size = { 17 } color = { colors.mutedForeground }/>
 							</View>
 						</View>
 					</View>
@@ -186,7 +189,7 @@ const AccountScreen = () => {
 						<View className = 'relative'>
 							<Input value = { user?.email ?? '' } editable = { false } className = 'h-11 rounded-xl border-0 bg-secondary/70 pl-10 text-sm text-muted-foreground'/>
 							<View className = 'pointer-events-none absolute bottom-0 left-3 top-0 justify-center'>
-								<Mail size = { 17 } color = '#8E8E93'/>
+								<Mail size = { 17 } color = { colors.mutedForeground }/>
 							</View>
 						</View>
 						<Text className = 'text-xs text-muted-foreground'>L'email non può essere modificata</Text>
@@ -200,7 +203,7 @@ const AccountScreen = () => {
 					)}
 				</Button>
 			</ScrollView>
-		</KeyboardAvoidingView>
+		</View>
 	)
 }
 

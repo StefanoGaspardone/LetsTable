@@ -16,6 +16,7 @@ import { useUserSearch } from '@/hooks/use-user';
 import {  useFriends, usePendingReceived, usePendingSent, useSendFriendRequest, useAcceptFriendRequest, useRejectFriendRequest, useCancelFriendRequest, useRemoveFriend } from '@/hooks/use-friend';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 import { getAvatarUrl } from '@/lib/file';
 
@@ -37,6 +38,7 @@ const FriendsScreen = () => {
     const [search, setSearch] = useState('');
 
     const router = useNavigationStack();
+    const { colors, colorScheme } = useThemeColors();
 
     const debouncedSearch = useDebounce(search);
     const isSearching = debouncedSearch.length > 0;
@@ -65,7 +67,7 @@ const FriendsScreen = () => {
     useRefetchOnFocus(['friends']);
             
     const { refreshing, onRefresh } = usePullToRefresh([['friends']]);
-    const refreshControl = <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = '#C45135' colors = { ['#C45135'] } progressBackgroundColor = '#F2EFE9'/>;
+    const refreshControl = <RefreshControl key = { colorScheme } refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.card }/>;
 
     const sendRequest = useSendFriendRequest();
     const acceptRequest = useAcceptFriendRequest();
@@ -101,15 +103,15 @@ const FriendsScreen = () => {
     return (
         <View className = 'flex-1 bg-background'>
             <ScreenHeader title = 'Amici'/>
-			<View className = 'gap-3 px-4 pt-3 pb-2'>
+			<View className = 'gap-3 px-4 pt-4 pb-2'>
                 <View className = 'relative'>
                     <Input  placeholder = 'Cerca per nome utente...' value = { search } onChangeText = { setSearch } className = 'rounded-2xl bg-secondary/80 pl-11 pr-10 border-0 text-sm h-11'/>
                     <View className = 'pointer-events-none absolute left-3.5 top-0 bottom-0 justify-center'>
-                        <Search size = { 18 } className = 'text-muted-foreground' color = '#8E8E93'/>
+                        <Search size = { 18 } color = { colors.mutedForeground }/>
                     </View>
                     {search.length > 0 && (
                         <Pressable onPress = { () => setSearch('') } hitSlop = { 10 } className = 'absolute right-3.5 top-0 bottom-0 justify-center'>
-                            <X size = { 18 } color = '#8E8E93'/>
+                            <X size = { 18 } color = { colors.mutedForeground }/>
                         </Pressable>
                     )}
                 </View>
@@ -120,7 +122,7 @@ const FriendsScreen = () => {
 			{isSearching ? (
                 isLoadingSearch ? (
                     <View className = 'flex-1 items-center justify-center'>
-                        <ActivityIndicator color = '#C45135' size = 'large'/>
+                        <ActivityIndicator color = { colors.primary } size = 'large'/>
                     </View>
                 ) : (
                     <FlatList className = 'pt-2' data = { visibleSearchResults } keyExtractor = { item => item.id } showsVerticalScrollIndicator = { false }
@@ -129,7 +131,7 @@ const FriendsScreen = () => {
                             const alreadyReceived = receivedIds.has(item.id);
 
                             let actionComponent = (
-                                <Pressable onPress = { e => { e.stopPropagation(); e.preventDefault(); sendRequest.mutate(item.id); } } className = 'flex-row items-center gap-1.5 rounded-full bg-[#C45135] px-3.5 py-2 active:bg-primary/90 active:scale-[0.98]'>
+                                <Pressable onPress = { e => { e.stopPropagation(); e.preventDefault(); sendRequest.mutate(item.id); } } className = 'flex-row items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 active:bg-primary/90 active:scale-[0.98]'>
 									<UserPlus size = { 15 } color = '#FFFFFF'/>
 									<Text className = 'text-xs font-semibold text-white'>Aggiungi</Text>
                                 </Pressable>
@@ -138,7 +140,7 @@ const FriendsScreen = () => {
                             if(alreadySent) {
                                 actionComponent = (
                                     <View className = 'flex-row items-center gap-1 rounded-full bg-secondary px-3 py-1.5'>
-                                        <Clock size = { 13 } color = '#8E8E93'/>
+                                        <Clock size = { 13 } color = { colors.mutedForeground }/>
                                         <Text className = 'text-xs font-medium text-muted-foreground'>Inviata</Text>
                                     </View>
                                 )
@@ -162,7 +164,7 @@ const FriendsScreen = () => {
             ) : viewMode === 'friends' ? (
                 isLoadingFriends ? (
                     <View className = 'flex-1 items-center justify-center'>
-                        <ActivityIndicator color = '#C45135' size = 'large'/>
+                        <ActivityIndicator color = { colors.primary } size = 'large'/>
                     </View>
                 ) : friends && friends.length > 0 ? (
                     <FlatList className = 'pt-2' data = { friends } keyExtractor = { item => item.id } showsVerticalScrollIndicator = { false } refreshControl = { refreshControl }
@@ -170,23 +172,23 @@ const FriendsScreen = () => {
                             renderUserCard( item,
                                 <Pressable onPress = { e => { e.stopPropagation(); e.preventDefault(); removeFriend.mutate(item.id); } } className = 'h-9 w-9 items-center justify-center rounded-full bg-secondary/80 active:bg-primary/90 active:scale-[0.98]' hitSlop = { 6 }>
                                     {({ pressed }) => (
-                                        <UserX size = { 17 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+                                        <UserX size = { 17 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
                                     )}
                                 </Pressable>
                             )
                         }
                     />
                 ) : (
-                    <ComingSoon icon = { <Users size = { 40 } color = '#C45135'/> } title = 'Nessun amico ancora' subtitle = 'Usa la barra in alto per cercare e aggiungere nuovi amici.'/>
+                    <ComingSoon icon = { <Users size = { 40 } color = { colors.primary }/> } title = 'Nessun amico ancora' subtitle = 'Usa la barra in alto per cercare e aggiungere nuovi amici.'/>
                 )
             ) : (
                 <View className = 'flex-1'>
                     {(isLoadingReceived || isLoadingSent) ? (
                         <View className = 'flex-1 items-center justify-center'>
-                            <ActivityIndicator color = '#C45135' size = 'large'/>
+                            <ActivityIndicator color = { colors.primary } size = 'large'/>
                         </View>
                     ) : (received?.length ?? 0) === 0 && (sent?.length ?? 0) === 0 ? (
-                        <ComingSoon icon = { <Users size = { 40 } color = '#C45135'/> } title = 'Nessuna richiesta' subtitle = 'Le richieste di amicizia inviate e ricevute compariranno qui.'/>
+                        <ComingSoon icon = { <Users size = { 40 } color = { colors.primary }/> } title = 'Nessuna richiesta' subtitle = 'Le richieste di amicizia inviate e ricevute compariranno qui.'/>
                     ) : (
                         <SectionList className = 'pt-2' showsVerticalScrollIndicator = { false } refreshControl = { refreshControl }
                             sections = { [
@@ -211,13 +213,13 @@ const FriendsScreen = () => {
                                 if(section.type === 'received') {
                                     return renderUserCard(item,
                                         <View className = 'flex-row items-center gap-2'>
-                                            <Pressable onPress = { e => { e.stopPropagation(); e.preventDefault(); acceptRequest.mutate(item.requestId); } } className = 'flex-row items-center gap-1 rounded-full bg-[#C45135] px-3 py-1.5 active:bg-primary/90 active:scale-[0.98]'>
+                                            <Pressable onPress = { e => { e.stopPropagation(); e.preventDefault(); acceptRequest.mutate(item.requestId); } } className = 'flex-row items-center gap-1 rounded-full bg-primary px-3 py-1.5 active:bg-primary/90 active:scale-[0.98]'>
                                                 <Check size = { 14 } color = '#FFFFFF'/>
                                                 <Text className = 'text-xs font-semibold text-white'>Accetta</Text>
                                             </Pressable>
                                             <Pressable onPress = { () => rejectRequest.mutate(item.requestId) } className = 'h-8 w-8 items-center justify-center rounded-full bg-secondary active:bg-primary/90 active:scale-[0.98]'>
                                                 {({ pressed }) => (
-                                                     <X size = { 15 } color = { pressed ? '#FFFFFF' : '#736E65'}/>
+                                                     <X size = { 15 } color = { pressed ? '#FFFFFF' : colors.mutedForeground}/>
                                                 )}
                                             </Pressable>
                                         </View>,

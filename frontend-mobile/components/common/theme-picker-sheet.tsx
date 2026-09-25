@@ -8,6 +8,8 @@ import AppBottomSheet from '@/components/common/app-bottom-sheet';
 
 import { useTheme, ThemePreference } from '@/contexts/theme-context';
 
+import { useThemeColors } from '@/hooks/use-theme-colors';
+
 export interface ThemePickerSheetRef {
 	present: () => void;
 	dismiss: () => void;
@@ -21,7 +23,9 @@ const OPTIONS: { value: ThemePreference; label: string; icon: any }[] = [
 
 const ThemePickerSheet = forwardRef<ThemePickerSheetRef>((_, ref) => {
 	const sheetRef = useRef<BottomSheetModal>(null);
+	
 	const { themePreference, setThemePreference } = useTheme();
+	const { colors } = useThemeColors();
 
 	useImperativeHandle(ref, () => ({
 		present: () => sheetRef.current?.present(),
@@ -43,12 +47,12 @@ const ThemePickerSheet = forwardRef<ThemePickerSheetRef>((_, ref) => {
 						const Icon = option.icon;
 
 						return (
-							<Pressable key = { option.value } onPress = { () => handleSelect(option.value) } className = { `flex-row items-center gap-3 rounded-xl border p-3.5 active:opacity-75 ${isSelected ? 'border-[#C45135] bg-[#C45135]/5' : 'border-border bg-card'}` }>
-								<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-[#C45135]/15'>
-									<Icon size = { 17 } color = '#C45135'/>
+							<Pressable key = { option.value } onPress = { () => handleSelect(option.value) } className = { `flex-row items-center gap-3 rounded-xl border p-3.5 active:opacity-75 ${isSelected ? 'border-primary bg-primary/5' : 'border-border bg-card'}` }>
+								<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-primary/15'>
+									<Icon size = { 17 } color = { colors.primary }/>
 								</View>
 								<Text className = 'flex-1 text-sm font-medium text-foreground'>{option.label}</Text>
-								{isSelected && <Check size = { 18 } color = '#C45135' strokeWidth = { 3 }/>}
+								{isSelected && <Check size = { 18 } color = { colors.primary } strokeWidth = { 3 }/>}
 							</Pressable>
 						)
 					})}

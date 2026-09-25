@@ -12,6 +12,7 @@ import { useGameSearch } from '@/hooks/use-game';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useCollection } from '@/hooks/use-collection';
 import { useRecentGames } from '@/hooks/use-match';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 export interface PickedGame {
 	id: string;
@@ -34,6 +35,8 @@ const GamePickerSheet = forwardRef<GamePickerSheetRef, GamePickerSheetProps>(({ 
 	const sheetRef = useRef<BottomSheetModal>(null);
 
 	const [search, setSearch] = useState('');
+
+	const { colors } = useThemeColors();
 
 	const debouncedSearch = useDebounce(search);
 	const isSearching = debouncedSearch.length > 0;
@@ -73,25 +76,25 @@ const GamePickerSheet = forwardRef<GamePickerSheetRef, GamePickerSheetProps>(({ 
 		<AppBottomSheet ref = { sheetRef }>
 			<View className='flex-1 pt-2'>
                 <View className = 'mb-3 flex-row items-center gap-2 px-4'>
-                    <Pressable onPress = { onBack } hitSlop = { 10 } className = 'h-10 w-10 items-center justify-center rounded-full bg-secondary active:bg-[#DDD8CE]'>
-                        <ChevronLeft size = { 24 } color = '#736E65'/>
+                    <Pressable onPress = { onBack } hitSlop = { 10 } className = 'h-10 w-10 items-center justify-center rounded-full bg-secondary active:bg-card'>
+                        <ChevronLeft size = { 24 } color = { colors.mutedForeground }/>
                     </Pressable>
                     <Text className = 'font-display text-lg text-foreground'>Scegli un gioco</Text>
                 </View>
 				<View className = 'relative mb-3 px-4'>
-					<Input placeholder = 'Cerca...' value = { search } onChangeText = { setSearch } className = 'rounded-2xl bg-secondary pl-10 pr-10'/>
+					<Input placeholder = 'Cerca...' value = { search } onChangeText = { setSearch } className = 'rounded-2xl bg-secondary pl-10 pr-10 border-0'/>
 					<View className = 'pointer-events-none absolute left-3 top-0 h-full justify-center px-4'>
-						<Search size = { 18 } className = 'text-muted-foreground'/>
+						<Search size = { 18 } color = { colors.mutedForeground }/>
 					</View>
 					{search.length > 0 && (
 						<Pressable onPress = { () => setSearch('') } hitSlop = { 8 } className = 'absolute right-3 top-0 h-full justify-center px-4'>
-							<X size = { 18 } className = 'text-muted-foreground'/>
+							<X size = { 18 } color = { colors.mutedForeground }/>
 						</Pressable>
 					)}
 				</View>
 				{isLoading ? (
 					<View className = 'items-center py-8 px-4'>
-						<ActivityIndicator color = '#C45135'/>
+						<ActivityIndicator color = { colors.primary }/>
 					</View>
 				) : (
 					<BottomSheetFlatList data = { items } keyExtractor = { (item, index) => item.id ?? `${item.bggId}-${index}` }
@@ -102,13 +105,13 @@ const GamePickerSheet = forwardRef<GamePickerSheetRef, GamePickerSheetProps>(({ 
 										<>
 											<Text className = 'mb-2 text-xs uppercase tracking-wide font-semibold text-muted-foreground px-4'>Giochi recenti</Text>
 											{recentGamesQuery.data.map(game => (
-												<Pressable key = { game.id ?? game.bggId } onPress = { () => handleSelect(game) } className = 'flex-row items-center gap-3 border-b border-border py-2.5 active:bg-[#DDD8CE] px-4'>
+												<Pressable key = { game.id ?? game.bggId } onPress = { () => handleSelect(game) } className = 'flex-row items-center gap-3 border-b border-border py-2.5 active:bg-card px-4'>
 													<View style = {{ width: 44, height: 44 }} className = 'overflow-hidden rounded-xl bg-secondary'>
 														{game.thumbnailUrl ? (
 															<Image source = {{ uri: game.thumbnailUrl }} style = {{ width: 44, height: 44 }} contentFit = 'cover'/>
 														) : (
 															<View className = 'h-full w-full items-center justify-center'>
-																<Dices size = { 16 } color = '#736E65'/>
+																<Dices size = { 16 } color = { colors.mutedForeground }/>
 															</View>
 														)}
 													</View>
@@ -124,13 +127,13 @@ const GamePickerSheet = forwardRef<GamePickerSheetRef, GamePickerSheetProps>(({ 
 							) : null
 						}
 						renderItem = { ({ item }) => (
-							<Pressable onPress = { () => handleSelect(item) } className = 'flex-row items-center gap-3 border-b border-border py-2.5 active:bg-[#DDD8CE] px-4'>
+							<Pressable onPress = { () => handleSelect(item) } className = 'flex-row items-center gap-3 border-b border-border py-2.5 active:bg-card px-4'>
 								<View style = {{ width: 44, height: 44 }} className = 'overflow-hidden rounded-xl bg-secondary'>
 									{item.thumbnailUrl ? (
 										<Image source = {{ uri: item.thumbnailUrl }} style = {{ width: 44, height: 44 }} contentFit = 'cover'/>
 									) : (
 										<View className = 'h-full w-full items-center justify-center'>
-											<Dices size = { 16 } color = '#736E65'/>
+											<Dices size = { 16 } color = { colors.mutedForeground }/>
 										</View>
 									)}
 								</View>

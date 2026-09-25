@@ -18,6 +18,7 @@ import { listMatches, getCalendarMatch } from '@/api/match';
 
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 const VIEW_OPTIONS = [
 	{ value: 'calendar', label: 'Calendario' },
@@ -48,6 +49,7 @@ const MatchesScreen = () => {
 	useRefetchOnFocus(['matches']);
 	
 	const { refreshing, onRefresh } = usePullToRefresh([['matches']]);
+	const { colors, colorScheme } = useThemeColors();
 
 	const matches = listData?.pages.flatMap(page => page.content) ?? [];
 
@@ -81,14 +83,14 @@ const MatchesScreen = () => {
 	return (
 		<View className = 'flex-1 bg-background'>
 			<ScreenHeader title = 'Partite'/>
-						<View className = 'flex-row items-center gap-2 px-4 pt-3'>
+			<View className = 'flex-row items-center gap-2 px-4 pt-4'>
 				<View className = 'flex-1'>
 					<SegmentedControl options = { VIEW_OPTIONS } selected = { viewMode } onSelect = { value => setViewMode(value as 'list' | 'calendar') }/>
 				</View>
 				{viewMode === 'list' && (
-					<Pressable onPress = { () => gameFilterSheetRef.current?.present() } className = 'h-11 w-11 items-center justify-center rounded-2xl border border-border active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
+					<Pressable onPress = { () => gameFilterSheetRef.current?.present() } className = 'h-11 w-11 items-center justify-center rounded-2xl border-0 active:bg-primary/90 bg-secondary/80' style = { ({ pressed }) => [pressed && { backgroundColor: colors.primary, borderColor: colors.primary }] }>
 						{({ pressed }) =>
-							<SlidersHorizontal size = { 19 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+							<SlidersHorizontal size = { 19 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
 						}
 					</Pressable>
 				)}
@@ -97,21 +99,21 @@ const MatchesScreen = () => {
 				<View className = 'flex-row px-4 pt-2'>
 					<Pressable onPress = { () => setGameFilter(null) } className = 'flex-row items-center gap-1.5 self-start rounded-full bg-primary/10 px-3 py-1.5'>
 						<Text className = 'text-xs font-medium text-primary'>{gameFilter.name}</Text>
-						<X size = { 14 } color = '#C45135'/>
+						<X size = { 14 } color = { colors.primary }/>
 					</Pressable>
 				</View>
 			)}
 			{viewMode === 'list' ? (
 				isLoadingList ? (
 					<View className = 'flex-1 items-center justify-center'>
-						<ActivityIndicator color = '#C45135'/>
+						<ActivityIndicator color = { colors.primary }/>
 					</View>
 				) : (
-					<FlatList data = { matches } keyExtractor = { item => item.id } renderItem = { ({ item }) => <MatchListItem match = { item }/> } contentContainerStyle = {{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 100, flexGrow: 1 }} ItemSeparatorComponent = { () => <View className = 'h-2'/> } onEndReached = { () => { if(hasNextPage && !isFetchingNextPage) fetchNextPage(); } } onEndReachedThreshold = { 0.4 } refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = '#C45135' colors = { ['#C45135'] } progressBackgroundColor = '#F2EFE9'/> }
+					<FlatList data = { matches } keyExtractor = { item => item.id } renderItem = { ({ item }) => <MatchListItem match = { item }/> } contentContainerStyle = {{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 100, flexGrow: 1 }} ItemSeparatorComponent = { () => <View className = 'h-2'/> } onEndReached = { () => { if(hasNextPage && !isFetchingNextPage) fetchNextPage(); } } onEndReachedThreshold = { 0.4 } refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.card }/> }
 						ListFooterComponent = {
 							isFetchingNextPage ? (
 								<View className = 'py-6'>
-									<ActivityIndicator color = '#C45135'/>
+									<ActivityIndicator color = { colors.primary }/>
 								</View>
 							) : null
 						}
@@ -123,15 +125,15 @@ const MatchesScreen = () => {
 					/>
 				)
 			) : (
-				<ScrollView className = 'flex-1' refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = '#C45135' colors = { ['#C45135'] } progressBackgroundColor = '#F2EFE9'/> }>
-					<Calendar current = { `${calendarYear}-${String(calendarMonth).padStart(2, '0')}-01` } onMonthChange = { handleMonthChange } onDayPress = { day => setSelectedDate(day.dateString) } markingType = 'custom' markedDates = { markedDates } dayComponent = { ({ date, state, marking }: any) => (<MatchesCalendarDay date = { date } state = { state } marking = { marking } onPress = { d => setSelectedDate(d.dateString) }/>) }
+				<ScrollView className = 'flex-1' refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.card }/> }>
+					<Calendar key = { colorScheme } current = { `${calendarYear}-${String(calendarMonth).padStart(2, '0')}-01` } onMonthChange = { handleMonthChange } onDayPress = { day => setSelectedDate(day.dateString) } markingType = 'custom' markedDates = { markedDates } dayComponent = { ({ date, state, marking }: any) => (<MatchesCalendarDay date = { date } state = { state } marking = { marking } onPress = { d => setSelectedDate(d.dateString) }/>) }
 						theme = {{
-							backgroundColor: '#F2EFE9',
-							calendarBackground: '#F2EFE9',
-							textSectionTitleColor: '#736E65',
-							todayTextColor: '#C45135',
-							arrowColor: '#C45135',
-							monthTextColor: '#1E1C1A',
+							backgroundColor: 'transparent',
+							calendarBackground: 'transparent',
+							textSectionTitleColor: colors.mutedForeground,
+							todayTextColor: colors.primary,
+							arrowColor: colors.primary,
+							monthTextColor: colors.foreground,
 							...({
 								'stylesheet.calendar.main': {
 									week: {
@@ -156,7 +158,7 @@ const MatchesScreen = () => {
 								</Text>
 								{isLoadingSelectedDay ? (
 									<View className = 'items-center py-6'>
-										<ActivityIndicator color = '#C45135'/>
+										<ActivityIndicator color = { colors.primary }/>
 									</View>
 								) : selectedDayMatches && selectedDayMatches.content.length > 0 ? (
 									<View className = 'px-4 gap-2'>
@@ -182,7 +184,7 @@ const MatchesScreen = () => {
 				actions = { [
 					{
 						label: 'Registra partita',
-						icon: <Trophy size = { 18 } className = 'text-foreground'/>,
+						icon: <Trophy size = { 18 }/>,
 						onPress: () => registerMatchSheetRef.current?.present(),
 					},
 				] }

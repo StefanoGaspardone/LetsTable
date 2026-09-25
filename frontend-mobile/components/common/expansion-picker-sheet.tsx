@@ -12,6 +12,7 @@ import AppBottomSheet from '@/components/common/app-bottom-sheet';
 
 import { getGameExpansions } from '@/api/game';
 import { useDebounce } from '@/hooks/use-debounce';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 export interface PickedExpansion {
 	id: string;
@@ -38,6 +39,8 @@ const ExpansionPickerSheet = forwardRef<ExpansionPickerSheetRef, ExpansionPicker
 	const [selected, setSelected] = useState<Map<string, PickedExpansion>>(new Map());
 
 	const debouncedSearch = useDebounce(search);
+
+	const { colors } = useThemeColors();
 
 	useImperativeHandle(ref, () => ({
 		present: (bggId, initiallySelected) => {
@@ -93,15 +96,15 @@ const ExpansionPickerSheet = forwardRef<ExpansionPickerSheetRef, ExpansionPicker
 		<AppBottomSheet ref = { sheetRef } footerComponent = { renderFooter }>
 			<View className = 'flex-1 pt-2'>
 				<View className = 'mb-3 flex-row items-center gap-2 px-4'>
-					<Pressable onPress = { onBack } hitSlop = { 10 } className = 'h-10 w-10 items-center justify-center rounded-full bg-secondary active:bg-[#DDD8CE]'>
-						<ChevronLeft size = { 24 } color = '#736E65'/>
+					<Pressable onPress = { onBack } hitSlop = { 10 } className = 'h-10 w-10 items-center justify-center rounded-full bg-secondary active:bg-card'>
+						<ChevronLeft size = { 24 } color = { colors.mutedForeground }/>
 					</Pressable>
 					<Text className = 'font-display text-lg text-foreground'>Espansioni</Text>
 				</View>
 				<View className = 'relative mb-3 px-4'>
 					<Input placeholder = 'Cerca espansione...' value = { search } onChangeText = { setSearch } className = 'h-11 rounded-xl bg-secondary pl-10'/>
 					<View className = 'pointer-events-none absolute left-3 top-0 h-11 justify-center px-4'>
-						<Search size = { 18 } color = '#736E65'/>
+						<Search size = { 18 } color = { colors.mutedForeground }/>
 					</View>
 				</View>
 				<BottomSheetFlatList
@@ -128,7 +131,7 @@ const ExpansionPickerSheet = forwardRef<ExpansionPickerSheetRef, ExpansionPicker
 										<Image source = {{ uri: item.thumbnailUrl }} style = {{ width: 44, height: 44 }} contentFit = 'cover'/>
 									) : (
 										<View className = 'h-full w-full items-center justify-center'>
-											<Dices size = { 16 } color = '#736E65'/>
+											<Dices size = { 16 } color = { colors.mutedForeground }/>
 										</View>
 									)}
 								</View>

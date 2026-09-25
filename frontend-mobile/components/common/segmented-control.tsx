@@ -66,7 +66,7 @@ const NonScrollableSegmentedControl = ({ options, selected, onSelect }: Segmente
 							{option.label}
 						</Text>
 						{!!option.badge && option.badge > 0 && (
-							<View className = 'h-5 min-w-5 items-center justify-center rounded-full bg-[#C45135] px-1'>
+							<View className = 'h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1'>
 								<Text className = 'text-xs font-bold text-white'>{option.badge > 99 ? '99+' : option.badge}</Text>
 							</View>
 						)}
@@ -144,14 +144,14 @@ const ScrollableSegmentedControl = ({ options, selected, onSelect }: SegmentedCo
 								paddingVertical: 8,
 							}}
 						>
-						<Text numberOfLines = { 1 } className = { `text-sm font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}` }>
-							{option.label}
-						</Text>
-						{!!option.badge && option.badge > 0 && (
-							<View className = 'h-5 min-w-5 items-center justify-center rounded-full bg-[#C45135] px-1'>
-								<Text className = 'text-xs font-bold text-white'>{option.badge > 99 ? '99+' : option.badge}</Text>
-							</View>
-						)}
+							<Text numberOfLines = { 1 } className = { `text-sm font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}` }>
+								{option.label}
+							</Text>
+							{!!option.badge && option.badge > 0 && (
+								<View className = 'h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1'>
+									<Text className = 'text-xs font-bold text-white'>{option.badge > 99 ? '99+' : option.badge}</Text>
+								</View>
+							)}
 						</TouchableOpacity>
 					)
 				})}

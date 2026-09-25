@@ -33,6 +33,7 @@ import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 import { useCollectionStatus, useToggleCollection } from '@/hooks/use-game';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 import { getFileIconColor, getFileIconName } from '@/lib/file';
 
@@ -56,9 +57,11 @@ const GameDetailScreen = () => {
 	const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState(insets.top + 56);
 
 	const queryClient = useQueryClient();
+
 	const { showToast } = useToast();
 	const router = useNavigationStack();
-
+	const { colors } = useThemeColors();
+	
 	const registerMatchSheetRef = useRef<RegisterMatchSheetRef>(null);
 	const pagerRef = useRef<ScrollView>(null);
 	const mainScrollRef = useRef<Animated.ScrollView>(null);
@@ -106,7 +109,6 @@ const GameDetailScreen = () => {
 	});
 
 	const matches = matchesData?.pages.flatMap(page => page.content) ?? [];
-	const totalMatches = matchesData?.pages[0]?.totalElements ?? 0;
 
 	const { data: ruleFiles, isLoading: isLoadingRules } = useQuery({
 		queryKey: ['games', 'rules', game?.id],
@@ -226,7 +228,11 @@ const GameDetailScreen = () => {
 	}));
 
 	const titleColorStyle = useAnimatedStyle(() => ({
-		color: interpolateColor(scrollY.value, [0, COLLAPSE_DISTANCE], ['#FFFFFF', '#1E1C1A']),
+		color: interpolateColor(
+			scrollY.value, 
+			[0, COLLAPSE_DISTANCE], 
+			['#FFFFFF', colors.foreground]
+		),
 	}));
 
 	const scrimStyle = useAnimatedStyle(() => ({
@@ -281,7 +287,7 @@ const GameDetailScreen = () => {
 	if(isLoading || !game) {
 		return (
 			<View className = 'flex-1 items-center justify-center bg-background'>
-				<ActivityIndicator color = '#C45135'/>
+				<ActivityIndicator color = { colors.primary }/>
 			</View>
 		)
 	}
@@ -306,7 +312,7 @@ const GameDetailScreen = () => {
 			<Animated.ScrollView ref = { mainScrollRef } onScroll = { scrollHandler } scrollEventThrottle = { 16 } onLayout = { e => { layoutHeight.value = e.nativeEvent.layout.height; } } onContentSizeChange = { (_, height) => { contentHeight.value = height; } }>
 				<View style = {{ height: IMAGE_HEIGHT - SHEET_OVERLAP }}/>
 				<View style = {{ borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS }} className = 'bg-background pb-6 pt-6'>
-					<View style = {{ position: 'absolute', top: -BADGE_SIZE / 2, right: 24, width: BADGE_SIZE, height: BADGE_SIZE }} className = 'items-center justify-center rounded-full border-2 border-background bg-[#C45135] shadow-lg'>
+					<View style = {{ position: 'absolute', top: -BADGE_SIZE / 2, right: 24, width: BADGE_SIZE, height: BADGE_SIZE }} className = 'items-center justify-center rounded-full border-2 border-background bg-primary shadow-lg'>
 						<MeepleIllustration size = { 28 } color = '#FFFFFF'/>
 					</View>
 					<View className = 'px-4'>
@@ -314,15 +320,15 @@ const GameDetailScreen = () => {
 							<Text className = 'flex-1 font-display text-2xl text-foreground'>{game.name}</Text>
 							<View className = 'flow-col'>
 								{collectionStatus?.inCollection && (
-									<View className = 'mt-1.5 flex-row items-center gap-1 rounded-full bg-[#C45135]/10 px-2 py-1'>
-										<Check size = { 13 } color = '#C45135' strokeWidth = { 2.5 }/>
-										<Text className = 'text-xs font-medium text-[#C45135]'>Posseduto</Text>
+									<View className = 'mt-1.5 flex-row items-center gap-1 rounded-full bg-primary/10 px-2 py-1'>
+										<Check size = { 13 } color = { colors.primary } strokeWidth = { 2.5 }/>
+										<Text className = 'text-xs font-medium text-primary'>Posseduto</Text>
 									</View>
 								)}
 								{game.isExpansion && (
-									<View className = 'mt-1.5 flex-row items-center gap-1 rounded-full bg-[#C45135]/10 px-2 py-1'>
-										<Puzzle size = { 13 } color = '#C45135' strokeWidth = { 2.5 }/>
-										<Text className = 'text-xs font-medium text-[#C45135]'>Espansione</Text>
+									<View className = 'mt-1.5 flex-row items-center gap-1 rounded-full bg-primary/10 px-2 py-1'>
+										<Puzzle size = { 13 } color = { colors.primary } strokeWidth = { 2.5 }/>
+										<Text className = 'text-xs font-medium text-primary'>Espansione</Text>
 									</View>
 								)}
 							</View>
@@ -344,7 +350,7 @@ const GameDetailScreen = () => {
 										{game.baseGame.name}
 									</Text>
 								</View>
-								<ArrowLeftRight size = { 16 } color = '#C45135'/>
+								<ArrowLeftRight size = { 16 } color = { colors.primary }/>
 							</Pressable>
 						)}
 						<View className = 'mt-4' onLayout = { e => { inlineTabBarY.value = e.nativeEvent.layout.y + IMAGE_HEIGHT - SHEET_OVERLAP; } }>
@@ -358,13 +364,13 @@ const GameDetailScreen = () => {
 									{game.description && (
 										<Text className = 'text-sm leading-5 text-muted-foreground'>{game.description}</Text>
 									)}
-									<View className = 'rounded-2xl border border-border bg-white shadow-sm overflow-hidden'>
+									<View className = 'rounded-2xl border border-border bg-card shadow-sm overflow-hidden'>
 										<View className = 'p-3'>
 											<View className = 'flex-row items-center justify-around'>
 												{game.minPlayers && game.maxPlayers && (
 													<View className = 'flex-1 items-center px-2'>
 														<View className = 'mb-1 flex-row items-center gap-1.5'>
-															<Users size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+															<Users size = { 14 } color = { colors.primary } strokeWidth = { 2.5 }/>
 															<Text className = 'font-sans-bold text-xs uppercase tracking-wider text-muted-foreground'>
 																Giocatori
 															</Text>
@@ -378,7 +384,7 @@ const GameDetailScreen = () => {
 												{game.playingTimeMinutes && (
 													<View className = 'flex-1 items-center px-2'>
 														<View className = 'mb-1 flex-row items-center gap-1.5'>
-															<Clock size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+															<Clock size = { 14 } color = { colors.primary } strokeWidth = { 2.5 }/>
 															<Text className = 'font-sans-bold text-xs uppercase tracking-wider text-muted-foreground'>
 																Durata
 															</Text>
@@ -396,7 +402,7 @@ const GameDetailScreen = () => {
 												{game.yearPublished && (
 													<View className = 'flex-1 items-center px-2'>
 														<View className = 'mb-1 flex-row items-center gap-1.5'>
-															<Calendar size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+															<Calendar size = { 14 } color = { colors.primary } strokeWidth = { 2.5 }/>
 															<Text className = 'font-sans-bold text-xs uppercase tracking-wider text-muted-foreground'>
 																Anno
 															</Text>
@@ -408,7 +414,7 @@ const GameDetailScreen = () => {
 												{game.difficulty && (
 													<View className = 'flex-1 items-center px-2'>
 														<View className = 'mb-1 flex-row items-center gap-1.5'>
-															<Gauge size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+															<Gauge size = { 14 } color = { colors.primary } strokeWidth = { 2.5 }/>
 															<Text className = 'font-sans-bold text-xs uppercase tracking-wider text-muted-foreground'>
 																Difficoltà
 															</Text>
@@ -422,7 +428,7 @@ const GameDetailScreen = () => {
 											<View className = 'flex-row items-center border-t border-border/50 bg-background py-2.5'>
 												{game.bestWith && (
 													<View className = 'flex-1 flex-row items-center justify-center gap-1.5 px-1'>
-														<UserCheck size = { 13 } color = '#736E65' strokeWidth = { 2 }/>
+														<UserCheck size = { 13 } color = { colors.mutedForeground } strokeWidth = { 2 }/>
 														<Text className = 'font-sans text-xs text-muted-foreground pb-1 leading-normal' style = {{ includeFontPadding: false }}>
 															Ideale: <Text className = 'font-sans-semibold text-foreground'>{game.bestWith}</Text>
 														</Text>
@@ -433,7 +439,7 @@ const GameDetailScreen = () => {
 												)}
 												{game.recommendedWith && game.recommendedWith !== game.bestWith && (
 													<View className = 'flex-1 flex-row items-center justify-center gap-1.5 px-1'>
-														<Users size = { 13 } color = '#736E65' strokeWidth = { 2 }/>
+														<Users size = { 13 } color = { colors.mutedForeground } strokeWidth = { 2 }/>
 														<Text className = 'font-sans text-xs text-muted-foreground pb-1 leading-normal' style = {{ includeFontPadding: false }}>
 															Consigliato: <Text className = 'font-sans-semibold text-foreground'>{game.recommendedWith}</Text>
 														</Text>
@@ -445,13 +451,13 @@ const GameDetailScreen = () => {
 									{game.sleeves.length > 0 && (
 										<View className = 'rounded-2xl border border-border bg-card p-4'>
 											<View className = 'mb-3 flex-row items-center gap-2'>
-												<Layers size = { 16 } color = '#C45135'/>
+												<Layers size = { 16 } color = { colors.primary }/>
 												<Text className = 'font-display text-base text-foreground'>Componenti e Sleeve</Text>
 											</View>
 											<View className = 'gap-2'>
 												{game.sleeves.map(sleeve => (
 													<View key = { sleeve.id } className = 'flex-row items-center gap-2 rounded-xl bg-background px-3 py-2.5 border border-border'>
-														<Ruler size = { 14 } color = '#736E65'/>
+														<Ruler size = { 14 } color = { colors.mutedForeground }/>
 														<View className = 'flex-1'>
 															<Text className = 'text-sm text-foreground'>
 																{sleeve.name ?? 'Componente'}
@@ -472,12 +478,12 @@ const GameDetailScreen = () => {
 									{hasCredits && (
 										<View className = 'rounded-2xl border border-border bg-card p-4'>
 											<View className = 'mb-3 flex-row items-center gap-2'>
-												<Award size = { 16 } color = '#C45135'/>
+												<Award size = { 16 } color = { colors.primary }/>
 												<Text className = 'font-display text-base text-foreground'>Crediti</Text>
 											</View>
 											{game.designers.length > 0 && (
 												<View className = 'mb-2 flex-row items-start gap-2'>
-													<PenTool size = { 14 } color = '#736E65' style = {{ marginTop: 1 }}/>
+													<PenTool size = { 14 } color = { colors.mutedForeground } style = {{ marginTop: 1 }}/>
 													<View className = 'flex-1'>
 														<Text className = 'text-xs text-muted-foreground'>Design</Text>
 														<Text className = 'text-sm text-foreground'>{game.designers.join(', ')}</Text>
@@ -486,7 +492,7 @@ const GameDetailScreen = () => {
 											)}
 											{game.artists.length > 0 && (
 												<View className = 'mb-2 flex-row items-start gap-2'>
-													<Palette size = { 14 } color = '#736E65' style = {{ marginTop: 1 }}/>
+													<Palette size = { 14 } color = { colors.mutedForeground } style = {{ marginTop: 1 }}/>
 													<View className = 'flex-1'>
 														<Text className = 'text-xs text-muted-foreground'>Illustrazioni</Text>
 														<Text className = 'text-sm text-foreground'>{game.artists.join(', ')}</Text>
@@ -495,7 +501,7 @@ const GameDetailScreen = () => {
 											)}
 											{game.publishers.length > 0 && (
 												<View className = 'flex-row items-start gap-2'>
-													<Building2 size = { 14 } color = '#736E65' style = {{ marginTop: 1 }}/>
+													<Building2 size = { 14 } color = { colors.mutedForeground } style = {{ marginTop: 1 }}/>
 													<View className = 'flex-1'>
 														<Text className = 'text-xs text-muted-foreground'>Editori</Text>
 														<Text className = 'text-sm text-foreground'>{game.publishers.join(', ')}</Text>
@@ -509,12 +515,12 @@ const GameDetailScreen = () => {
 							<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { const height = e.nativeEvent?.layout?.height; if(height) setTabHeights(prev => ({ ...prev, file: height })); } }>
 								<View className = 'px-4 gap-2'>
 									<Pressable onPress = { handleVisitBgg } className = 'flex-row items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2.5 active:opacity-75 active:scale-[0.98]'>
-										<ExternalLink size = { 16 } color = '#C45135'/>
+										<ExternalLink size = { 16 } color = { colors.primary }/>
 										<Text className = 'text-sm font-medium text-foreground'>Visita su BoardGameGeek</Text>
 									</Pressable>
 									{isLoadingRules ? (
 										<View className = 'items-center py-4'>
-											<ActivityIndicator color = '#C45135'/>
+											<ActivityIndicator color = { colors.primary }/>
 										</View>
 									) : (
 										<>
@@ -531,13 +537,13 @@ const GameDetailScreen = () => {
 															</Text>
 														)}
 													</View>
-													<Download size = { 18 } color = '#736E65' className = 'ml-auto'/>
+													<Download size = { 18 } color = { colors.mutedForeground } className = 'ml-auto'/>
 												</Pressable>
 											))}
-											<Pressable onPress = { handleUploadRule } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
+											<Pressable onPress = { handleUploadRule } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: colors.primary, borderColor: colors.primary }] }>
 												{({ pressed }) => (
 													<>
-														<Plus size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+														<Plus size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
 														<Text className = { `text-sm ${pressed ? 'text-white' : 'text-muted-foreground'}` }>
 															Carica un regolamento o un file
 														</Text>
@@ -553,7 +559,7 @@ const GameDetailScreen = () => {
 									<View className = 'px-4'>
 										{isLoadingExpansions ? (
 											<View className = 'items-center py-4'>
-												<ActivityIndicator color = '#C45135'/>
+												<ActivityIndicator color = { colors.primary }/>
 											</View>
 										) : expansions.length > 0 ? (
 												<View className = 'gap-2'>
@@ -562,7 +568,7 @@ const GameDetailScreen = () => {
 													))}
 													{isFetchingNextPage && (
 														<View className = 'items-center py-3'>
-															<ActivityIndicator size = 'small' color = '#C45135'/>
+															<ActivityIndicator size = 'small' color = { colors.primary }/>
 														</View>
 													)}
 												</View>
@@ -576,7 +582,7 @@ const GameDetailScreen = () => {
 								<View className = 'px-4'>
 									{isLoadingMatches ? (
 										<View className = 'items-center py-4'>
-											<ActivityIndicator color = '#C45135'/>
+											<ActivityIndicator color = { colors.primary }/>
 										</View>
 									) : matches.length > 0 ? (
 										<View className = 'gap-2'>
@@ -585,7 +591,7 @@ const GameDetailScreen = () => {
 											))}
 											{isFetchingNextMatchesPage && (
 												<View className = 'items-center py-3'>
-													<ActivityIndicator size = 'small' color = '#C45135'/>
+													<ActivityIndicator size = 'small' color = { colors.primary }/>
 												</View>
 											)}
 										</View>
@@ -604,7 +610,7 @@ const GameDetailScreen = () => {
 						? [
 								{
 									label: 'Registra partita',
-									icon: <Trophy size = { 18 } className = 'text-foreground'/>,
+									icon: <Trophy size = { 18 }/>,
 									onPress: () =>
 										registerMatchSheetRef.current?.present({
 											id: game.id,
@@ -617,12 +623,12 @@ const GameDetailScreen = () => {
 						: []),
 					{
 						label: collectionStatus?.inCollection ? 'Rimuovi dalla collezione' : 'Aggiungi alla collezione',
-						icon: collectionStatus?.inCollection ? <Trash2 size = { 18 } className = 'text-foreground'/> : <Library size = { 18 } className = 'text-foreground'/>,
+						icon: collectionStatus?.inCollection ? <Trash2 size = { 18 }/> : <Library size = { 18 }/>,
 						onPress: handleToggleCollection,
 					},
 					{
 						label: 'Aggiungi a una wishlist',
-						icon: <Heart size = { 18 } className = 'text-foreground'/>,
+						icon: <Heart size = { 18 }/>,
 						onPress: () => { },
 					}
 				]}

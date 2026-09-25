@@ -18,6 +18,7 @@ import { useNavigationStack } from '@/contexts/navigation-stack-context';
 import { useHomeStats } from '@/hooks/use-stat';
 import { useFriends } from '@/hooks/use-friend';
 import { useUpdateMe } from '@/hooks/use-user';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 import { getAvatarUrl } from '@/lib/file';
 
@@ -34,6 +35,7 @@ const ProfileScreen = () => {
 
 	const { totalMatches, totalWins } = useHomeStats();
 	const { data: friends } = useFriends();
+	const { colors } = useThemeColors();
 
 	const updateMe = useUpdateMe(updateUser);
 	const notificationsEnabled = user?.notificationsEnabled ?? true;
@@ -144,7 +146,7 @@ const ProfileScreen = () => {
 						<View className = 'h-28 w-28 items-center justify-center overflow-hidden rounded-full border-2 border-border/50 bg-secondary shadow-sm'>
 							<Image source = {{ uri: getAvatarUrl(user?.avatarId ?? null, user?.username ?? '') }} style = {{ width: 112, height: 112 }} contentFit = 'cover'/>
 						</View>
-						<Pressable onPress = { handleChangeAvatar } disabled = { isUploadingAvatar } className = 'absolute bottom-0 left-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-[#C45135] shadow-md active:opacity-80'>
+						<Pressable onPress = { handleChangeAvatar } disabled = { isUploadingAvatar } className = 'absolute bottom-0 left-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-primary shadow-md active:opacity-80'>
 							{isUploadingAvatar ? (
 								<ActivityIndicator size = 'small' color = '#FFFFFF'/>
 							) : (
@@ -152,7 +154,7 @@ const ProfileScreen = () => {
 							)}
 						</Pressable>
 						{user?.avatarId && (
-							<Pressable onPress = { handleRemoveAvatar } disabled = { isRemovingAvatar } className = 'absolute bottom-0 right-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-red-500 shadow-md active:opacity-80'>
+							<Pressable onPress = { handleRemoveAvatar } disabled = { isRemovingAvatar } className = 'absolute bottom-0 right-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-primary shadow-md active:opacity-80'>
 								{isRemovingAvatar ? (
 									<ActivityIndicator size = 'small' color = '#FFFFFF'/>
 								) : (
@@ -164,11 +166,11 @@ const ProfileScreen = () => {
 					<Text className = 'text-xl font-bold text-foreground'>{user?.username}</Text>
 					<Text className = 'text-xs text-muted-foreground'>{user?.email}</Text>
 				</View>
-				<View className = 'mb-6 rounded-2xl border border-border bg-white p-3 shadow-sm'>
+				<View className = 'mb-6 rounded-2xl border border-border bg-card p-3 shadow-sm'>
 					<View className = 'flex-row items-center justify-around'>
 						<View className = 'flex-1 items-center px-2'>
 							<View className = 'mb-1 flex-row items-center gap-1.5'>
-								<Users size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+								<Users size = { 14 } color = { colors.primary } strokeWidth = { 2.5 }/>
 								<Text className = 'font-medium text-xs uppercase tracking-wider text-muted-foreground'>
 									Amici
 								</Text>
@@ -178,7 +180,7 @@ const ProfileScreen = () => {
 						<View className = 'h-8 w-[1px] bg-border'/>
 						<View className = 'flex-1 items-center px-2'>
 							<View className = 'mb-1 flex-row items-center gap-1.5'>
-								<Gamepad2 size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+								<Gamepad2 size = { 14 } color = { colors.primary } strokeWidth = { 2.5 }/>
 								<Text className = 'font-medium text-xs uppercase tracking-wider text-muted-foreground'>
 									Partite
 								</Text>
@@ -188,7 +190,7 @@ const ProfileScreen = () => {
 						<View className = 'h-8 w-[1px] bg-border'/>
 						<View className = 'flex-1 items-center px-2'>
 							<View className = 'mb-1 flex-row items-center gap-1.5'>
-								<Trophy size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+								<Trophy size = { 14 } color = { colors.primary } strokeWidth = { 2.5 }/>
 								<Text className = 'font-medium text-xs uppercase tracking-wider text-muted-foreground'>
 									Vittorie
 								</Text>
@@ -203,21 +205,21 @@ const ProfileScreen = () => {
 				<View className = 'mb-6 overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm'>
 					<Pressable onPress = { () => router.push('/profile/account') } className = 'flex-row items-center justify-between border-b border-border/40 p-3.5 active:bg-secondary/40'>
 						<View className = 'flex-row items-center gap-3'>
-							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-[#C45135]/15'>
-								<Edit3 size = { 17 } color = '#C45135'/>
+							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-primary/15'>
+								<Edit3 size = { 17 } color = { colors.primary }/>
 							</View>
 							<Text className = 'text-sm font-medium text-foreground'>Modifica Profilo</Text>
 						</View>
-						<ChevronRight size = { 18 } color = '#8E8E93'/>
+						<ChevronRight size = { 18 } color = { colors.mutedForeground }/>
 					</Pressable>
 					<Pressable onPress = { () => router.push('/profile/security') } className = 'flex-row items-center justify-between p-3.5 active:bg-secondary/40'>
 						<View className = 'flex-row items-center gap-3'>
-							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-[#C45135]/15'>
-								<Shield size = { 17 } color = '#C45135'/>
+							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-primary/15'>
+								<Shield size = { 17 } color = { colors.primary }/>
 							</View>
 							<Text className = 'text-sm font-medium text-foreground'>Sicurezza</Text>
 						</View>
-						<ChevronRight size = { 18 } color = '#8E8E93'/>
+						<ChevronRight size = { 18 } color = { colors.mutedForeground }/>
 					</Pressable>
 				</View>
 				<Text className = 'mb-2 pl-2 text-xs font-bold uppercase tracking-wider text-muted-foreground'>
@@ -226,33 +228,33 @@ const ProfileScreen = () => {
 				<View className = 'mb-6 overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm'>
 					<View className = 'flex-row items-center justify-between border-b border-border/40 p-3.5'>
 						<View className = 'flex-row items-center gap-3'>
-							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-[#C45135]/15'>
-								<Bell size = { 17 } color = '#C45135'/>
+							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-primary/15'>
+								<Bell size = { 17 } color = { colors.primary }/>
 							</View>
 							<Text className = 'text-sm font-medium text-foreground'>Notifiche</Text>
 						</View>
-						<Switch value = { notificationsEnabled } onValueChange = { handleToggleNotifications } trackColor = {{ false: '#DDD8CE', true: '#F2EFE9' }} thumbColor = { notificationsEnabled ? '#C45135' : '#f4f3f4' } ios_backgroundColor = '#DDD8CE'/>
+						<Switch value = { notificationsEnabled } onValueChange = { handleToggleNotifications } trackColor = {{ false: colors.border, true: `${colors.primary}40` }} thumbColor = { notificationsEnabled ? colors.primary : colors.mutedForeground } ios_backgroundColor = { colors.border }/>
 					</View>
 					<Pressable onPress = { () => themeSheetRef.current?.present() } className = 'flex-row items-center justify-between p-3.5 active:bg-secondary/40'>
 						<View className = 'flex-row items-center gap-3'>
-							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-[#C45135]/15'>
-								<Moon size = { 17 } color = '#C45135'/>
+							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-primary/15'>
+								<Moon size = { 17 } color = { colors.primary }/>
 							</View>
 							<Text className = 'text-sm font-medium text-foreground'>Tema</Text>
 						</View>
 						<View className = 'flex-row items-center gap-1'>
 							<Text className = 'text-xs text-muted-foreground'>{themeLabel}</Text>
-							<ChevronRight size = { 16 } color = '#8E8E93'/>
+							<ChevronRight size = { 16 } color = { colors.mutedForeground }/>
 						</View>
 					</Pressable>
 				</View>
 				<View className = 'mb-4 overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm'>
-					<Pressable className = 'flex-row items-center justify-between p-3.5 active:bg-red-500/10' onPress = { handleLogout }>
+					<Pressable className = 'flex-row items-center justify-between p-3.5 active:bg-primary/10' onPress = { handleLogout }>
 						<View className = 'flex-row items-center gap-3'>
-							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-red-500/10'>
-								<LogOut size = { 17 } color = '#EF4444'/>
+							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-primary/10'>
+								<LogOut size = { 17 } color = { colors.primary }/>
 							</View>
-							<Text className = 'text-sm font-semibold text-red-500'>Disconnetti</Text>
+							<Text className = 'text-sm font-semibold text-foreground'>Disconnetti</Text>
 						</View>
 					</Pressable>
 				</View>

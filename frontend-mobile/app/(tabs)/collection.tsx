@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { View, Pressable, FlatList, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { Search, List, LayoutGrid, Plus } from 'lucide-react-native';
+import { Search, List, LayoutGrid, Plus, X } from 'lucide-react-native';
 import { Gesture, GestureDetector, RefreshControl } from 'react-native-gesture-handler';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -16,6 +16,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { useCollection } from '@/hooks/use-collection';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
@@ -34,6 +35,7 @@ const CollectionScreen = () => {
 	const [search, setSearch] = useState('');
 
 	const router = useNavigationStack();
+	const { colors } = useThemeColors();
 
 	useFocusEffect(
 		useCallback(() => {
@@ -115,17 +117,22 @@ const CollectionScreen = () => {
 			<View className = 'gap-3 px-4 pt-4'>
 				<View className = 'flex-row items-center gap-2'>
 					<View className = 'relative flex-1'>
-						<Input placeholder = 'Filtra...' value = { search }  onChangeText = { setSearch } className = 'rounded-2xl bg-secondary pl-10'/>
-						<View className = 'pointer-events-none absolute left-3 -top-0.5 h-full justify-center'>
-							<Search size = { 18 } className = 'text-muted-foreground'/>
+						<Input  placeholder = 'Cerca per nome utente...' value = { search } onChangeText = { setSearch } className = 'rounded-2xl bg-secondary/80 pl-11 pr-10 border-0 text-sm h-11'/>
+						<View className = 'pointer-events-none absolute left-3.5 top-0 bottom-0 justify-center'>
+							<Search size = { 18 } color = { colors.mutedForeground }/>
 						</View>
+						{search.length > 0 && (
+							<Pressable onPress = { () => setSearch('') } hitSlop = { 10 } className = 'absolute right-3.5 top-0 bottom-0 justify-center'>
+								<X size = { 18 } color = { colors.mutedForeground }/>
+							</Pressable>
+						)}
 					</View>
-					<Pressable onPress = { () => setViewMode(prev => (prev === 'list' ? 'grid' : 'list')) } className = 'h-10 w-10 items-center justify-center rounded-2xl border border-border active:bg-primary/90 active:border-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
+					<Pressable onPress = { () => setViewMode(prev => (prev === 'list' ? 'grid' : 'list')) } className = 'h-11 w-11 items-center justify-center rounded-2xl border-0 bg-secondary/80 active:bg-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: colors.primary, borderColor: colors.primary }] }>
 						{({ pressed }) =>
 							viewMode === 'list' ? (
-								<LayoutGrid size = { 20 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+								<LayoutGrid size = { 20 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
 							) : (
-								<List size = { 20 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+								<List size = { 20 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
 							)
 						}
 					</Pressable>
@@ -139,7 +146,7 @@ const CollectionScreen = () => {
 							<ActivityIndicator/>
 						</View>
 					) : (
-						<FlatList className = 'mt-3' key = { viewMode } data = { items } keyExtractor = { item => item.id } numColumns = { viewMode === 'grid' ? 2 : 1 } columnWrapperStyle = { viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined } contentContainerStyle = { viewMode === 'grid' ? { paddingBottom: 100, flexGrow: 1 } : { paddingHorizontal: 16, paddingBottom: 100, flexGrow: 1 } } ItemSeparatorComponent = { viewMode === 'list' ? () => <View className = 'h-2'/> : undefined } refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = '#C45135' colors = { ['#C45135'] } progressBackgroundColor = '#F2EFE9'/> }
+						<FlatList className = 'mt-3' key = { viewMode } data = { items } keyExtractor = { item => item.id } numColumns = { viewMode === 'grid' ? 2 : 1 } columnWrapperStyle = { viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined } contentContainerStyle = { viewMode === 'grid' ? { paddingBottom: 100, flexGrow: 1 } : { paddingHorizontal: 16, paddingBottom: 100, flexGrow: 1 } } ItemSeparatorComponent = { viewMode === 'list' ? () => <View className = 'h-2'/> : undefined } refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.card }/> }
 							renderItem = { ({ item }) =>
 								viewMode === 'list' ? (
 									<GameListItem game = { item.game } onPress = { () => router.push(`/game/${item.game.bggId}`) }/>

@@ -119,9 +119,9 @@ const MatchListItem = ({ match }: MatchCardProps) => {
 			</View>
 			{isInProgress ? (
 				<View className = 'items-center justify-center'>
-					<View className = 'flex-row items-center gap-1.5 rounded-full border border-[#C45135]/30 bg-[#C45135]/10 px-2.5 py-1'>
-						<View className = 'h-1.5 w-1.5 rounded-full bg-[#C45135]'/>
-						<Text className = 'text-xs font-medium text-[#C45135]'>In corso</Text>
+					<View className = 'flex-row items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1'>
+						<View className = 'h-1.5 w-1.5 rounded-full bg-primary'/>
+						<Text className = 'text-xs font-medium text-primary'>In corso</Text>
 					</View>
 				</View>
 			) : match.isTeamBased ? (

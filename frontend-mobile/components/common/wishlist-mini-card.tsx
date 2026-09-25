@@ -6,8 +6,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Text } from '@/components/ui/text';
 
 import { Wishlist } from '@/types/wishlist';
+
 import { listWishlistItems } from '@/api/wishlist';
+
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
+
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 interface WishlistMiniCardProps {
 	wishlist: Wishlist;
@@ -17,6 +21,7 @@ const THUMB_SIZE = 44;
 
 const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
 	const router = useNavigationStack();
+	const { colors } = useThemeColors();
 
 	const { data } = useQuery({
 		queryKey: ['wishlists', 'preview-items', wishlist.id],
@@ -32,11 +37,11 @@ const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
 		<Pressable onPress = { handleOpen } className = 'flex-row items-center gap-3 rounded-2xl border border-border bg-card p-2 active:scale-[0.98] active:opacity-75'>
 			<View className = 'h-11 w-11 items-center justify-center rounded-full bg-secondary'>
 				{wishlist.isDefault ? (
-					<Heart size = { 20 } color = '#C45135'/>
+					<Heart size = { 20 } color = { colors.primary }/>
 				) : wishlist.isShared ? (
-					<Users size = { 20 } color = '#C45135'/>
+					<Users size = { 20 } color = { colors.primary }/>
 				) : (
-					<Lock size = { 20 } color = '#C45135'/>
+					<Lock size = { 20 } color = { colors.primary }/>
 				)}
 			</View>
 			<View className = 'flex-1'>

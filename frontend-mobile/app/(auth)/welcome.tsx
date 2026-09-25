@@ -6,13 +6,16 @@ import MeepleIllustration from '@/components/common/meeple-illustration';
 
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
+import { useThemeColors } from '@/hooks/use-theme-colors';
+
 const WelcomeScreen = () => {
 	const router = useNavigationStack();
+	const { colors } = useThemeColors(); 
 
 	return (
 		<View className = 'flex-1 bg-background px-8 pb-6'>
 			<View className = 'flex-1 items-center justify-center'>
-				<MeepleIllustration size = { 140 } color = '#C45135'/>
+				<MeepleIllustration size = { 140 } color = { colors.primary }/>
 				<Text className = 'mt-8 text-center font-display text-4xl text-foreground'>
 					Let&apos;s Table
 				</Text>

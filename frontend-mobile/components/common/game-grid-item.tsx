@@ -3,7 +3,10 @@ import { Image } from 'expo-image';
 import { Dices, Users, Clock, PuzzleIcon, Check } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
+
 import { Game } from '@/types/game';
+
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 const screenWidth = Dimensions.get('window').width;
 const GRID_PADDING = 16;
@@ -22,6 +25,8 @@ interface GameGridItemProps {
 }
 
 const GameGridItem = ({ game, onPress, showRank = false, rankField = 'rank' }: GameGridItemProps) => {
+	const { colors } = useThemeColors();
+
 	const displayedRank = rankField === 'bggRank' ? game.bggRank : game.rank;
 
 	return (
@@ -31,7 +36,7 @@ const GameGridItem = ({ game, onPress, showRank = false, rankField = 'rank' }: G
 					<Image source = {{ uri: game.thumbnailUrl }} style = {{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }} contentFit = 'cover'/>
 				) : (
 					<View className = 'h-full w-full items-center justify-center'>
-						<Dices size = { 28 } color = '#736E65'/>
+						<Dices size = { 28 } color = { colors.mutedForeground }/>
 					</View>
 				)}
 				<View className = 'absolute top-1.5 left-1.5 right-1.5 flex-row items-center justify-between pointer-events-none'>
@@ -43,14 +48,14 @@ const GameGridItem = ({ game, onPress, showRank = false, rankField = 'rank' }: G
 						)}
 					</View>
 					{game.isExpansion && (
-						<View className = 'h-6 w-6 items-center justify-center rounded-full bg-[#C45135] shadow-sm'>
+						<View className = 'h-6 w-6 items-center justify-center rounded-full bg-primary shadow-sm'>
 							<PuzzleIcon size = { 12 } color = '#FFFFFF'/>
 						</View>
 					)}
 				</View>
 				{game.inCollection && (
 					<View className = 'absolute bottom-1.5 right-1.5 flex-row items-center gap-1 rounded-full bg-black/60 pr-2 backdrop-blur-md'>
-						<View className = 'h-5 w-5 items-center justify-center rounded-full bg-[#C45135]'>
+						<View className = 'h-5 w-5 items-center justify-center rounded-full bg-primary'>
 							<Check size = { 12 } color = '#FFFFFF' strokeWidth = { 3 }/>
 						</View>
 						<Text className = 'text-xs font-medium text-white'>In possesso</Text>
@@ -64,7 +69,7 @@ const GameGridItem = ({ game, onPress, showRank = false, rankField = 'rank' }: G
 				<View className = 'mt-1.5 flex-row items-center justify-between gap-3'>
 					{game.minPlayers != null && game.maxPlayers != null && (
 						<View className = 'flex-row items-center gap-1'>
-							<Users size = { 14 } color = '#736E65' strokeWidth = { 2.5 }/>
+							<Users size = { 14 } color = { colors.mutedForeground } strokeWidth = { 2.5 }/>
 							<Text className = 'text-sm font-medium text-muted-foreground'>
 								{game.minPlayers === game.maxPlayers ? game.minPlayers : `${game.minPlayers}-${game.maxPlayers}`}
 							</Text>
@@ -72,7 +77,7 @@ const GameGridItem = ({ game, onPress, showRank = false, rankField = 'rank' }: G
 					)}
 					{game.playingTimeMinutes != null && (
 						<View className = 'flex-row items-center gap-1'>
-							<Clock size = { 14 } color = '#736E65' strokeWidth = { 2.5 }/>
+							<Clock size = { 14 } color = { colors.mutedForeground } strokeWidth = { 2.5 }/>
 							<Text className = 'text-sm font-medium text-muted-foreground'>{game.playingTimeMinutes} min</Text>
 						</View>
 					)}

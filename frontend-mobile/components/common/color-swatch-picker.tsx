@@ -69,7 +69,7 @@ const ColorSwatchPicker = ({ value, onChange }: ColorSwatchPickerProps) => {
                                         <HueSlider hue = { hue } onChange = { setHue }/>
                                     </View>
                                 </View>
-                                <Pressable onPress = { handleHueSelect } className = 'mt-3 h-10 items-center justify-center rounded-full bg-[#C45135]'>
+                                <Pressable onPress = { handleHueSelect } className = 'mt-3 h-10 items-center justify-center rounded-full bg-primary'>
                                     <Text className = 'text-sm font-semibold text-white'>Usa questo colore</Text>
                                 </Pressable>
                             </View>

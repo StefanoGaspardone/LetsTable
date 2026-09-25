@@ -27,6 +27,7 @@ import { getAvatarUrl } from '@/lib/file';
 
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 interface TeamEntry {
 	id: string;
@@ -68,6 +69,8 @@ const MatchDetailScreen = () => {
     const { showToast } = useToast();
     const { confirm } = useConfirmDialog();
 	const router = useNavigationStack();
+
+	const { colors } = useThemeColors();
 
     const registerMatchSheetRef = useRef<RegisterMatchSheetRef>(null);
     const teamMembersSheetRef = useRef<any>(null);
@@ -195,7 +198,7 @@ const MatchDetailScreen = () => {
     if(isLoading || !match) {
 		return (
 			<View className = 'flex-1 items-center justify-center bg-background'>
-				<ActivityIndicator color = '#C45135'/>
+				<ActivityIndicator color = { colors.primary }/>
 			</View>
 		)
 	}
@@ -220,14 +223,14 @@ const MatchDetailScreen = () => {
     return (
         <View className = 'flex-1 bg-background'>
             <ScreenHeader title = 'Dettaglio Partita' leftElement = { <BackButton/> }/>
-            <ScrollView className = 'flex-1' contentContainerStyle = {{ padding: 16, paddingBottom: 24 }} refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = '#C45135' colors = { ['#C45135'] } progressBackgroundColor = '#F2EFE9'/> }>
+            <ScrollView className = 'flex-1' contentContainerStyle = {{ padding: 16, paddingBottom: 24 }} refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors .primary} colors = { [colors.primary] } progressBackgroundColor = { colors.card }/> }>
                 <Pressable className = 'flex-row items-center gap-3 rounded-2xl border border-border bg-card p-2 active:scale-[0.98] active:opacity-75' onPress = { () => router.push(`/game/${match.game.bggId}`) }>
 					<View style = {{ width: 56, height: 56 }} className = 'overflow-hidden rounded-xl bg-secondary'>
 						{match.game.thumbnailUrl ? (
 							<Image source = {{ uri: match.game.thumbnailUrl }} style = {{ width: 56, height: 56 }} contentFit = 'cover'/>
 						) : (
 							<View className = 'h-full w-full items-center justify-center'>
-								<Dices size = { 22 } color = '#736E65'/>
+								<Dices size = { 22 } color = { colors.mutedForeground }/>
 							</View>
 						)}
 					</View>
@@ -235,27 +238,27 @@ const MatchDetailScreen = () => {
 						{match.game.name}
 					</Text>
 					<View className = 'justify-center'>
-						<ChevronRight size = { 18 } color = '#736E65'/>
+						<ChevronRight size = { 18 } color = { colors.mutedForeground }/>
 					</View>
 				</Pressable>
 				{isInProgress && (
-					<View className = 'mt-3 flex-row items-center gap-2 self-start rounded-full border border-[#C45135]/30 bg-[#C45135]/10 px-3 py-1.5'>
-						<View className = 'h-2 w-2 rounded-full bg-[#C45135]'/>
-						<Text className = 'text-sm font-medium text-[#C45135]'>Partita in corso</Text>
+					<View className = 'mt-3 flex-row items-center gap-2 self-start rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5'>
+						<View className = 'h-2 w-2 rounded-full bg-primary'/>
+						<Text className = 'text-sm font-medium text-primary'>Partita in corso</Text>
 					</View>
 				)}
 				{isInProgress && !isCreator && (
 					<View className = 'mt-3 flex-row items-start gap-2.5 rounded-2xl border border-border bg-secondary p-3'>
-						<Clock size = { 16 } color = '#736E65' style = {{ marginTop: 1 }}/>
+						<Clock size = { 16 } color = { colors.mutedForeground } style = {{ marginTop: 1 }}/>
 						<Text className = 'flex-1 text-sm text-muted-foreground'>
 							Questa partita è ancora in corso. Chiedi a <Text className = 'font-semibold text-sm text-foreground'>{match.createdBy.username}</Text> di terminarla e segnare i risultati.
 						</Text>
 					</View>
 				)}
-				<View className = 'mt-4 flex-row items-center rounded-2xl border border-border bg-white p-3 shadow-sm'>
+				<View className = 'mt-4 flex-row items-center rounded-2xl border border-border bg-card p-3 shadow-sm'>
 					<View className = 'flex-1 items-center px-2'>
 						<View className = 'mb-1 flex-row items-center gap-1.5'>
-							<Calendar size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+							<Calendar size = { 14 } color = { colors.primary } strokeWidth = { 2.5 }/>
 							<Text className = 'font-sans-bold text-xs uppercase tracking-wider text-muted-foreground'>
 								Data
 							</Text>
@@ -267,7 +270,7 @@ const MatchDetailScreen = () => {
 							<View className = 'h-8 w-[1px] bg-border'/>
 							<View className = 'flex-1 items-center px-2'>
 								<View className = 'mb-1 flex-row items-center gap-1.5'>
-									<Clock size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+									<Clock size = { 14 } color = { colors.primary } strokeWidth = { 2.5 }/>
 									<Text className = 'font-sans-bold text-xs uppercase tracking-wider text-muted-foreground'>
 										Durata
 									</Text>
@@ -281,7 +284,7 @@ const MatchDetailScreen = () => {
 					<View className = 'mt-4 gap-3 rounded-2xl border border-border bg-card p-3'>
 						{match.place && (
 							<View className = 'flex-row items-start gap-2'>
-								<MapPin size = { 16 } color = '#736E65' style = {{ marginTop: 1 }}/>
+								<MapPin size = { 16 } color = { colors.mutedForeground } style = {{ marginTop: 1 }}/>
 								<View className = 'flex-1'>
 									<Text className = 'text-xs text-muted-foreground'>Luogo</Text>
 									<Text className = 'text-sm text-foreground'>{match.place}</Text>
@@ -291,7 +294,7 @@ const MatchDetailScreen = () => {
 						{match.place && match.notes && <View className = 'h-[0.75px] bg-border/60'/>}
 						{match.notes && (
 							<View className = 'flex-row items-start gap-2'>
-								<FileText size = { 16 } color = '#736E65' style = {{ marginTop: 1 }}/>
+								<FileText size = { 16 } color = { colors.mutedForeground } style = {{ marginTop: 1 }}/>
 								<View className = 'flex-1'>
 									<Text className = 'text-xs text-muted-foreground'>Note</Text>
 									<Text className = 'text-sm text-foreground'>{match.notes}</Text>
@@ -303,7 +306,7 @@ const MatchDetailScreen = () => {
 				{match.expansionsUsed.length > 0 && (
 					<View className = 'mt-4 rounded-2xl border border-border bg-card p-3'>
 						<View className = 'mb-2 flex-row items-center gap-2'>
-							<Puzzle size = { 16 } color = '#736E65'/>
+							<Puzzle size = { 16 } color = { colors.mutedForeground }/>
 							<Text className = 'text-xs text-muted-foreground'>Espansioni usate</Text>
 						</View>
 						<View className = 'gap-2'>
@@ -314,27 +317,27 @@ const MatchDetailScreen = () => {
 											<Image source = {{ uri: expansion.thumbnailUrl }} style = {{ width: 40, height: 40 }} contentFit = 'cover'/>
 										) : (
 											<View className = 'h-full w-full items-center justify-center'>
-												<Dices size = { 14 } color = '#736E65'/>
+												<Dices size = { 14 } color = { colors.mutedForeground }/>
 											</View>
 										)}
 									</View>
 									<Text className = 'flex-1 text-sm text-foreground font-medium' numberOfLines = { 1 }>
 										{expansion.name}
 									</Text>
-									<ChevronRight size = { 14 } color = '#736E65'/>
+									<ChevronRight size = { 14 } color = { colors.mutedForeground }/>
 								</Pressable>
 							))}
 						</View>
 					</View>
 				)}
 				<View className = 'mb-3 mt-6 flex-row items-center gap-2'>
-                    {match.isTeamBased ? <Users size = { 18 } color = '#736E65'/> : <Trophy size = { 18 } color = '#736E65'/>}
+                    {match.isTeamBased ? <Users size = { 18 } color = { colors.mutedForeground }/> : <Trophy size = { 18 } color = { colors.mutedForeground }/>}
                     <Text className = 'text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
                         {getSectionTitle()}
                     </Text>
                 </View>
 				{!isInProgress && sortedEntries.length > 0 && (
-					<View className = 'mb-2 rounded-2xl border border-border bg-white p-4 shadow-sm'>
+					<View className = 'mb-2 rounded-2xl border border-border bg-card p-4 shadow-sm'>
 						<View className = 'flex-row items-end justify-center gap-2'>
 							{sortedEntries.length >= 3 && (
 								<View className = 'flex-1 items-center'>
@@ -398,9 +401,19 @@ const MatchDetailScreen = () => {
 								</View>
 							)}
 							{sortedEntries.length >= 3 && (
-								<View className = 'flex-1 items-center'>
+								<View className='flex-1 items-center'>
 									{thirdPlace ? (
-										<Pressable onPress = { () => { if('members' in thirdPlace) { setSelectedTeam(thirdPlace); teamMembersSheetRef.current?.present(); } else { handlePlayerPress(thirdPlace.userId, thirdPlace.name); } } } className = 'w-full items-center active:scale-[0.98] active:opacity-75'>
+										<Pressable 
+											onPress = { () => { 
+												if('members' in thirdPlace) { 
+													setSelectedTeam(thirdPlace); 
+													teamMembersSheetRef.current?.present(); 
+												} else { 
+													handlePlayerPress(thirdPlace.userId, thirdPlace.name); 
+												} 
+											}} 
+											className = 'w-full items-center active:scale-[0.98] active:opacity-75'
+										>
 											{renderPodiumAvatar(thirdPlace, 52)}
 											<View className = 'mt-1 flex-row items-center gap-1'>
 												{renderPodiumMeeple(thirdPlace, 14)}
@@ -411,12 +424,12 @@ const MatchDetailScreen = () => {
 											{'score' in thirdPlace && thirdPlace.score != null && (
 												<Text className = 'text-lg font-bold text-muted-foreground'>{thirdPlace.score}</Text>
 											)}
-											<View style = {{ height: 32 }} className = 'mt-2 w-full items-center justify-center rounded-t-lg bg-amber-800/20'>
-												<Text className = 'text-lg font-black text-amber-800'>3°</Text>
+											<View style = {{ height: 32 }} className = 'mt-2 w-full items-center justify-center rounded-t-lg bg-amber-800/20 dark:bg-amber-600/30'>
+												<Text className = 'text-lg font-black text-amber-800 dark:text-amber-400'>3°</Text>
 											</View>
 										</Pressable>
 									) : (
-										<View style = {{ height: 32 }} className = 'mt-[104px] w-full rounded-t-lg bg-slate-100'/>
+										<View style = {{ height: 32 }} className = 'mt-[104px] w-full rounded-t-lg bg-slate-100 dark:bg-muted/40'/>
 									)}
 								</View>
 							)}
@@ -450,7 +463,7 @@ const MatchDetailScreen = () => {
 										<Text className = 'text-sm font-bold text-muted-foreground'>{entry.score}</Text>
 									</View>
 								)}
-                                    <ChevronRight size = { 16 } color = '#736E65'/>
+                                    <ChevronRight size = { 16 } color = { colors.mutedForeground }/>
                                 </Pressable>
                             )
                         }
@@ -484,12 +497,12 @@ const MatchDetailScreen = () => {
                         <Button className = 'h-12 flex-1 rounded-full active:scale-[0.98]' onPress = { () => router.push(`/match/${match.id}/finish`) }>
                             <Text className = 'text-sm font-semibold text-primary-foreground'>Termina partita</Text>
                         </Button>
-                        <Pressable onPress = { handleDelete } disabled = { isDeleting } className = 'h-12 w-12 items-center justify-center rounded-full border border-[#C45135]/40 active:border-primary/90 active:bg-primary/90 active:scale-[0.98]'>
+                        <Pressable onPress = { handleDelete } disabled = { isDeleting } className = 'h-12 w-12 items-center justify-center rounded-full border border-primary/40 active:border-primary/90 active:bg-primary/90 active:scale-[0.98]'>
                             {({ pressed }) =>
                                 isDeleting ? (
-                                    <ActivityIndicator size = 'small' color = '#C45135'/>
+                                    <ActivityIndicator size = 'small' color = { colors.primary }/>
                                 ) : (
-                                    <Trash2 size = { 18 } color = { pressed ? '#FFFFFF' : '#C45135' }/>
+                                    <Trash2 size = { 18 } color = { pressed ? '#FFFFFF' : colors.primary }/>
                                 )
                             }
                         </Pressable>
@@ -501,19 +514,19 @@ const MatchDetailScreen = () => {
 					actions = { [
 						{
 							label: 'Rigioca',
-							icon: <Repeat size = { 18 } className = 'text-foreground'/>,
+							icon: <Repeat size = { 18 }/>,
 							onPress: handleReplay,
 						},
 						...(isCreator
 							? [
 									{
 										label: 'Modifica',
-										icon: <Pencil size = { 18 } className = 'text-foreground'/>,
+										icon: <Pencil size = { 18 }/>,
 										onPress: () => router.push(`/match/${match.id}/edit`),
 									},
 									{
 										label: 'Elimina',
-										icon: <Trash2 size = { 18 } className = 'text-foreground'/>,
+										icon: <Trash2 size = { 18 }/>,
 										onPress: handleDelete,
 									},
 								]

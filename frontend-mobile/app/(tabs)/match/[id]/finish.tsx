@@ -18,6 +18,8 @@ import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 import { getAvatarUrl } from '@/lib/file';
 
+import { useThemeColors } from '@/hooks/use-theme-colors';
+
 interface ScoreEntry {
 	id: string;
 	displayName: string;
@@ -37,6 +39,7 @@ const FinishMatchScreen = () => {
 	const { user } = useAuth();
 	const { showToast } = useToast();
 	const router = useNavigationStack();
+	const { colors } = useThemeColors();
 
 	const { data: match, isLoading } = useQuery({
 		queryKey: ['matches', 'detail', id],
@@ -81,7 +84,7 @@ const FinishMatchScreen = () => {
 				match.players?.map(p => ({
 					id: p.id,
 					displayName: p.user?.username ?? p.guestName ?? 'Sconosciuto',
-					color: p.color ?? '#C45135',
+					color: p.color ?? colors.primary,
 					avatarId: p.user?.avatarId,
 					score: '',
 					isWinner: false,
@@ -170,7 +173,7 @@ const FinishMatchScreen = () => {
 	if(isLoading || !match) {
 		return (
 			<View className = 'flex-1 items-center justify-center bg-background'>
-				<ActivityIndicator color = '#C45135'/>
+				<ActivityIndicator color = { colors.primary }/>
 			</View>
 		)
 	}
@@ -180,7 +183,7 @@ const FinishMatchScreen = () => {
 			<ScreenHeader title = 'Termina Partita' leftElement = { <BackButton/> }/>
 			<ScrollView ref = { scrollRef } className = 'flex-1' contentContainerStyle = {{ padding: 16, paddingBottom: 40 }}>
 				<View className = 'mb-3 flex-row items-center gap-2'>
-					{match.isTeamBased ? <Users size = { 18 } color = '#736E65'/> : <Trophy size = { 18 } color = '#736E65'/>}
+					{match.isTeamBased ? <Users size = { 18 } color = { colors.mutedForeground }/> : <Trophy size = { 18 } color = { colors.mutedForeground }/>}
 					<Text className = 'text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
 						{match.isTeamBased ? 'Risultati Squadre' : 'Risultati Giocatori'}
 					</Text>
@@ -199,7 +202,7 @@ const FinishMatchScreen = () => {
 									</Text>
 								</View>
 								<Pressable onPress = { () => handleToggleWinner(entry.id) } className = { `flex-row items-center gap-1.5 rounded-full border px-3 py-1.5 ${entry.isWinner ? 'border-primary bg-primary' : 'border-border bg-background'}` }>
-									<Award size = { 14 } color = { entry.isWinner ? '#FFFFFF' : '#736E65' }/>
+									<Award size = { 14 } color = { entry.isWinner ? '#FFFFFF' : colors.mutedForeground }/>
 									<Text className = { `text-xs font-semibold ${entry.isWinner ? 'text-primary-foreground' : 'text-muted-foreground'}` }>
 										{entry.isWinner ? 'Vincitore' : 'Segna vincitore'}
 									</Text>
@@ -207,7 +210,7 @@ const FinishMatchScreen = () => {
 							</View>
 							<View className = 'flex-row items-center gap-3'>
 								<Text className = 'text-sm font-medium text-muted-foreground'>Punteggio:</Text>
-								<TextInput className = 'h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground' keyboardType = 'numeric' placeholder = '0' placeholderTextColor = '#A0A0A0' value = { entry.score } onChangeText = { val => handleScoreChange(entry.id, val) }/>
+								<TextInput className = 'h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground' keyboardType = 'numeric' placeholder = '0' placeholderTextColor = { colors.card } value = { entry.score } onChangeText = { val => handleScoreChange(entry.id, val) }/>
 							</View>
 						</View>
 					))}

@@ -19,13 +19,14 @@ import { sendFriendRequest, removeFriend, listPendingSent, cancelFriendRequest, 
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 import { useToast } from '@/contexts/toast-context';
 import { useConfirmDialog } from '@/contexts/confirm-dialog-context';
+import { useAuth } from '@/contexts/auth-context';
 
 import { getAvatarUrl } from '@/lib/file';
 
 import { useUserMatches, useUserFriends, useUserDefaultWishlistItems } from '@/hooks/use-user';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
-import { useAuth } from '@/contexts/auth-context';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 const TAB_OPTIONS = [
 	{ value: 'matches', label: 'Partite' },
@@ -40,6 +41,8 @@ const UserProfileScreen = () => {
 	const { showToast } = useToast();
 	const { user } = useAuth();
 	const { confirm } = useConfirmDialog();
+
+	const { colors } = useThemeColors();
 
 	const [isActionPending, setIsActionPending] = useState(false);
 	const [tab, setTab] = useState<'matches' | 'friends' | 'wishlist'>('matches');
@@ -174,7 +177,7 @@ const UserProfileScreen = () => {
 	if(isLoading || !profile) {
 		return (
 			<View className = 'flex-1 items-center justify-center bg-background'>
-				<ActivityIndicator color = '#C45135'/>
+				<ActivityIndicator color = { colors.primary }/>
 			</View>
 		)
 	}
@@ -185,7 +188,7 @@ const UserProfileScreen = () => {
 		if(isActionPending) {
 			return (
 				<View className = 'mt-3 h-11 w-full items-center justify-center rounded-full bg-secondary'>
-					<ActivityIndicator size = 'small' color = '#C45135'/>
+					<ActivityIndicator size = 'small' color = { colors.primary }/>
 				</View>
 			)
 		}
@@ -195,7 +198,7 @@ const UserProfileScreen = () => {
 				<Pressable onPress = { handleRemoveFriend } className = 'mt-3 h-11 w-full flex-row items-center justify-center gap-2 rounded-full border border-border active:border-primary/90 active:bg-primary/90 active:scale-[0.98]'>
 					{({ pressed }) => (
                         <>
-                            <UserX size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65'}/>
+                            <UserX size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
                             <Text className = { `text-sm font-semibold text-muted-foreground ${pressed && 'text-[#FFFFFF]'}` }>Rimuovi amico</Text>
                         </>
                     )}
@@ -208,7 +211,7 @@ const UserProfileScreen = () => {
 				<Pressable onPress = { handleCancelRequest } className = 'mt-3 h-11 w-full flex-row items-center justify-center gap-2 rounded-full border border-border active:border-primary/90 active:bg-primary/90 active:scale-[0.98]'>
                     {({ pressed }) => (
                         <>   
-                            <Clock size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65'}/>
+                            <Clock size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
                             <Text className = { `text-sm font-semibold text-muted-foreground ${pressed && 'text-[#FFFFFF]'}` }>Annulla richiesta</Text>
                         </>
                     )}
@@ -236,7 +239,7 @@ const UserProfileScreen = () => {
 	return (
 		<View className = 'flex-1 bg-background'>
 			<ScreenHeader title = 'Profilo' leftElement = { <BackButton/> }/>
-			<ScrollView contentContainerStyle = {{ paddingBottom: 40, flexGrow: 1 }} className = 'flex-1 px-4 pt-2' refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = '#C45135' colors = { ['#C45135'] } progressBackgroundColor = '#F2EFE9'/> }>
+			<ScrollView contentContainerStyle = {{ paddingBottom: 40, flexGrow: 1 }} className = 'flex-1 px-4 pt-2' refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.mutedForeground }/> }>
 				<View className = 'items-center justify-center pb-4'>
 					<View className = 'h-28 w-28 items-center justify-center overflow-hidden rounded-full border-2 border-border/50 bg-secondary shadow-sm'>
 						<Image source = {{ uri: getAvatarUrl(profile.user.avatarId, profile.user.username) }} style = {{ width: 112, height: 112 }} contentFit = 'cover'/>
@@ -245,11 +248,11 @@ const UserProfileScreen = () => {
 					<Text className = 'text-xs text-muted-foreground'>{profile.user.email}</Text>
 					{renderFriendshipAction()}
 				</View>
-                <View className = 'mb-6 rounded-2xl border border-border bg-white p-3 shadow-sm'>
+                <View className = 'mb-6 rounded-2xl border border-border bg-card p-3 shadow-sm'>
 					<View className = 'flex-row items-center justify-around'>
 						<View className = 'flex-1 items-center px-2'>
 							<View className = 'mb-1 flex-row items-center gap-1.5'>
-								<Gamepad2 size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+								<Gamepad2 size = { 14 } color = { colors.primary } strokeWidth = { 2.5 }/>
 								<Text className = 'font-medium text-xs uppercase tracking-wider text-muted-foreground'>
 									Partite
 								</Text>
@@ -259,7 +262,7 @@ const UserProfileScreen = () => {
 						<View className = 'h-8 w-[1px] bg-border'/>
 						<View className = 'flex-1 items-center px-2'>
 							<View className = 'mb-1 flex-row items-center gap-1.5'>
-								<Trophy size = { 14 } color = '#C45135' strokeWidth = { 2.5 }/>
+								<Trophy size = { 14 } color = { colors.primary } strokeWidth = { 2.5 }/>
 								<Text className = 'font-medium text-xs uppercase tracking-wider text-muted-foreground'>
 									Vittorie
 								</Text>
@@ -274,7 +277,7 @@ const UserProfileScreen = () => {
 				{tab === 'matches' ? (
 					isLoadingMatches ? (
 						<View className = 'flex-1 items-center justify-center py-8'>
-							<ActivityIndicator color = '#C45135'/>
+							<ActivityIndicator color = { colors .primary}/>
 						</View>
 					) : matches.length > 0 ? (
 						<View className = 'gap-2'>
@@ -284,20 +287,20 @@ const UserProfileScreen = () => {
 							{hasNextMatches && (
 								<Pressable onPress = { () => { if(!isFetchingNextMatches) fetchNextMatches(); } } className = 'items-center py-3'>
 									{isFetchingNextMatches ? (
-										<ActivityIndicator color = '#C45135'/>
+										<ActivityIndicator color = { colors.primary }/>
 									) : (
-										<Text className = 'text-sm font-medium text-[#C45135]'>Carica altre</Text>
+										<Text className = 'text-sm font-medium text-primary'>Carica altre</Text>
 									)}
 								</Pressable>
 							)}
 						</View>
 					) : (
-						<EmptyState icon = { <Dices size = { 32 } color = '#C45135'/> } title = 'Nessuna partita' subtitle = 'Questo utente non ha ancora registrato partite.'/>
+						<EmptyState icon = { <Dices size = { 32 } color = { colors.primary }/> } title = 'Nessuna partita' subtitle = 'Questo utente non ha ancora registrato partite.'/>
 					)
 				) : tab === 'friends' ? (
 					isLoadingFriends ? (
 						<View className = 'flex-1 items-center justify-center py-8'>
-							<ActivityIndicator color = '#C45135'/>
+							<ActivityIndicator color = { colors.primary }/>
 						</View>
 					) : friends && friends.length > 0 ? (
 						<View className = 'gap-2'>
@@ -309,12 +312,12 @@ const UserProfileScreen = () => {
 							))}
 						</View>
 					) : (
-						<EmptyState icon = { <Users size = { 32 } color = '#C45135'/> } title = 'Nessun amico' subtitle = 'Questo utente non ha ancora amici.'/>
+						<EmptyState icon = { <Users size = { 32 } color = { colors.primary }/> } title = 'Nessun amico' subtitle = 'Questo utente non ha ancora amici.'/>
 					)
 				) : (
 					isLoadingWishlist ? (
 						<View className = 'flex-1 items-center justify-center py-8'>
-							<ActivityIndicator color = '#C45135'/>
+							<ActivityIndicator color = { colors.primary }/>
 						</View>
 					) : wishlistItems.length > 0 ? (
 						<View className = 'gap-2'>
@@ -325,7 +328,7 @@ const UserProfileScreen = () => {
 											<Image source = {{ uri: item.game.thumbnailUrl }} style = {{ width: 44, height: 44 }} contentFit = 'cover'/>
 										) : (
 											<View className = 'h-full w-full items-center justify-center'>
-												<Dices size = { 16 } color = '#736E65'/>
+												<Dices size = { 16 } color = { colors.mutedForeground }/>
 											</View>
 										)}
 									</View>
@@ -335,15 +338,15 @@ const UserProfileScreen = () => {
 							{hasNextWishlist && (
 								<Pressable onPress = { () => { if(!isFetchingNextWishlist) fetchNextWishlist(); } } className = 'items-center py-3'>
 									{isFetchingNextWishlist ? (
-										<ActivityIndicator color = '#C45135'/>
+										<ActivityIndicator color = { colors.primary }/>
 									) : (
-										<Text className = 'text-sm font-medium text-[#C45135]'>Carica altri</Text>
+										<Text className = 'text-sm font-medium text-primary'>Carica altri</Text>
 									)}
 								</Pressable>
 							)}
 						</View>
 					) : (
-						<EmptyState icon = { <Heart size = { 32 } color = '#C45135'/> } title = 'Wishlist vuota' subtitle = 'Questo utente non ha ancora giochi nella sua wishlist.'/>
+						<EmptyState icon = { <Heart size = { 32 } color = { colors.primary }/> } title = 'Wishlist vuota' subtitle = 'Questo utente non ha ancora giochi nella sua wishlist.'/>
 					)
 				)}
 			</ScrollView>

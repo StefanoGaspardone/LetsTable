@@ -4,16 +4,20 @@ import { ServerCrash } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 
+import { useThemeColors } from '@/hooks/use-theme-colors';
+
 interface ServerDownOverlayProps {
 	isChecking: boolean;
 	onRetry: () => void;
 }
 
 const ServerDownOverlay = ({ isChecking, onRetry }: ServerDownOverlayProps) => {
+	const { colors } = useThemeColors();  
+
 	return (
 		<View className = 'absolute inset-0 z-50 items-center justify-center bg-background px-8'>
-			<View className = 'h-16 w-16 items-center justify-center rounded-full bg-[#C45135]/10'>
-				<ServerCrash size = { 32 } color = '#C45135'/>
+			<View className = 'h-16 w-16 items-center justify-center rounded-full bg-primary/10'>
+				<ServerCrash size = { 32 } color = { colors.primary }/>
 			</View>
 			<Text className = 'mt-4 text-center font-display text-xl text-foreground'>
 				Qualcosa è andato storto

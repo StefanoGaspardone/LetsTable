@@ -49,7 +49,7 @@ const LatestMatchCard = ({ match }: LatestMatchCardProps) => {
     const router = useNavigationStack();
 
     return (
-        <Pressable onPress = { () => router.push(`/match/${match.id}`)} className = 'rounded-3xl bg-[#C45135] p-2 active:scale-[0.98] active:opacity-75 shadow-sm mb-1'>
+        <Pressable onPress = { () => router.push(`/match/${match.id}`)} className = 'rounded-3xl bg-primary p-2 active:scale-[0.98] active:opacity-75 shadow-sm mb-1'>
             <View className = 'rounded-[20px] border-2 border-background p-4 items-center text-center'>
                 <Text className = 'text-xs font-semibold uppercase tracking-wider text-white/80'>
                     Ultima partita

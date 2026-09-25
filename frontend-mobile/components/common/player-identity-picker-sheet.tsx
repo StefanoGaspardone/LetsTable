@@ -10,6 +10,7 @@ import AppBottomSheet from '@/components/common/app-bottom-sheet';
 
 import { useDebounce } from '@/hooks/use-debounce';
 import { useUserSearch } from '@/hooks/use-user';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 import { getAvatarUrl } from '@/lib/file';
 
@@ -39,6 +40,8 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
     const [selected, setSelected] = useState<PickedIdentity[]>([]);
     const [guestNameInput, setGuestNameInput] = useState('');
     const [isAddingGuest, setIsAddingGuest] = useState(false);
+
+    const { colors } = useThemeColors();  
 
     const debouncedSearch = useDebounce(search);
 
@@ -100,15 +103,15 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
         <AppBottomSheet ref = { sheetRef }>
             <View className = 'px-4 pt-2'>
                 <View className = 'mb-3 flex-row items-center gap-2'>
-                    <Pressable onPress = { onBack } hitSlop = { 10 } className = 'h-10 w-10 items-center justify-center rounded-full bg-secondary active:bg-[#DDD8CE]'>
-                        <ChevronLeft size = { 24 } color = '#736E65'/>
+                    <Pressable onPress = { onBack } hitSlop = { 10 } className = 'h-10 w-10 items-center justify-center rounded-full bg-secondary active:bg-card'>
+                        <ChevronLeft size = { 24 } color = { colors.mutedForeground }/>
                     </Pressable>
                     <Text className = 'font-display text-lg text-foreground'>Aggiungi giocatori</Text>
                 </View>
                 <View className = 'relative mb-3'>
-                    <TextInput value = { search } onChangeText = { setSearch } placeholder = 'Cerca...' autoCapitalize = 'none' className = 'h-11 rounded-2xl bg-secondary pl-10 pr-3 text-sm text-foreground'/>
+                    <TextInput value = { search } onChangeText = { setSearch } placeholder = 'Cerca...' placeholderTextColor = { colors.mutedForeground } autoCapitalize = 'none' className = 'h-11 rounded-2xl bg-secondary pl-10 pr-3 text-sm text-foreground'/>
                     <View className = 'pointer-events-none absolute left-3 top-0 h-full justify-center'>
-                        <Search size = { 16 } color = '#736E65'/>
+                        <Search size = { 16 } color = { colors.mutedForeground }/>
                     </View>
 					{search.length > 0 && (
 						<Pressable onPress = { () => setSearch('') } hitSlop = { 8 } className = 'absolute right-3 top-0 h-full justify-center'>
@@ -120,10 +123,10 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
                     <View className = 'mb-3 flex-row flex-wrap'>
                         {selected.map((identity) => (
                             <View key = { identity.userId } style = {{ width: '25%', padding: 4 }}>
-                                <Pressable onPress = { () => removeSelected(identity) } className = 'items-center gap-1.5 rounded-2xl border border-[#C45135]/40 bg-[#C45135]/5 py-3 active:scale-[0.98] active:opacity-75'>
+                                <Pressable onPress = { () => removeSelected(identity) } className = 'items-center gap-1.5 rounded-2xl border border-primary/40 bg-primary/5 py-3 active:scale-[0.98] active:opacity-75'>
                                     <View className = 'relative'>
                                         <Image source = {{ uri: getAvatarUrl(identity.avatarId ?? null, identity.displayName ?? '') }} style = {{ width: 56, height: 56, borderRadius: 100 }} contentFit = 'cover'/>
-                                        <View className = 'absolute -right-1 -top-1 h-5 w-5 items-center justify-center rounded-full bg-[#C45135]'>
+                                        <View className = 'absolute -right-1 -top-1 h-5 w-5 items-center justify-center rounded-full bg-primary'>
                                             <X size = { 12 } color = '#FFFFFF' strokeWidth = { 3 }/>
                                         </View>
                                     </View>
@@ -141,7 +144,7 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
 
                         return (
                             <View style = {{ width: '25%', padding: 4 }}>
-                                <Pressable onPress = { () => toggleUser(item.id, item.username, item.avatarId) } className = { `items-center gap-1.5 rounded-2xl border py-3 active:scale-[0.98] active:opacity-75 ${selectedState ? 'border-[#C45135] bg-[#C45135]/5' : 'border-border bg-card'}` }>
+                                <Pressable onPress = { () => toggleUser(item.id, item.username, item.avatarId) } className = { `items-center gap-1.5 rounded-2xl border py-3 active:scale-[0.98] active:opacity-75 ${selectedState ? 'border-primary bg-primary/5' : 'border-border bg-card'}` }>
                                     <Image source = {{ uri: getAvatarUrl(item.avatarId ?? null, item.username ?? '') }} style = {{ width: 56, height: 56, borderRadius: 100 }} contentFit = 'cover'/>
                                     <Text className = 'text-center text-sm font-medium text-foreground' numberOfLines = { 1 }>
                                         {item.username}
@@ -160,10 +163,10 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
                         </Button>
                     </View>
                 ) : (
-                    <Pressable onPress = { () => setIsAddingGuest(true) } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90 mb-4' style = { ({ pressed }) => [pressed && { backgroundColor: '#C45135', borderColor: '#C45135' }] }>
+                    <Pressable onPress = { () => setIsAddingGuest(true) } className = 'flex-row items-center justify-center gap-2 rounded-xl border border-dashed active:border-solid border-border px-3 py-2.5 active:bg-primary/90 active:border-primary/90 mb-4' style = { ({ pressed }) => [pressed && { backgroundColor: colors.primary, borderColor: colors.primary }] }>
                         {({ pressed }) => (
                             <>
-                                <Plus size = { 16 } color = { pressed ? '#FFFFFF' : '#736E65' }/>
+                                <Plus size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
                                 <Text className = { `text-sm ${pressed ? 'text-white' : 'text-muted-foreground'}` }>
                                     Aggiungi ospite
                                 </Text>

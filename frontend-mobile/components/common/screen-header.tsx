@@ -22,7 +22,7 @@ const ScreenHeader = ({ title, leftElement, rightElement, renderBackground, titl
 				</View>
 			)}
 			<View className = 'flex-row items-center justify-center' style = {{ minHeight: 40 }}>
-				<Animated.Text style = { [{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 24, color: '#1E1C1A' }, titleStyle] }>
+				<Animated.Text className = 'text-foreground' style = { [{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 24 }, titleStyle] }>
 					{title}
 				</Animated.Text>
 				{leftElement && (

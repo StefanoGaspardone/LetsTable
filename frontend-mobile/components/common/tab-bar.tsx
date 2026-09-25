@@ -8,6 +8,8 @@ import { Text } from '@/components/ui/text';
 
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
+import { useThemeColors } from '@/hooks/use-theme-colors';
+
 const ICONS: Record<string, typeof Home> = {
 	home: Home,
 	collection: Dices,
@@ -52,6 +54,7 @@ const TabBar = ({ state, navigation }: TabBarProps) => {
 	const [tabWidth, setTabWidth] = useState(0);
 
 	const router = useNavigationStack();
+	const { colors } = useThemeColors();
 
 	const visibleRoutes = state.routes.filter(route => ICONS[route.name]);
 	const focusedVisibleIndex = visibleRoutes.findIndex(route => route.key === state.routes[state.index].key);
@@ -110,7 +113,7 @@ const TabBar = ({ state, navigation }: TabBarProps) => {
 				return (
 					<Pressable key = { route.key } onPress= { onPress } className = 'flex-1 items-center gap-1 pb-1'>
 						<View style = {{ height: PILL_HEIGHT }} className = 'items-center justify-center'>
-							<Icon size = { 22 } color = { isFocused ? '#C45135' : '#8A847A' }/>
+							<Icon size = { 22 } color = { isFocused ? colors.primary : colors.tabIconDefault }/>
 						</View>
 						<Text className = { `text-xs ${isFocused ? 'font-semibold text-primary' : 'text-muted-foreground'}` }>
 							{label}

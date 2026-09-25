@@ -4,6 +4,7 @@ import { CheckCircle2, XCircle, Info } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/ui/text';
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 type ToastVariant = 'success' | 'error' | 'info';
 
@@ -24,8 +25,6 @@ const ICONS: Record<ToastVariant, typeof CheckCircle2> = {
 	info: Info,
 }
 
-const ICON_COLOR = '#C45135';
-
 const SLIDE_DISTANCE = -120;
 
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
@@ -34,6 +33,8 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
 
 	const translateY = useRef(new Animated.Value(SLIDE_DISTANCE)).current;
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const { colors } = useThemeColors();
 
 	const showToast = useCallback((message: string, variant: ToastVariant = 'info') => {
 		if(timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -64,7 +65,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
 			{toast && Icon && (
 				<Animated.View pointerEvents = 'none' style = {{ transform: [{ translateY }], position: 'absolute', top: insets.top + 8, left: 16, right: 16 }}>
 					<View className = 'flex-row items-center gap-3 rounded-xl bg-card px-4 py-3 shadow-lg border border-border'>
-						<Icon size = { 22 } color = { ICON_COLOR }/>
+						<Icon size = { 22 } color = { colors.primary }/>
 						<Text className = 'flex-1 text-sm font-medium text-foreground' numberOfLines = { 2 }>
 							{toast.message}
 						</Text>
