@@ -249,4 +249,12 @@ class ExceptionsHandler {
     @ExceptionHandler(InvalidRankIndexFileException::class)
     fun handleInvalidRankIndexFile(ex: InvalidRankIndexFileException) =
         buildResponse(HttpStatus.BAD_REQUEST, ex)
+
+    @ExceptionHandler(CannotAccessOwnResourceViaPublicEndpointException::class)
+    fun handleCannotAccessOwnResourceViaPublicEndpoint(ex: CannotAccessOwnResourceViaPublicEndpointException) =
+        buildResponse(HttpStatus.BAD_REQUEST, ex)
+
+    @ExceptionHandler(DefaultWishlistNotFoundException::class)
+    fun handleDefaultWishlistNotFound(ex: DefaultWishlistNotFoundException) =
+        buildResponse(HttpStatus.NOT_FOUND, ex)
 }

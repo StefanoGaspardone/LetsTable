@@ -1,5 +1,3 @@
-import { Match } from '@/types/match';
-
 export type FriendshipStatus = 'SELF' | 'FRIENDS' | 'REQUEST_SENT' | 'REQUEST_RECEIVED' | 'NONE';
 
 export interface User {
@@ -23,5 +21,4 @@ export interface UserProfile {
 	friendshipStatus: FriendshipStatus;
 	totalMatches: number;
 	totalWins: number;
-	recentMatches: Match[];
 }

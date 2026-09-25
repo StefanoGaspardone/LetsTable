@@ -90,18 +90,22 @@ class PushNotificationSendException(cause: Throwable): RuntimeException("Failed 
 
 class InvalidSortException(field: String): RuntimeException("Invalid sort field: $field")
 
-class UploadedFileNotFoundException(id: UUID) : RuntimeException("File not found: $id")
+class UploadedFileNotFoundException(id: UUID): RuntimeException("File not found: $id")
 
-class InvalidFileTypeException(message: String) : RuntimeException(message)
+class InvalidFileTypeException(message: String): RuntimeException(message)
 
-class StorageWriteException(objectKey: String) : RuntimeException("Failed to write object to storage: $objectKey")
+class StorageWriteException(objectKey: String): RuntimeException("Failed to write object to storage: $objectKey")
 
-class StorageNotFoundException(objectKey: String) : RuntimeException("Object not found in storage: $objectKey")
+class StorageNotFoundException(objectKey: String): RuntimeException("Object not found in storage: $objectKey")
 
 class CannotSuspendSelfException: RuntimeException("You cannot suspend your own account")
 
 class InvalidAccountStatusTransitionException(message: String): RuntimeException(message)
 
-class InvalidExpansionForGameException(expansionId: UUID) : RuntimeException("Expansion $expansionId does not belong to the selected game")
+class InvalidExpansionForGameException(expansionId: UUID): RuntimeException("Expansion $expansionId does not belong to the selected game")
 
 class InvalidRankIndexFileException(message: String): RuntimeException(message)
+
+class CannotAccessOwnResourceViaPublicEndpointException: RuntimeException("Cannot access your own resource via this endpoint, use the dedicated endpoint instead")
+
+class DefaultWishlistNotFoundException(userId: UUID): RuntimeException("Default wishlist not found for user: $userId")

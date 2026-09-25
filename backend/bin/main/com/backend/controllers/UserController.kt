@@ -1,12 +1,13 @@
 package com.backend.controllers
 
+import com.backend.exceptions.CannotAccessOwnResourceViaPublicEndpointException
 import com.backend.exceptions.ErrorResponse
-import com.backend.models.dtos.DeleteAccountDTO
-import com.backend.models.dtos.UserProfileDTO
-import com.backend.models.dtos.UpdateUserRequest
-import com.backend.models.dtos.UserDTO
+import com.backend.models.dtos.*
 import com.backend.security.CurrentUser
+import com.backend.services.FriendService
+import com.backend.services.MatchService
 import com.backend.services.UserService
+import com.backend.services.WishlistService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
@@ -18,7 +19,7 @@ import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
-import java.util.UUID
+import java.util.*
 
 @Tag(name = "Users", description = "Search users and manage the current user's account")
 @RestController
@@ -26,6 +27,9 @@ import java.util.UUID
 @PreAuthorize("hasRole('USER')")
 class UserController(
     private val userService: UserService,
+    private val matchService: MatchService,
+    private val friendService: FriendService,
+    private val wishlistService: WishlistService,
 ) {
 
     @Operation(summary = "Search users", description = "Search active users by username, e.g. to add a player to a match.")
@@ -153,4 +157,78 @@ class UserController(
     @PatchMapping("/me")
     fun updateMyProfile(@Valid @RequestBody request: UpdateUserRequest): ResponseEntity<UserDTO> =
         ResponseEntity.ok(userService.updateProfile(CurrentUser.id(), request))
+
+    @Operation(summary = "Get a user's matches", description = "Paginated list of matches created by, or involving as a player, the specified user. Cannot be used for your own id, use GET /matches instead.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Page of matches",
+                content = [Content(schema = Schema(implementation = MatchDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Cannot query your own matches via this endpoint",
+                content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+            ),
+        ]
+    )
+    @GetMapping("/{userId}/matches")
+    fun getUserMatches(@PathVariable userId: UUID, @RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int, @RequestParam(required = false) sort: String?): PageDTO<MatchDTO> {
+        if(userId == CurrentUser.id()) {
+            throw CannotAccessOwnResourceViaPublicEndpointException()
+        }
+
+        return matchService.listMyMatches(userId, page, size, null, null, null, sort, true)
+    }
+
+    @Operation(summary = "Get a user's friends", description = "List all accepted friends of the specified user. Cannot be used for your own id, use GET /friends instead.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - List of friends",
+                content = [Content(schema = Schema(implementation = UserDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Cannot query your own friends via this endpoint",
+                content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+            ),
+        ]
+    )
+    @GetMapping("/{userId}/friends")
+    fun getUserFriends(@PathVariable userId: UUID): List<UserDTO> {
+        if(userId == CurrentUser.id()) {
+            throw CannotAccessOwnResourceViaPublicEndpointException()
+        }
+
+        return friendService.listFriends(userId)
+    }
+
+    @Operation(summary = "Get a user's default wishlist", description = "Paginated list of games in the specified user's default wishlist, which is always publicly visible. Cannot be used for your own id, use GET /wishlists instead.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Page of games in the default wishlist",
+                content = [Content(schema = Schema(implementation = WishlistItemDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Cannot query your own wishlist via this endpoint",
+                content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+            ),
+            ApiResponse(
+                responseCode = "404", description = "Not Found - Default wishlist not found",
+                content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+            ),
+        ]
+    )
+    @GetMapping("/{userId}/wishlist")
+    fun getUserDefaultWishlist(
+        @PathVariable userId: UUID,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+    ): PageDTO<WishlistItemDTO> {
+        if(userId == CurrentUser.id()) {
+            throw CannotAccessOwnResourceViaPublicEndpointException()
+        }
+
+        return wishlistService.getDefaultWishlistForUser(userId, page, size)
+    }
 }

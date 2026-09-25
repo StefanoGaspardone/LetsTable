@@ -209,8 +209,8 @@ class MatchService(
     }
 
     @Transactional
-    fun listMyMatches(userId: UUID, page: Int, size: Int, gameId: UUID?, fromDate: LocalDate?, toDate: LocalDate?, sort: String?): PageDTO<MatchDTO> {
-        logger.debug("\n\t[DEBUG] [match_service][list_my_matches] Listing matches\n\tuserId={}\n\tpage={}\n\tsize={}\n\tgameId={}\n\tfromDate={}\n\ttoDate={}", userId, page, size, gameId, fromDate, toDate)
+    fun listMyMatches(userId: UUID, page: Int, size: Int, gameId: UUID?, fromDate: LocalDate?, toDate: LocalDate?, sort: String?, onlyCompleted: Boolean = false): PageDTO<MatchDTO> {
+        logger.debug("\n\t[DEBUG] [match_service][list_my_matches] Listing matches\n\tuserId={}\n\tpage={}\n\tsize={}\n\tgameId={}\n\tfromDate={}\n\ttoDate={}\n\tonlyCompleted={}", userId, page, size, gameId, fromDate, toDate, onlyCompleted)
 
         try {
             val pageSafe = if(page < 0) 0 else page
@@ -218,7 +218,7 @@ class MatchService(
             val sortObj = resolveSort(sort, setOf("playedAt", "createdAt"), "playedAt")
             val pageable = PageRequest.of(pageSafe, sizeSafe, sortObj)
 
-            val spec = MatchSpecification.withFilters(userId, gameId, fromDate, toDate)
+            val spec = MatchSpecification.withFilters(userId, gameId, fromDate, toDate, onlyCompleted)
             val result = matchRepository.findAll(spec, pageable)
 
             logger.info("\n\t[INFO] [match_service][list_my_matches] Retrieved {} matches for user {}", result.numberOfElements, userId)

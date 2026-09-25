@@ -1,6 +1,6 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 
-import { searchUser, updateMe } from '@/api/user';
+import { getUserDefaultWishlistItems, getUserFriends, getUserMatches, searchUser, updateMe } from '@/api/user';
 
 import { UpdateUserPayload, User } from '@/types/user';
 
@@ -18,5 +18,30 @@ export const useUpdateMe = (onUserUpdated: (user: User) => void) => {
 		onSuccess: (updatedUser) => {
 			onUserUpdated(updatedUser);
 		},
+	});
+}
+
+export const useUserMatches = (userId: string, sort?: string) => {
+	return useInfiniteQuery({
+		queryKey: ['users', 'matches', userId, sort ?? 'default'],
+		queryFn: ({ pageParam }) => getUserMatches(userId, pageParam, 20, sort),
+		initialPageParam: 0,
+		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
+	});
+}
+
+export const useUserFriends = (userId: string) => {
+	return useQuery({
+		queryKey: ['users', 'friends', userId],
+		queryFn: () => getUserFriends(userId),
+	});
+}
+
+export const useUserDefaultWishlistItems = (userId: string) => {
+	return useInfiniteQuery({
+		queryKey: ['users', 'wishlist', userId],
+		queryFn: ({ pageParam }) => getUserDefaultWishlistItems(userId, pageParam),
+		initialPageParam: 0,
+		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
 	});
 }

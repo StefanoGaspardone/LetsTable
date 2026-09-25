@@ -10,7 +10,7 @@ import java.time.ZoneOffset
 import java.util.UUID
 
 object MatchSpecification {
-    fun withFilters(userId: UUID, gameId: UUID?, fromDate: LocalDate?, toDate: LocalDate?): Specification<Match> {
+    fun withFilters(userId: UUID, gameId: UUID?, fromDate: LocalDate?, toDate: LocalDate?, onlyCompleted: Boolean = false): Specification<Match> {
         return Specification { root, query, cb ->
             val predicates = mutableListOf<jakarta.persistence.criteria.Predicate>()
 
@@ -39,6 +39,10 @@ object MatchSpecification {
             if(toDate != null) {
                 val toInstant = toDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant()
                 predicates.add(cb.lessThan(root.get("playedAt"), toInstant))
+            }
+
+            if(onlyCompleted) {
+                predicates.add(cb.isNotNull(root.get<Int>("durationMinutes")))
             }
 
             cb.and(*predicates.toTypedArray())

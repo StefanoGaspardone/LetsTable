@@ -68,9 +68,6 @@ data class UserProfileDTO(
     @field:Schema(description = "Total number of matches the user has won")
     val totalWins: Long,
 
-    @field:Schema(description = "The user's 10 most recent matches")
-    val recentMatches: List<MatchDTO>,
-
     @field:Schema(description = "Friendship status between the requesting user and this profile's user", example = "FRIENDS")
     val friendshipStatus: String,
 )

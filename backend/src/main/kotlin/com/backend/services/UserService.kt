@@ -164,7 +164,6 @@ class UserService(
 
             val totalMatches = matchRepository.countCompletedMatchesForUser(targetUserId)
             val totalWins = matchRepository.countWonMatchesForUser(targetUserId)
-            val recentMatches = matchService.getRecentMatchesForUser(targetUserId, 10)
             val friendshipStatus = friendService.getFriendshipStatus(currentUserId, targetUserId)
 
             val response = UserProfileDTO(
@@ -172,7 +171,6 @@ class UserService(
                 friendshipStatus = friendshipStatus.name,
                 totalMatches = totalMatches,
                 totalWins = totalWins,
-                recentMatches = recentMatches,
             )
 
             logger.info("\n\t[INFO] [user_service][get_public_profile] Retrieved public profile for user {}", targetUserId)

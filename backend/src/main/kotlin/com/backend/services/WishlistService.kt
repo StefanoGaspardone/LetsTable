@@ -14,7 +14,7 @@ import com.backend.repositories.*
 import com.backend.utils.resolveSort
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest.of
-import org.springframework.data.domain.Sort
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
@@ -392,6 +392,33 @@ class WishlistService(
             throw e
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [wishlist_service][get_item_status] Error checking status for wishlist {} game {}: {}", wishlistId, gameId, e.message)
+            throw e
+        }
+    }
+
+    @Transactional
+    fun getDefaultWishlistForUser(userId: UUID, page: Int, size: Int): PageDTO<WishlistItemDTO> {
+        logger.debug("\n\t[DEBUG] [wishlist_service][get_default_wishlist_for_user] Retrieving default wishlist items\n\tuserId={}\n\tpage={}\n\tsize={}", userId, page, size)
+
+        try {
+            val wishlist = wishlistRepository.findAll(WishlistSpecification.withFilters(userId, null), Pageable.unpaged())
+                .firstOrNull { it.isDefault }
+                ?: throw DefaultWishlistNotFoundException(userId)
+
+            val pageSafe = if(page < 0) 0 else page
+            val sizeSafe = size.coerceIn(1, 100)
+            val pageable = of(pageSafe, sizeSafe)
+
+            val spec = WishlistItemSpecification.withFilters(wishlist.id!!, null)
+            val result = wishlistItemRepository.findAll(spec, pageable)
+
+            logger.info("\n\t[INFO] [wishlist_service][get_default_wishlist_for_user] Retrieved {} items for user {}", result.numberOfElements, userId)
+            return result.toPageDTO { WishlistItemDTO.from(it) }
+        } catch(e: DefaultWishlistNotFoundException) {
+            logger.warn("\n\t[WARN] [wishlist_service][get_default_wishlist_for_user] Default wishlist not found for user {}", userId)
+            throw e
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [wishlist_service][get_default_wishlist_for_user] Error retrieving default wishlist items for user {}: {}", userId, e.message)
             throw e
         }
     }
