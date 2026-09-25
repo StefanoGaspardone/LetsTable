@@ -7,6 +7,7 @@ import com.backend.models.entities.WishlistItem
 import com.backend.models.entities.WishlistMember
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.UserRole
+import com.backend.models.specifications.WishlistSpecification
 import com.backend.repositories.GameRepository
 import com.backend.repositories.UserRepository
 import com.backend.repositories.WishlistItemRepository
@@ -25,6 +26,7 @@ import org.mockito.kotlin.doNothing
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.data.domain.Pageable
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -88,6 +90,9 @@ class WishlistControllerTest : AbstractIntegrationTest() {
     private fun persistItem(wishlist: Wishlist, game: Game, addedBy: User): WishlistItem =
         wishlistItemRepository.saveAndFlush(WishlistItem(wishlist = wishlist, game = game, addedBy = addedBy))
 
+    private fun accessibleWishlistsCountFor(userId: UUID): Int =
+        wishlistRepository.findAll(WishlistSpecification.withFilters(userId, null), Pageable.unpaged()).content.size
+
     @BeforeEach
     fun stubPushNotificationService() {
         doNothing().whenever(pushNotificationService).sendToUser(any(), any(), any(), any())
@@ -126,7 +131,7 @@ class WishlistControllerTest : AbstractIntegrationTest() {
                 .andExpect(jsonPath("$.isShared").value(true))
                 .andExpect(jsonPath("$.isDefault").value(false))
 
-            assertThat(wishlistRepository.findAllAccessibleByUser(owner.id!!)).hasSize(1)
+            assertThat(accessibleWishlistsCountFor(owner.id!!)).isEqualTo(1)
         }
 
         @Test
@@ -164,7 +169,7 @@ class WishlistControllerTest : AbstractIntegrationTest() {
                     .header(HttpHeaders.AUTHORIZATION, authHeader(user))
             )
                 .andExpect(status().isOk)
-                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$.content.length()").value(2))
         }
 
         @Test
@@ -178,7 +183,50 @@ class WishlistControllerTest : AbstractIntegrationTest() {
                     .header(HttpHeaders.AUTHORIZATION, authHeader(user))
             )
                 .andExpect(status().isOk)
-                .andExpect(jsonPath("$.length()").value(0))
+                .andExpect(jsonPath("$.content.length()").value(0))
+        }
+
+        @Test
+        fun `should filter by SHARED type`() {
+            val user = persistUser(username = "user")
+            persistWishlist(user, isShared = false)
+            persistWishlist(user, isShared = true)
+
+            mockMvc.perform(
+                get("/api/v1/wishlists")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("type", "SHARED")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].isShared").value(true))
+        }
+
+        @Test
+        fun `should filter by PRIVATE type and exclude the default wishlist`() {
+            val user = persistUser(username = "user")
+            persistWishlist(user, isShared = false, isDefault = true)
+            persistWishlist(user, isShared = false)
+
+            mockMvc.perform(
+                get("/api/v1/wishlists")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("type", "PRIVATE")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].isDefault").value(false))
+        }
+
+        @Test
+        fun `should return 404 when sort field is not allowed`() {
+            val user = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/wishlists")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("sort", "notAllowedField-asc")
+            ).andExpect(status().isNotFound)
         }
     }
 
@@ -628,7 +676,7 @@ class WishlistControllerTest : AbstractIntegrationTest() {
         }
 
         @Test
-        fun `should return 400 when sort field is not allowed`() {
+        fun `should return 404 when sort field is not allowed`() {
             val owner = persistUser()
             val wishlist = persistWishlist(owner)
 

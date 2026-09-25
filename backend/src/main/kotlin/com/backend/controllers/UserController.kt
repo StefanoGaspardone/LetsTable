@@ -171,6 +171,7 @@ class UserController(
             ),
         ]
     )
+
     @GetMapping("/{userId}/matches")
     fun getUserMatches(@PathVariable userId: UUID, @RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int, @RequestParam(required = false) sort: String?): PageDTO<MatchDTO> {
         if(userId == CurrentUser.id()) {

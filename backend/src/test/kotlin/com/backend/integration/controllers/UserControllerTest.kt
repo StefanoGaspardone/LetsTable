@@ -49,6 +49,12 @@ class UserControllerTest : AbstractIntegrationTest() {
     private lateinit var refreshTokenRepository: RefreshTokenRepository
 
     @Autowired
+    private lateinit var wishlistRepository: WishlistRepository
+
+    @Autowired
+    private lateinit var wishlistItemRepository: WishlistItemRepository
+
+    @Autowired
     private lateinit var jwtService: JwtService
 
     private fun persistUser(username: String = "stefano"): User =
@@ -68,8 +74,14 @@ class UserControllerTest : AbstractIntegrationTest() {
     private fun persistGame(bggId: Long = (1..1_000_000).random().toLong()): Game =
         gameRepository.saveAndFlush(Game(bggId = bggId, name = "Test Game", lastSyncedAt = Instant.now()))
 
-    private fun persistMatch(game: Game, createdBy: User): Match =
-        matchRepository.saveAndFlush(Match(game = game, createdBy = createdBy, playedAt = Instant.now()))
+    private fun persistMatch(game: Game, createdBy: User, durationMinutes: Int? = 30): Match =
+        matchRepository.saveAndFlush(Match(game = game, createdBy = createdBy, playedAt = Instant.now(), durationMinutes = durationMinutes))
+
+    private fun persistWishlist(owner: User, isDefault: Boolean = false, isShared: Boolean = false): Wishlist =
+        wishlistRepository.saveAndFlush(Wishlist(name = "My Wishlist", owner = owner, isShared = isShared, isDefault = isDefault))
+
+    private fun persistWishlistItem(wishlist: Wishlist, game: Game, addedBy: User): WishlistItem =
+        wishlistItemRepository.saveAndFlush(WishlistItem(wishlist = wishlist, game = game, addedBy = addedBy))
 
     private fun persistPlayer(match: Match, user: User? = null, guestName: String? = null): MatchPlayer =
         matchPlayerRepository.saveAndFlush(MatchPlayer(match = match, user = user, guestName = guestName))
@@ -88,6 +100,8 @@ class UserControllerTest : AbstractIntegrationTest() {
     fun cleanUp() {
         friendRequestRepository.deleteAll()
         refreshTokenRepository.deleteAll()
+        wishlistItemRepository.deleteAll()
+        wishlistRepository.deleteAll()
         matchPlayerRepository.deleteAll()
         matchRepository.deleteAll()
         gameRepository.deleteAll()
@@ -410,7 +424,6 @@ class UserControllerTest : AbstractIntegrationTest() {
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.totalMatches").value(0))
                 .andExpect(jsonPath("$.totalWins").value(0))
-                .andExpect(jsonPath("$.recentMatches.length()").value(0))
         }
 
         @Test
@@ -517,6 +530,197 @@ class UserControllerTest : AbstractIntegrationTest() {
             )
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.friendshipStatus").value("REQUEST_RECEIVED"))
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // GET /api/v1/users/{userId}/matches
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("GET /api/v1/users/{userId}/matches")
+    inner class GetUserMatchesTests {
+
+        @Test
+        fun `should return only completed matches for the target user`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+            val game = persistGame()
+
+            persistMatch(game, target, durationMinutes = 30)
+            persistMatch(game, target, durationMinutes = null)
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/matches")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(1))
+        }
+
+        @Test
+        fun `should return an empty page when the user has no completed matches`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/matches")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(0))
+        }
+
+        @Test
+        fun `should return 400 when querying your own matches via this endpoint`() {
+            val user = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/users/${user.id}/matches")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            ).andExpect(status().isBadRequest)
+        }
+
+        @Test
+        fun `should return 403 when no auth header is provided`() {
+            val target = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/matches")
+            ).andExpect(status().isForbidden)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // GET /api/v1/users/{userId}/friends
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("GET /api/v1/users/{userId}/friends")
+    inner class GetUserFriendsTests {
+
+        @Test
+        fun `should return the target user's accepted friends`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+            val friendOfTarget = persistUser(username = "friend-of-target")
+
+            friendRequestRepository.saveAndFlush(
+                FriendRequest(sender = target, receiver = friendOfTarget, status = FriendRequestStatus.ACCEPTED)
+            )
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/friends")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(friendOfTarget.id.toString()))
+        }
+
+        @Test
+        fun `should return an empty list when the target user has no friends`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/friends")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.length()").value(0))
+        }
+
+        @Test
+        fun `should return 400 when querying your own friends via this endpoint`() {
+            val user = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/users/${user.id}/friends")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            ).andExpect(status().isBadRequest)
+        }
+
+        @Test
+        fun `should return 403 when no auth header is provided`() {
+            val target = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/friends")
+            ).andExpect(status().isForbidden)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // GET /api/v1/users/{userId}/wishlist
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("GET /api/v1/users/{userId}/wishlist")
+    inner class GetUserDefaultWishlistTests {
+
+        @Test
+        fun `should return the games in the target user's default wishlist`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+            val defaultWishlist = persistWishlist(target, isDefault = true)
+            val game = persistGame()
+            persistWishlistItem(defaultWishlist, game, target)
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/wishlist")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(1))
+        }
+
+        @Test
+        fun `should not include games from a non-default wishlist`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+            persistWishlist(target, isDefault = true)
+            val otherWishlist = persistWishlist(target, isDefault = false)
+            val game = persistGame()
+            persistWishlistItem(otherWishlist, game, target)
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/wishlist")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(0))
+        }
+
+        @Test
+        fun `should return 404 when the target user has no default wishlist`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/wishlist")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            ).andExpect(status().isNotFound)
+        }
+
+        @Test
+        fun `should return 400 when querying your own wishlist via this endpoint`() {
+            val user = persistUser()
+            persistWishlist(user, isDefault = true)
+
+            mockMvc.perform(
+                get("/api/v1/users/${user.id}/wishlist")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            ).andExpect(status().isBadRequest)
+        }
+
+        @Test
+        fun `should return 403 when no auth header is provided`() {
+            val target = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/wishlist")
+            ).andExpect(status().isForbidden)
         }
     }
 }
