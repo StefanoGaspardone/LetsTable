@@ -1,18 +1,5 @@
 import { apiClient } from '@/api/client';
-import {
-	listMyWishlists,
-	getWishlistById,
-	createWishlist,
-	deleteWishlist,
-	listWishlistItems,
-	addItemToWishlist,
-	removeItemFromWishlist,
-	getItemStatusInWishlist,
-	listWishlistMembers,
-	addMemberToWishlist,
-	removeMemberFromWishlist,
-	leaveWishlist,
-} from '@/api/wishlist';
+import { listMyWishlists, getWishlistById, createWishlist, deleteWishlist, listWishlistItems, addItemToWishlist, removeItemFromWishlist, getItemStatusInWishlist, listWishlistMembers, addMemberToWishlist, removeMemberFromWishlist, leaveWishlist } from '@/api/wishlist';
 
 jest.mock('@/api/client', () => ({
 	apiClient: {
@@ -32,14 +19,27 @@ describe('wishlist API', () => {
 	});
 
 	describe('listMyWishlists', () => {
-		it('calls GET /wishlists and returns the response data', async () => {
-			const responseData = [{ id: 'w-1', name: 'My wishlist' }];
+		it('calls GET /wishlists with default page and size when no params are given', async () => {
+			const responseData = { content: [{ id: 'w-1', name: 'My wishlist' }], number: 0, last: true };
 			mockedGet.mockResolvedValueOnce({ data: responseData } as any);
 
 			const result = await listMyWishlists();
 
-			expect(mockedGet).toHaveBeenCalledWith('/wishlists');
+			expect(mockedGet).toHaveBeenCalledWith('/wishlists', {
+				params: { page: 0, size: 20, type: undefined, sort: undefined },
+			});
 			expect(result).toEqual(responseData);
+		});
+
+		it('passes through page, size, type and sort when provided', async () => {
+			const responseData = { content: [], number: 1, last: true };
+			mockedGet.mockResolvedValueOnce({ data: responseData } as any);
+
+			await listMyWishlists({ page: 1, size: 5, type: 'SHARED', sort: 'name-asc' });
+
+			expect(mockedGet).toHaveBeenCalledWith('/wishlists', {
+				params: { page: 1, size: 5, type: 'SHARED', sort: 'name-asc' },
+			});
 		});
 	});
 

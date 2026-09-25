@@ -9,6 +9,10 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 	setItem: jest.fn(),
 }));
 
+jest.mock('nativewind', () => ({
+	useColorScheme: () => ({ setColorScheme: jest.fn() }),
+}));
+
 const mockedGetItem = AsyncStorage.getItem as jest.MockedFunction<typeof AsyncStorage.getItem>;
 const mockedSetItem = AsyncStorage.setItem as jest.MockedFunction<typeof AsyncStorage.setItem>;
 
@@ -21,12 +25,12 @@ describe('ThemeProvider / useTheme', () => {
 		jest.clearAllMocks();
 	});
 
-	it('defaults to "system" while loading', async () => {
+	it('defaults to "light" while loading', async () => {
 		mockedGetItem.mockImplementation(() => new Promise(() => {}));
 
 		const { result } = await renderHook(() => useTheme(), { wrapper });
 
-		expect(result.current.themePreference).toBe('system');
+		expect(result.current.themePreference).toBe('light');
 		expect(result.current.isLoading).toBe(true);
 	});
 
@@ -41,24 +45,24 @@ describe('ThemeProvider / useTheme', () => {
 		expect(mockedGetItem).toHaveBeenCalledWith('@theme_preference');
 	});
 
-	it('defaults to "system" when nothing is stored', async () => {
+	it('defaults to "light" when nothing is stored', async () => {
 		mockedGetItem.mockResolvedValueOnce(null);
 
 		const { result } = await renderHook(() => useTheme(), { wrapper });
 
 		await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-		expect(result.current.themePreference).toBe('system');
+		expect(result.current.themePreference).toBe('light');
 	});
 
-	it('ignores an invalid stored value and falls back to "system"', async () => {
+	it('ignores an invalid stored value and falls back to "light"', async () => {
 		mockedGetItem.mockResolvedValueOnce('invalid-value');
 
 		const { result } = await renderHook(() => useTheme(), { wrapper });
 
 		await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-		expect(result.current.themePreference).toBe('system');
+		expect(result.current.themePreference).toBe('light');
 	});
 
 	it('accepts "light" as a valid stored preference', async () => {

@@ -1,8 +1,8 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient } from '@tanstack/react-query';
 
-import { useUserSearch, useUpdateMe } from '@/hooks/use-user';
-import { searchUser, updateMe } from '@/api/user';
+import { useUserSearch, useUpdateMe, useUserMatches, useUserFriends, useUserDefaultWishlistItems } from '@/hooks/use-user';
+import { searchUser, updateMe, getUserMatches, getUserFriends, getUserDefaultWishlistItems } from '@/api/user';
 
 import { createWrapper } from '@/test/helpers/test-utils';
 
@@ -10,6 +10,9 @@ jest.mock('@/api/user');
 
 const mockedSearchUser = searchUser as jest.MockedFunction<typeof searchUser>;
 const mockedUpdateMe = updateMe as jest.MockedFunction<typeof updateMe>;
+const mockedGetUserMatches = getUserMatches as jest.MockedFunction<typeof getUserMatches>;
+const mockedGetUserFriends = getUserFriends as jest.MockedFunction<typeof getUserFriends>;
+const mockedGetUserDefaultWishlistItems = getUserDefaultWishlistItems as jest.MockedFunction<typeof getUserDefaultWishlistItems>;
 
 describe('useUserSearch', () => {
 	let queryClient: QueryClient;
@@ -149,5 +152,189 @@ describe('useUpdateMe', () => {
 		await waitFor(() => expect(result.current.isError).toBe(true));
 
 		expect(result.current.error).toEqual(new Error('Update failed'));
+	});
+});
+
+
+describe('useUserMatches', () => {
+	let queryClient: QueryClient;
+
+	beforeEach(() => {
+		jest.clearAllMocks();
+	});
+
+	afterEach(() => {
+		queryClient?.clear();
+	});
+
+	it('fetches the first page of a user\'s matches', async () => {
+		mockedGetUserMatches.mockResolvedValueOnce({
+			content: [{ id: 'match-1' } as any],
+			number: 0,
+			last: true,
+		} as any);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useUserMatches('user-1'), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+		expect(mockedGetUserMatches).toHaveBeenCalledWith('user-1', 0, 20, undefined);
+		expect(result.current.data?.pages[0].content).toHaveLength(1);
+	});
+
+	it('passes the sort parameter through to the API call', async () => {
+		mockedGetUserMatches.mockResolvedValueOnce({ content: [], number: 0, last: true } as any);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		await renderHook(() => useUserMatches('user-1', 'playedAt-desc'), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(mockedGetUserMatches).toHaveBeenCalledWith('user-1', 0, 20, 'playedAt-desc'));
+	});
+
+	it('fetches the next page with an incremented page number', async () => {
+		mockedGetUserMatches
+			.mockResolvedValueOnce({ content: [{ id: 'match-1' } as any], number: 0, last: false } as any)
+			.mockResolvedValueOnce({ content: [{ id: 'match-2' } as any], number: 1, last: true } as any);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useUserMatches('user-1'), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+		await act(async () => {
+			await result.current.fetchNextPage();
+		});
+
+		expect(mockedGetUserMatches).toHaveBeenCalledTimes(2);
+		expect(mockedGetUserMatches).toHaveBeenLastCalledWith('user-1', 1, 20, undefined);
+	});
+
+	it('surfaces an error when the request fails', async () => {
+		mockedGetUserMatches.mockRejectedValueOnce(new Error('Network error'));
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useUserMatches('user-1'), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(result.current.isError).toBe(true));
+	});
+});
+
+describe('useUserFriends', () => {
+	let queryClient: QueryClient;
+
+	beforeEach(() => {
+		jest.clearAllMocks();
+	});
+
+	afterEach(() => {
+		queryClient?.clear();
+	});
+
+	it('fetches the friends of the given user', async () => {
+		mockedGetUserFriends.mockResolvedValueOnce([{ id: 'friend-1', username: 'anna' } as any]);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useUserFriends('user-1'), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+		expect(mockedGetUserFriends).toHaveBeenCalledWith('user-1');
+		expect(result.current.data).toHaveLength(1);
+	});
+
+	it('surfaces an error when the request fails', async () => {
+		mockedGetUserFriends.mockRejectedValueOnce(new Error('Network error'));
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useUserFriends('user-1'), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(result.current.isError).toBe(true));
+	});
+});
+
+describe('useUserDefaultWishlistItems', () => {
+	let queryClient: QueryClient;
+
+	beforeEach(() => {
+		jest.clearAllMocks();
+	});
+
+	afterEach(() => {
+		queryClient?.clear();
+	});
+
+	it('fetches the first page of the default wishlist items', async () => {
+		mockedGetUserDefaultWishlistItems.mockResolvedValueOnce({
+			content: [{ id: 'item-1' } as any],
+			number: 0,
+			last: true,
+		} as any);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useUserDefaultWishlistItems('user-1'), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+		expect(mockedGetUserDefaultWishlistItems).toHaveBeenCalledWith('user-1', 0);
+		expect(result.current.data?.pages[0].content).toHaveLength(1);
+	});
+
+	it('fetches the next page with an incremented page number', async () => {
+		mockedGetUserDefaultWishlistItems
+			.mockResolvedValueOnce({ content: [{ id: 'item-1' } as any], number: 0, last: false } as any)
+			.mockResolvedValueOnce({ content: [{ id: 'item-2' } as any], number: 1, last: true } as any);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useUserDefaultWishlistItems('user-1'), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+		await act(async () => {
+			await result.current.fetchNextPage();
+		});
+
+		expect(mockedGetUserDefaultWishlistItems).toHaveBeenCalledTimes(2);
+		expect(mockedGetUserDefaultWishlistItems).toHaveBeenLastCalledWith('user-1', 1);
+	});
+
+	it('exposes hasNextPage as false on the last page', async () => {
+		mockedGetUserDefaultWishlistItems.mockResolvedValueOnce({ content: [], number: 0, last: true } as any);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useUserDefaultWishlistItems('user-1'), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+		expect(result.current.hasNextPage).toBe(false);
+	});
+
+	it('surfaces an error when the request fails', async () => {
+		mockedGetUserDefaultWishlistItems.mockRejectedValueOnce(new Error('Network error'));
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useUserDefaultWishlistItems('user-1'), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(result.current.isError).toBe(true));
 	});
 });
