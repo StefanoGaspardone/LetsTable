@@ -53,8 +53,8 @@ data class CreateMatchTeamRequest(
     @field:NotBlank
     val color: String,
 
-    @field:Schema(description = "Team score", example = "42")
-    val score: Int = 0,
+    @field:Schema(description = "Team score, null if this match doesn't track a numeric score")
+    val score: Int? = null,
 
     @field:Schema(description = "Whether this team won the match")
     val isWinner: Boolean = false,
@@ -169,8 +169,8 @@ data class MatchTeamDTO(
     @field:Schema(description = "Team color")
     val color: String,
 
-    @field:Schema(description = "Team score")
-    val score: Int,
+    @field:Schema(description = "Team score, null if this match doesn't track a numeric score")
+    val score: Int?,
 
     @field:Schema(description = "Whether this team won")
     val isWinner: Boolean,

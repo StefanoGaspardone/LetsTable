@@ -8,7 +8,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, Plus, UserCheck, ArrowLeftRight, Puzzle, Gauge, PenTool, Palette, Building2, Trash2, Library, Check, Heart, Layers, Ruler, Download, Award } from 'lucide-react-native';
+import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, Plus, UserCheck, ArrowLeftRight, Puzzle, Gauge, PenTool, Palette, Building2, Trash2, Library, Check, Heart, Layers, Download, Award, WalletCards } from 'lucide-react-native';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, interpolate, interpolateColor, Extrapolation, useDerivedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +21,7 @@ import BackButton from '@/components/common/back-button';
 import FabMenu from '@/components/common/fab-menu';
 import SegmentedControl from '@/components/common/segmented-control';
 import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/register-match-sheet';
+import AddToWishlistSheet, { AddToWishlistSheetRef } from '@/components/common/add-to-wishlist-sheet';
 import GameListItem from '@/components/common/game-list-item';
 import MatchListItem from '@/components/common/match-list-item';
 
@@ -63,6 +64,8 @@ const GameDetailScreen = () => {
 	const { colors } = useThemeColors();
 	
 	const registerMatchSheetRef = useRef<RegisterMatchSheetRef>(null);
+	const addToWishlistSheetRef = useRef<AddToWishlistSheetRef>(null);
+
 	const pagerRef = useRef<ScrollView>(null);
 	const mainScrollRef = useRef<Animated.ScrollView>(null);
 	const isReturningFromExternalActionRef = useRef(false);
@@ -361,6 +364,10 @@ const GameDetailScreen = () => {
 						<ScrollView ref = { pagerRef } horizontal pagingEnabled showsHorizontalScrollIndicator = { false } onMomentumScrollEnd = { handlePagerScrollEnd } contentContainerStyle = {{ alignItems: 'flex-start' }}>
 							<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { const height = e.nativeEvent?.layout?.height; if(height) setTabHeights(prev => ({ ...prev, info: height })); } }>
 								<View className = 'px-4 gap-4'>
+									<Pressable onPress = { handleVisitBgg } className = 'flex-row items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2.5 active:opacity-75 active:scale-[0.98]'>
+										<ExternalLink size = { 16 } color = { colors.primary }/>
+										<Text className = 'text-sm font-medium text-foreground'>Visita su BoardGameGeek</Text>
+									</Pressable>
 									{game.description && (
 										<Text className = 'text-sm leading-5 text-muted-foreground'>{game.description}</Text>
 									)}
@@ -452,15 +459,15 @@ const GameDetailScreen = () => {
 										<View className = 'rounded-2xl border border-border bg-card p-4'>
 											<View className = 'mb-3 flex-row items-center gap-2'>
 												<Layers size = { 16 } color = { colors.primary }/>
-												<Text className = 'font-display text-base text-foreground'>Componenti e Sleeve</Text>
+												<Text className = 'font-display text-base text-foreground'>Sleeve</Text>
 											</View>
 											<View className = 'gap-2'>
 												{game.sleeves.map(sleeve => (
 													<View key = { sleeve.id } className = 'flex-row items-center gap-2 rounded-xl bg-background px-3 py-2.5 border border-border'>
-														<Ruler size = { 14 } color = { colors.mutedForeground }/>
+														<WalletCards size = { 20 } color = { colors.mutedForeground }/>
 														<View className = 'flex-1'>
 															<Text className = 'text-sm text-foreground'>
-																{sleeve.name ?? 'Componente'}
+																{sleeve.name ?? 'Standard'}
 															</Text>
 															{sleeve.height != null && sleeve.width != null && (
 																<Text className = 'text-xs text-muted-foreground'>
@@ -514,10 +521,6 @@ const GameDetailScreen = () => {
 							</View>
 							<View style = {{ width: SCREEN_WIDTH }} onLayout = { e => { const height = e.nativeEvent?.layout?.height; if(height) setTabHeights(prev => ({ ...prev, file: height })); } }>
 								<View className = 'px-4 gap-2'>
-									<Pressable onPress = { handleVisitBgg } className = 'flex-row items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2.5 active:opacity-75 active:scale-[0.98]'>
-										<ExternalLink size = { 16 } color = { colors.primary }/>
-										<Text className = 'text-sm font-medium text-foreground'>Visita su BoardGameGeek</Text>
-									</Pressable>
 									{isLoadingRules ? (
 										<View className = 'items-center py-4'>
 											<ActivityIndicator color = { colors.primary }/>
@@ -629,11 +632,12 @@ const GameDetailScreen = () => {
 					{
 						label: 'Aggiungi a una wishlist',
 						icon: <Heart size = { 18 }/>,
-						onPress: () => { },
+						onPress: () => addToWishlistSheetRef.current?.present({ id: game.id, name: game.name }),
 					}
 				]}
 			/>
 			<RegisterMatchSheet ref = { registerMatchSheetRef }/>
+			<AddToWishlistSheet ref = { addToWishlistSheetRef }/>
 		</View>
 	)
 }

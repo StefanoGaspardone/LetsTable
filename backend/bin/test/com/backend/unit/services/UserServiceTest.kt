@@ -591,13 +591,12 @@ class UserServiceTest {
         private val targetUserId: UUID = UUID.randomUUID()
 
         @Test
-        fun `should return public profile with stats, recent matches, and friendship status`() {
+        fun `should return public profile with stats, and friendship status`() {
             val user = buildUser(id = targetUserId, username = "stefano")
 
             whenever(userRepository.findById(targetUserId)).thenReturn(Optional.of(user))
             whenever(matchRepository.countCompletedMatchesForUser(targetUserId)).thenReturn(15L)
             whenever(matchRepository.countWonMatchesForUser(targetUserId)).thenReturn(6L)
-            whenever(matchService.getRecentMatchesForUser(targetUserId, 10)).thenReturn(emptyList())
             whenever(friendService.getFriendshipStatus(currentUserId, targetUserId)).thenReturn(FriendshipStatus.FRIENDS)
 
             val result = userService.getUserProfile(currentUserId, targetUserId)
@@ -606,7 +605,6 @@ class UserServiceTest {
             assertThat(result.user.username).isEqualTo("stefano")
             assertThat(result.totalMatches).isEqualTo(15L)
             assertThat(result.totalWins).isEqualTo(6L)
-            assertThat(result.recentMatches).isEmpty()
             assertThat(result.friendshipStatus).isEqualTo("FRIENDS")
         }
 
@@ -617,7 +615,6 @@ class UserServiceTest {
             whenever(userRepository.findById(targetUserId)).thenReturn(Optional.of(user))
             whenever(matchRepository.countCompletedMatchesForUser(targetUserId)).thenReturn(0L)
             whenever(matchRepository.countWonMatchesForUser(targetUserId)).thenReturn(0L)
-            whenever(matchService.getRecentMatchesForUser(targetUserId, 10)).thenReturn(emptyList())
             whenever(friendService.getFriendshipStatus(currentUserId, targetUserId)).thenReturn(FriendshipStatus.NONE)
 
             val result = userService.getUserProfile(currentUserId, targetUserId)
@@ -633,7 +630,6 @@ class UserServiceTest {
             whenever(userRepository.findById(currentUserId)).thenReturn(Optional.of(user))
             whenever(matchRepository.countCompletedMatchesForUser(currentUserId)).thenReturn(0L)
             whenever(matchRepository.countWonMatchesForUser(currentUserId)).thenReturn(0L)
-            whenever(matchService.getRecentMatchesForUser(currentUserId, 10)).thenReturn(emptyList())
             whenever(friendService.getFriendshipStatus(currentUserId, currentUserId)).thenReturn(FriendshipStatus.SELF)
 
             val result = userService.getUserProfile(currentUserId, currentUserId)
@@ -650,7 +646,6 @@ class UserServiceTest {
             }.isInstanceOf(UserNotFoundException::class.java)
 
             verify(matchRepository, never()).countCompletedMatchesForUser(any())
-            verify(matchService, never()).getRecentMatchesForUser(any(), any())
             verify(friendService, never()).getFriendshipStatus(any(), any())
         }
 

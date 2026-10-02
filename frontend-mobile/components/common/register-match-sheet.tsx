@@ -260,8 +260,8 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
         }
 
         if(mode === 'team') {
-            if(teams.length < 2) {
-                showToast('Aggiungi almeno due squadre', 'error');
+            if(teams.length < 1) {
+                showToast('Aggiungi almeno una squadra', 'error');
                 return;
             }
 
@@ -333,7 +333,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
         presetGame !== null &&
         (mode === 'individual'
             ? players.length > 0
-            : teams.length >= 2 && teams.every(t => t.players.length > 0));
+            : teams.length >= 1 && teams.every(t => t.players.length > 0));
 
 	return (
         <>

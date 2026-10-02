@@ -7,6 +7,7 @@ import com.backend.models.dtos.CreateWishlistRequest
 import com.backend.models.entities.*
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.UserRole
+import com.backend.models.specifications.WishlistFilterType
 import com.backend.repositories.*
 import com.backend.services.PushNotificationService
 import com.backend.services.WishlistService
@@ -156,7 +157,7 @@ class WishlistServiceTest {
                 wishlistService.deleteWishlist(ownerId, wishlistId)
             }.isInstanceOf(WishlistNotFoundException::class.java)
 
-            verify(wishlistRepository, never()).delete(any())
+            verify(wishlistRepository, never()).delete(any<Wishlist>())
         }
 
         @Test
@@ -169,7 +170,7 @@ class WishlistServiceTest {
                 wishlistService.deleteWishlist(ownerId, wishlistId)
             }.isInstanceOf(CannotModifyDefaultWishlistException::class.java)
 
-            verify(wishlistRepository, never()).delete(any())
+            verify(wishlistRepository, never()).delete(any<Wishlist>())
         }
 
         @Test
@@ -193,7 +194,7 @@ class WishlistServiceTest {
                 wishlistService.deleteWishlist(ownerId, wishlistId)
             }.isInstanceOf(NotWishlistOwnerException::class.java)
 
-            verify(wishlistRepository, never()).delete(any())
+            verify(wishlistRepository, never()).delete(any<Wishlist>())
         }
 
         @Test
@@ -218,28 +219,84 @@ class WishlistServiceTest {
         fun `should return accessible wishlists for user`() {
             val owner = buildUser(id = ownerId)
             val wishlist = buildWishlist(owner = owner)
-            whenever(wishlistRepository.findAllAccessibleByUser(ownerId)).thenReturn(listOf(wishlist))
+            val page = PageImpl(listOf(wishlist), PageRequest.of(0, 20), 1)
 
-            val result = wishlistService.listAccessibleWishlists(ownerId)
+            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>()))
+                .thenReturn(page)
 
-            assertThat(result).hasSize(1)
+            val result = wishlistService.listAccessibleWishlists(ownerId, 0, 20, null, null)
+
+            assertThat(result.content).hasSize(1)
         }
 
         @Test
-        fun `should return empty list when user has no accessible wishlists`() {
-            whenever(wishlistRepository.findAllAccessibleByUser(ownerId)).thenReturn(emptyList())
+        fun `should return empty page when user has no accessible wishlists`() {
+            val page = PageImpl<Wishlist>(emptyList(), PageRequest.of(0, 20), 0)
 
-            val result = wishlistService.listAccessibleWishlists(ownerId)
+            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>()))
+                .thenReturn(page)
 
-            assertThat(result).isEmpty()
+            val result = wishlistService.listAccessibleWishlists(ownerId, 0, 20, null, null)
+
+            assertThat(result.content).isEmpty()
+        }
+
+        @Test
+        fun `should clamp negative page number to zero`() {
+            val page = PageImpl<Wishlist>(emptyList(), PageRequest.of(0, 20), 0)
+
+            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>()))
+                .thenReturn(page)
+
+            val result = wishlistService.listAccessibleWishlists(ownerId, -5, 20, null, null)
+
+            assertThat(result.number).isEqualTo(0)
+        }
+
+        @Test
+        fun `should clamp oversized page size to 100`() {
+            val page = PageImpl<Wishlist>(emptyList(), PageRequest.of(0, 100), 0)
+
+            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>()))
+                .thenReturn(page)
+
+            wishlistService.listAccessibleWishlists(ownerId, 0, 500, null, null)
+
+            verify(wishlistRepository).findAll(
+                any<org.springframework.data.jpa.domain.Specification<Wishlist>>(),
+                eq(PageRequest.of(0, 100, org.springframework.data.domain.Sort.by("updatedAt").descending())),
+            )
+        }
+
+        @Test
+        fun `should pass the filter type through to the specification query`() {
+            val page = PageImpl<Wishlist>(emptyList(), PageRequest.of(0, 20), 0)
+
+            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>()))
+                .thenReturn(page)
+
+            wishlistService.listAccessibleWishlists(ownerId, 0, 20, WishlistFilterType.SHARED, null)
+
+            verify(wishlistRepository).findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>())
+        }
+
+        @Test
+        fun `should throw InvalidSortException when sort field is not allowed`() {
+            assertThatThrownBy {
+                wishlistService.listAccessibleWishlists(ownerId, 0, 20, null, "notAllowedField-asc")
+            }.isInstanceOf(InvalidSortException::class.java)
+
+            verify(wishlistRepository, never())
+                .findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>())
         }
 
         @Test
         fun `should rethrow generic exception when repository fails`() {
-            whenever(wishlistRepository.findAllAccessibleByUser(ownerId)).thenThrow(RuntimeException("Database error"))
+            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>()))
+                .thenThrow(RuntimeException("Database error"))
 
             assertThatThrownBy {
-                wishlistService.listAccessibleWishlists(ownerId)
+                wishlistService.listAccessibleWishlists(ownerId, 0, 20, null, null)
             }.isInstanceOf(RuntimeException::class.java)
         }
     }
@@ -1012,6 +1069,75 @@ class WishlistServiceTest {
 
             assertThatThrownBy {
                 wishlistService.getItemStatus(wishlistId, UUID.randomUUID())
+            }.isInstanceOf(RuntimeException::class.java)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // getDefaultWishlistForUser
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("getDefaultWishlistForUser")
+    inner class GetDefaultWishlistForUserTests {
+
+        @Test
+        fun `should return paged items of the user's default wishlist`() {
+            val owner = buildUser(id = ownerId)
+            val defaultWishlist = buildWishlist(owner = owner, isDefault = true)
+            val nonDefaultWishlist = buildWishlist(id = UUID.randomUUID(), owner = owner, isDefault = false)
+            val item = WishlistItem(id = UUID.randomUUID(), wishlist = defaultWishlist, game = buildGame(), addedBy = owner)
+            val itemsPage = PageImpl(listOf(item), PageRequest.of(0, 20), 1)
+
+            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), eq(org.springframework.data.domain.Pageable.unpaged())))
+                .thenReturn(PageImpl(listOf(nonDefaultWishlist, defaultWishlist)))
+            whenever(wishlistItemRepository.findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), any<PageRequest>()))
+                .thenReturn(itemsPage)
+
+            val result = wishlistService.getDefaultWishlistForUser(ownerId, 0, 20)
+
+            assertThat(result.content).hasSize(1)
+        }
+
+        @Test
+        fun `should throw DefaultWishlistNotFoundException when user has no default wishlist`() {
+            val owner = buildUser(id = ownerId)
+            val nonDefaultWishlist = buildWishlist(owner = owner, isDefault = false)
+
+            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), eq(org.springframework.data.domain.Pageable.unpaged())))
+                .thenReturn(PageImpl(listOf(nonDefaultWishlist)))
+
+            assertThatThrownBy {
+                wishlistService.getDefaultWishlistForUser(ownerId, 0, 20)
+            }.isInstanceOf(DefaultWishlistNotFoundException::class.java)
+
+            verify(wishlistItemRepository, never())
+                .findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), any<PageRequest>())
+        }
+
+        @Test
+        fun `should clamp negative page number to zero`() {
+            val owner = buildUser(id = ownerId)
+            val defaultWishlist = buildWishlist(owner = owner, isDefault = true)
+            val itemsPage = PageImpl<WishlistItem>(emptyList(), PageRequest.of(0, 20), 0)
+
+            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), eq(org.springframework.data.domain.Pageable.unpaged())))
+                .thenReturn(PageImpl(listOf(defaultWishlist)))
+            whenever(wishlistItemRepository.findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), any<PageRequest>()))
+                .thenReturn(itemsPage)
+
+            val result = wishlistService.getDefaultWishlistForUser(ownerId, -5, 20)
+
+            assertThat(result.number).isEqualTo(0)
+        }
+
+        @Test
+        fun `should rethrow generic exception when repository fails unexpectedly`() {
+            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), eq(org.springframework.data.domain.Pageable.unpaged())))
+                .thenThrow(RuntimeException("Database error"))
+
+            assertThatThrownBy {
+                wishlistService.getDefaultWishlistForUser(ownerId, 0, 20)
             }.isInstanceOf(RuntimeException::class.java)
         }
     }

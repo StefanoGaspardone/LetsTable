@@ -97,7 +97,7 @@ const BrowseScreen = () => {
 			<View className = 'gap-3 px-4 pt-4'>
 				<View className = 'flex-row items-center gap-2'>
 					<View className = 'relative flex-1'>
-						<Input  placeholder = 'Cerca per nome utente...' value = { search } onChangeText = { setSearch } className = 'rounded-2xl bg-secondary/80 pl-11 pr-10 border-0 text-sm h-11'/>
+						<Input  placeholder = 'Cerca...' value = { search } onChangeText = { setSearch } className = 'rounded-2xl bg-secondary/80 pl-11 pr-10 border-0 text-sm h-11'/>
 						<View className = 'pointer-events-none absolute left-3.5 top-0 bottom-0 justify-center'>
 							<Search size = { 18 } color = { colors.mutedForeground }/>
 						</View>

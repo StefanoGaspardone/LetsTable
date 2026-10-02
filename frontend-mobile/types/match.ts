@@ -11,7 +11,7 @@ export interface MatchTeam {
 	id: string;
 	name: string | null;
 	color: string;
-	score: number;
+	score: number | null;
 	isWinner: boolean;
 	isStartingFirst: boolean;
 	players: MatchPlayerRef[];
@@ -55,7 +55,7 @@ export interface MatchPlayerIdentityPayload {
 export interface CreateMatchTeamPayload {
 	name: string | null;
 	color: string;
-	score: number;
+	score: number | null;
 	isWinner: boolean;
 	players: MatchPlayerIdentityPayload[];
 }

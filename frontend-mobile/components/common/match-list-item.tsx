@@ -55,7 +55,7 @@ const PlayerAvatarStack = ({ players }: { players: FlatPlayer[] }) => {
 		<View className = 'flex-row items-center'>
 			{visiblePlayers.map((player, index) => (
 				<View key = { `${player.name}-${player.avatarId}` } style = {{ marginLeft: index === 0 ? 0 : -AVATAR_OVERLAP, zIndex: visiblePlayers.length - index }}>
-					<Image source = {{ uri: getAvatarUrl(player?.avatarId ?? null, player?.name ?? '') }} style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 2, borderColor: '#F2EFE9' }} contentFit = 'cover'/>
+					<Image source = {{ uri: getAvatarUrl(player?.avatarId ?? null, player?.name ?? '') }} style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 1, borderColor: '#F2EFE9' }} contentFit = 'cover'/>
 				</View>
 			))}
 			{remainingCount > 0 && (
@@ -75,7 +75,7 @@ const TeamDotStack = ({ teams }: { teams: FlatTeam[] }) => {
 		<View className = 'flex-row items-center'>
 			{visibleTeams.map((team, index) => (
 				<View key = { `${team.name}-${team.color}` } style = {{ marginLeft: index === 0 ? 0 : -AVATAR_OVERLAP, zIndex: visibleTeams.length - index }}>
-					<Image source = {{ uri: getAvatarUrl(null, team.name ?? '') }} style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 2, borderColor: '#F2EFE9' }} contentFit = 'cover'/>
+					<Image source = {{ uri: getAvatarUrl(null, team.name ?? '') }} style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 1, borderColor: '#F2EFE9' }} contentFit = 'cover'/>
 				</View>
 			))}
 			{remainingCount > 0 && (

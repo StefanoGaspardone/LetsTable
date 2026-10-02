@@ -86,22 +86,22 @@ const RootLayout = () => {
 
 	return (
 		<GestureHandlerRootView style = {{ flex: 1 }}>
-			<BottomSheetModalProvider>
-				<QueryClientProvider client = { queryClient }>
-					<AuthProvider>
-						<AppThemeProvider>
-							<ToastProvider>
-								<ConfirmDialogProvider>
-									<NavigationStackProvider>
+			<QueryClientProvider client = { queryClient }>
+				<AuthProvider>
+					<AppThemeProvider>
+						<ToastProvider>
+							<ConfirmDialogProvider>
+								<NavigationStackProvider>
+									<BottomSheetModalProvider>
 										<RootLayoutNav/>
 										{!isHealthy && <ServerDownOverlay isChecking = { isChecking } onRetry = { retryNow }/>}
-									</NavigationStackProvider>
-								</ConfirmDialogProvider>
-							</ToastProvider>
-						</AppThemeProvider>
-					</AuthProvider>
-				</QueryClientProvider>
-			</BottomSheetModalProvider>
+									</BottomSheetModalProvider>
+								</NavigationStackProvider>
+							</ConfirmDialogProvider>
+						</ToastProvider>
+					</AppThemeProvider>
+				</AuthProvider>
+			</QueryClientProvider>
 		</GestureHandlerRootView>
 	)
 }

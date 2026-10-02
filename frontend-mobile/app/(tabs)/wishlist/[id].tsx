@@ -11,8 +11,8 @@ import BackButton from '@/components/common/back-button';
 import FabMenu from '@/components/common/fab-menu';
 import ComingSoon from '@/components/common/coming-soon';
 import SegmentedControl from '@/components/common/segmented-control';
-import GamePickerSheet, { GamePickerSheetRef } from '@/components/common/game-picker-sheet';
 import WishlistMemberPickerSheet, { WishlistMemberPickerSheetRef } from '@/components/common/wishlist-member-picker-sheet';
+import WishlistGamePickerSheet, { WishlistGamePickerSheetRef } from '@/components/common/wishlist-game-picker-sheet';
 
 import { useWishlist, useWishlistItems, useWishlistMembers, useAddItemToWishlist, useRemoveItemFromWishlist, useAddMemberToWishlist, useRemoveMemberFromWishlist, useDeleteWishlist, useLeaveWishlist } from '@/hooks/use-wishlist';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
@@ -41,7 +41,7 @@ const WishlistDetailScreen = () => {
 
 	const { colors } = useThemeColors();
 
-	const gamePickerRef = useRef<GamePickerSheetRef>(null);
+	const gamePickerRef = useRef<WishlistGamePickerSheetRef>(null);
 	const memberPickerRef = useRef<WishlistMemberPickerSheetRef>(null);
 
 	const [isDeleting, setIsDeleting] = useState(false);
@@ -295,8 +295,8 @@ const WishlistDetailScreen = () => {
 			</ScrollView>
 			{fabActions.length > 0 && (
 				<FabMenu actions = { fabActions }/>
-			)}
-			<GamePickerSheet ref = { gamePickerRef } onSelect = { handleAddGame } onBack = { () => gamePickerRef.current?.dismiss() }/>
+			)}			
+			<WishlistGamePickerSheet ref = { gamePickerRef } excludeGameIds = { items.map(item => item.game.id) } onSelect = { handleAddGame } onBack = { () => gamePickerRef.current?.dismiss() }/>
 			<WishlistMemberPickerSheet ref = { memberPickerRef } excludeUserIds = { [wishlist.owner.id, ...(members ?? []).map(m => m.user.id)] } onConfirm = { handleInviteMembers } onBack = { () => memberPickerRef.current?.dismiss() }/>
 		</View>
 	)

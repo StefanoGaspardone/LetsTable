@@ -32,6 +32,7 @@ class MatchSeeder(
             val arkNova = gamesByBggId[342942L] ?: games[0]
             val seti = gamesByBggId[397598L] ?: games[1]
             val twilight = gamesByBggId[233078L] ?: games[3]
+            val coopGame = games.getOrElse(4) { games[0] }
 
             val individualMatch = matchRepository.save(
                 Match(
@@ -107,7 +108,87 @@ class MatchSeeder(
                 MatchPlayer(match = inProgressMatch, user = elena, color = COLOR_3, score = 0, isWinner = false),
             ).forEach { matchPlayerRepository.save(it) }
 
-            logger.info("\n\t[INFO] [match_seeder][seed] 3 demo matches seeded (individual, team-based, in-progress)")
+            // Team-based con punteggi, due squadre a pari merito in prima posizione
+            val tieMatch = matchRepository.save(
+                Match(
+                    game = arkNova,
+                    createdBy = anna,
+                    isTeamBased = true,
+                    playedAt = Instant.now().minus(10, ChronoUnit.DAYS),
+                    place = "Casa di Anna",
+                    notes = "Finale testa a testa, pareggio secco al primo posto.",
+                    durationMinutes = 110,
+                )
+            )
+            val tieTeamA = matchTeamRepository.save(
+                MatchTeam(match = tieMatch, name = "Falchi", color = COLOR_1, score = 87, isWinner = true, isStartingFirst = true)
+            )
+            val tieTeamB = matchTeamRepository.save(
+                MatchTeam(match = tieMatch, name = "Lupi", color = COLOR_2, score = 87, isWinner = true)
+            )
+            val tieTeamC = matchTeamRepository.save(
+                MatchTeam(match = tieMatch, name = "Orsi", color = COLOR_3, score = 64, isWinner = false)
+            )
+            listOf(
+                MatchPlayer(match = tieMatch, team = tieTeamA, user = anna),
+                MatchPlayer(match = tieMatch, team = tieTeamA, user = null, guestName = "Chiara"),
+                MatchPlayer(match = tieMatch, team = tieTeamB, user = marco),
+                MatchPlayer(match = tieMatch, team = tieTeamB, user = luca),
+                MatchPlayer(match = tieMatch, team = tieTeamC, user = elena),
+                MatchPlayer(match = tieMatch, team = tieTeamC, user = null, guestName = "Tommaso"),
+            ).forEach { matchPlayerRepository.save(it) }
+
+            // Team-based senza punteggio (vittoria/sconfitta), un solo vincitore, squadra singola possibile
+            val outcomeMatch = matchRepository.save(
+                Match(
+                    game = coopGame,
+                    createdBy = luca,
+                    isTeamBased = true,
+                    playedAt = Instant.now().minus(1, ChronoUnit.DAYS).minus(4, ChronoUnit.HOURS),
+                    place = "Casa di Luca",
+                    notes = "Partita cooperativa contro il gioco, vittoria all'ultimo turno.",
+                    durationMinutes = 75,
+                )
+            )
+            val outcomeTeam = matchTeamRepository.save(
+                MatchTeam(match = outcomeMatch, name = "Squadra", color = COLOR_1, score = null, isWinner = true, isStartingFirst = true)
+            )
+            listOf(
+                MatchPlayer(match = outcomeMatch, team = outcomeTeam, user = luca),
+                MatchPlayer(match = outcomeMatch, team = outcomeTeam, user = anna),
+                MatchPlayer(match = outcomeMatch, team = outcomeTeam, user = null, guestName = "Riccardo"),
+            ).forEach { matchPlayerRepository.save(it) }
+
+            // Team-based senza punteggio, più squadre vincitrici a pari merito
+            val multiWinnerMatch = matchRepository.save(
+                Match(
+                    game = coopGame,
+                    createdBy = elena,
+                    isTeamBased = true,
+                    playedAt = Instant.now().minus(7, ChronoUnit.DAYS).minus(2, ChronoUnit.HOURS),
+                    place = "Ludoteca centrale",
+                    notes = "Due squadre hanno raggiunto l'obiettivo insieme, una è stata eliminata.",
+                    durationMinutes = 130,
+                )
+            )
+            val multiWinnerTeamA = matchTeamRepository.save(
+                MatchTeam(match = multiWinnerMatch, name = "Squadra Rossa", color = COLOR_1, score = null, isWinner = true, isStartingFirst = true)
+            )
+            val multiWinnerTeamB = matchTeamRepository.save(
+                MatchTeam(match = multiWinnerMatch, name = "Squadra Blu", color = COLOR_2, score = null, isWinner = true)
+            )
+            val multiWinnerTeamC = matchTeamRepository.save(
+                MatchTeam(match = multiWinnerMatch, name = "Squadra Verde", color = COLOR_3, score = null, isWinner = false)
+            )
+            listOf(
+                MatchPlayer(match = multiWinnerMatch, team = multiWinnerTeamA, user = elena),
+                MatchPlayer(match = multiWinnerMatch, team = multiWinnerTeamA, user = null, guestName = "Noemi"),
+                MatchPlayer(match = multiWinnerMatch, team = multiWinnerTeamB, user = marco),
+                MatchPlayer(match = multiWinnerMatch, team = multiWinnerTeamB, user = anna),
+                MatchPlayer(match = multiWinnerMatch, team = multiWinnerTeamC, user = luca),
+            ).forEach { matchPlayerRepository.save(it) }
+
+            logger.info("\n\t[INFO] [match_seeder][seed] 6 demo matches seeded (individual, team-based, in-progress, top-tie, single-winner outcome, multi-winner outcome)")
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [match_seeder][seed] Error seeding matches: {}", e.message)
             throw e

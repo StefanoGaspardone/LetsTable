@@ -1,7 +1,7 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { Users, Lock } from 'lucide-react-native';
+import { Users, Lock, ChevronLeft } from 'lucide-react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { Text } from '@/components/ui/text';
@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import AppBottomSheet from '@/components/common/app-bottom-sheet';
 
 import { createWishlist } from '@/api/wishlist';
+
+import { Wishlist } from '@/types/wishlist';
 
 import { useToast } from '@/contexts/toast-context';
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
@@ -21,7 +23,12 @@ export interface CreateWishlistSheetRef {
 	dismiss: () => void;
 }
 
-const CreateWishlistSheet = forwardRef<CreateWishlistSheetRef>((_, ref) => {
+interface CreateWishlistSheetProps {
+	onCreated?: (wishlist: Wishlist) => void;
+	onBack?: () => void;
+}
+
+const CreateWishlistSheet = forwardRef<CreateWishlistSheetRef, CreateWishlistSheetProps>(({ onCreated, onBack }, ref) => {
 	const sheetRef = useRef<BottomSheetModal>(null);
 
 	const queryClient = useQueryClient();
@@ -57,8 +64,9 @@ const CreateWishlistSheet = forwardRef<CreateWishlistSheetRef>((_, ref) => {
 			
             queryClient.invalidateQueries({ queryKey: ['wishlists'] });
 			sheetRef.current?.dismiss();
-			
-            router.push(`/wishlist/${created.id}`);
+
+			if(onCreated) onCreated(created);
+			else router.push(`/wishlist/${created.id}`);
 		} catch(error: any) {
 			const message = error?.response?.data?.message ?? 'Errore durante la creazione';
 			showToast(message, 'error');
@@ -70,7 +78,14 @@ const CreateWishlistSheet = forwardRef<CreateWishlistSheetRef>((_, ref) => {
 	return (
 		<AppBottomSheet ref = { sheetRef }>
 			<BottomSheetScrollView contentContainerStyle = {{ padding: 16, paddingBottom: 32 }}>
-				<Text className = 'mb-4 font-display text-xl text-foreground'>Nuova Wishlist</Text>
+				<View className = 'mb-4 flex-row items-center gap-2'>
+					{onBack && (
+						<Pressable onPress = { onBack } hitSlop = { 10 } className = 'h-10 w-10 items-center justify-center rounded-full bg-secondary active:bg-card'>
+							<ChevronLeft size = { 24 } color = { colors.mutedForeground }/>
+						</Pressable>
+					)}
+					<Text className = 'font-display text-xl text-foreground'>Nuova Wishlist</Text>
+				</View>
 				<Text className = 'mb-1.5 text-xs uppercase tracking-wide text-muted-foreground font-semibold'>Nome</Text>
 				<Input value = { name } onChangeText = { setName } placeholder = 'Es. Giochi da provare' className = 'mb-4 h-11 border-0'/>
 				<Text className = 'mb-1.5 text-xs uppercase tracking-wide text-muted-foreground font-semibold'>Visibilità</Text>

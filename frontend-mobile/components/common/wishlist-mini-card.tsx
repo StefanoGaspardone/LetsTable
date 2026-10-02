@@ -1,6 +1,6 @@
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
-import { Heart, Users, Lock, Dices, ChevronRight } from 'lucide-react-native';
+import { Heart, Users, Lock, Dices, ChevronRight, Check } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 
 import { Text } from '@/components/ui/text';
@@ -15,11 +15,13 @@ import { useThemeColors } from '@/hooks/use-theme-colors';
 
 interface WishlistMiniCardProps {
 	wishlist: Wishlist;
+	onPress?: () => void;
+	selected?: boolean;
 }
 
 const THUMB_SIZE = 44;
 
-const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
+const WishlistMiniCard = ({ wishlist, onPress, selected }: WishlistMiniCardProps) => {
 	const router = useNavigationStack();
 	const { colors } = useThemeColors();
 
@@ -33,8 +35,10 @@ const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
 
 	const handleOpen = () => router.push(`/wishlist/${wishlist.id}`);
 
+	const isSelectable = selected !== undefined;
+
 	return (
-		<Pressable onPress = { handleOpen } className = 'flex-row items-center gap-3 rounded-2xl border border-border bg-card p-2 active:scale-[0.98] active:opacity-75'>
+		<Pressable onPress = { onPress ?? handleOpen } className = { `flex-row items-center gap-3 rounded-2xl border p-2 active:scale-[0.98] active:opacity-75 ${selected ? 'border-primary bg-primary/5' : 'border-border bg-card'}` }>
 			<View className = 'h-11 w-11 items-center justify-center rounded-full bg-secondary'>
 				{wishlist.isDefault ? (
 					<Heart size = { 20 } color = { colors.primary }/>
@@ -72,7 +76,13 @@ const WishlistMiniCard = ({ wishlist }: WishlistMiniCardProps) => {
 				)}
 			</View>
 			<View className = 'justify-center'>
-				<ChevronRight size = { 18 } color = '#736E65'/>
+				{isSelectable ? (
+					<View className = { `mr-1 h-6 w-6 items-center justify-center rounded-md border ${selected ? 'border-primary bg-primary' : 'border-border bg-background'}` }>
+						{selected && <Check size = { 16 } color = '#FFFFFF' strokeWidth = { 3 }/>}
+					</View>
+				) : (
+					<ChevronRight size = { 18 } color = '#736E65'/>
+				)}
 			</View>
 		</Pressable>
 	)

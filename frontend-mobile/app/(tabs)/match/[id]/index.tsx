@@ -33,7 +33,7 @@ interface TeamEntry {
 	id: string;
 	name: string;
 	color: string;
-	score: number;
+	score: number | null;
 	isWinner: boolean;
 	members: {
 		id: string;
@@ -42,6 +42,18 @@ interface TeamEntry {
 		userId: string | null;
 	}[];
 }
+
+interface PlayerEntry {
+	id: string;
+	name: string;
+	avatarId: string | null | undefined;
+	color: string | null;
+	score: number | null;
+	isWinner: boolean | null;
+	userId: string | null;
+}
+
+type MatchEntry = TeamEntry | PlayerEntry;
 
 const renderPodiumAvatar = (entry: any, size: number) => {
 	const isTeam = 'members' in entry;
@@ -152,7 +164,7 @@ const MatchDetailScreen = () => {
 		);
     }
 
-    const sortedEntries = useMemo(() => {
+    const sortedEntries = useMemo((): MatchEntry[] => {
         if(!match) return [];
         
 		if(match.isTeamBased) {
@@ -215,10 +227,55 @@ const MatchDetailScreen = () => {
 		return match.isTeamBased ? 'Squadre' : 'Giocatori';
 	}
 
+    const hasScores = sortedEntries.some(entry => 'score' in entry && entry.score != null);
+    const isWinnerOnlyLayout = match.isTeamBased && !hasScores;
+
+    const winnerEntries: typeof sortedEntries = isWinnerOnlyLayout ? sortedEntries.filter(entry => entry.isWinner) : [];
+    const nonWinnerEntries: typeof sortedEntries = isWinnerOnlyLayout ? sortedEntries.filter(entry => !entry.isWinner) : [];
+
+    const ranks: number[] = [];
+    sortedEntries.forEach((entry, index) => {
+        if(index === 0) {
+            ranks.push(1);
+            return;
+        }
+
+        const prevScore = (sortedEntries[index - 1] as any).score ?? 0;
+        const curScore = (entry as any).score ?? 0;
+
+        ranks.push(curScore === prevScore ? ranks[index - 1] : index + 1);
+    });
+
+    const topSliceSize = Math.min(3, sortedEntries.length);
+    const hasTopTie = topSliceSize > 0 && new Set(ranks.slice(0, topSliceSize)).size < topSliceSize;
+
+    const showPhysicalPodium = !isWinnerOnlyLayout && hasScores && sortedEntries.length > 0 && !hasTopTie;
+    const showRankedList = !isWinnerOnlyLayout && hasScores && hasTopTie;
+
     const firstPlace = sortedEntries[0];
     const secondPlace = sortedEntries[1];
     const thirdPlace = sortedEntries[2];
-    const remainingEntries = sortedEntries.slice(3);
+    const remainingEntries: typeof sortedEntries = sortedEntries.slice(3);
+
+    let mainListEntries: typeof sortedEntries;
+    let getRank: (index: number) => number | null;
+
+    if(isInProgress) {
+        mainListEntries = sortedEntries;
+        getRank = () => null;
+    } else if(isWinnerOnlyLayout) {
+        mainListEntries = nonWinnerEntries;
+        getRank = () => null;
+    } else if(showPhysicalPodium) {
+        mainListEntries = remainingEntries;
+        getRank = index => ranks[index + 3];
+    } else if(showRankedList) {
+        mainListEntries = sortedEntries;
+        getRank = index => ranks[index];
+    } else {
+        mainListEntries = remainingEntries;
+        getRank = index => index + 4;
+    }
 
     return (
         <View className = 'flex-1 bg-background'>
@@ -336,7 +393,27 @@ const MatchDetailScreen = () => {
                         {getSectionTitle()}
                     </Text>
                 </View>
-				{!isInProgress && sortedEntries.length > 0 && (
+				{!isInProgress && isWinnerOnlyLayout && winnerEntries.length > 0 && (
+					<View className = 'mb-2 rounded-2xl border border-border bg-card p-4 shadow-sm'>
+						<View className = 'flex-row flex-wrap items-center justify-center gap-4'>
+							{winnerEntries.map(winner => (
+								<Pressable key = { winner.id } onPress = { () => { setSelectedTeam(winner as TeamEntry); teamMembersSheetRef.current?.present(); } } className = 'items-center active:scale-[0.98] active:opacity-75'>
+									{renderPodiumAvatar(winner, 64)}
+									<View className = 'mt-1 flex-row items-center gap-1'>
+										{renderPodiumMeeple(winner, 16)}
+										<Text className = 'text-center text-base font-bold text-foreground' numberOfLines = { 1 }>
+											{winner.name}
+										</Text>
+									</View>
+									<View style = {{ height: 44 }} className = 'mt-2 w-32 items-center justify-center rounded-t-lg bg-amber-500'>
+										<Trophy size = { 28 } color = '#FFFFFF'/>
+									</View>
+								</Pressable>
+							))}
+						</View>
+					</View>
+				)}
+				{!isInProgress && showPhysicalPodium && (
 					<View className = 'mb-2 rounded-2xl border border-border bg-card p-4 shadow-sm'>
 						<View className = 'flex-row items-end justify-center gap-2'>
 							{sortedEntries.length >= 3 && (
@@ -437,19 +514,18 @@ const MatchDetailScreen = () => {
 					</View>
 				)}
 				<View className = 'gap-2'>
-                    {(isInProgress ? sortedEntries : remainingEntries).map((entry, index) => {
-                        const rank = isInProgress ? index + 1 : index + 4;
+                    {mainListEntries.map((entry, index) => {
+                        const rank = getRank(index);
                         const isTeam = 'members' in entry;
 
                         if(isTeam) {
 							return (
-                                <Pressable key = { entry.id } onPress = { () => { setSelectedTeam(entry); teamMembersSheetRef.current?.present(); } } className = 'flex-row items-center gap-3 rounded-xl border border-border bg-card p-2.5 active:scale-[0.98] active:opacity-75'>
-                                    {!isInProgress && (
+                                <Pressable key = { entry.id } onPress = { () => { setSelectedTeam(entry); teamMembersSheetRef.current?.present(); } } className = { `flex-row items-center gap-3 rounded-xl border p-2.5 active:scale-[0.98] active:opacity-75 ${!isInProgress && entry.isWinner ? 'border-primary bg-primary/5' : 'border-border bg-card'}` }>
+                                    {!isInProgress && rank != null && (
 										<View className = 'h-7 w-7 items-center justify-center rounded-full bg-secondary'>
 											<Text className = 'text-sm font-bold text-muted-foreground'>{rank}°</Text>
 										</View>
 									)}
-                                   	
                                 <Image source = {{ uri: getAvatarUrl(null, entry.name ?? '') }} style = {{ width: 36, height: 36, borderRadius: 100 }} contentFit = 'cover'/>
 									<View className = 'flex-1'>
 										<View className = 'flex-row items-center gap-1.5'>
@@ -458,7 +534,7 @@ const MatchDetailScreen = () => {
 										</View>
 										<Text className = 'text-xs text-muted-foreground'>{entry.members.length} membri</Text>
 									</View>
-                                    {!isInProgress && entry.score && (
+                                    {!isInProgress && entry.score != null && (
 									<View className = 'h-8 w-8 items-center justify-center rounded-full bg-secondary'>
 										<Text className = 'text-sm font-bold text-muted-foreground'>{entry.score}</Text>
 									</View>
@@ -469,8 +545,8 @@ const MatchDetailScreen = () => {
                         }
 
                     	return (
-                            <Pressable key = { entry.id } onPress = { () => handlePlayerPress(entry.userId, entry.name) } className = 'flex-row items-center gap-2 rounded-xl border border-border bg-card p-2.5 active:scale-[0.98] active:opacity-75'>
-                                {!isInProgress && (
+                            <Pressable key = { entry.id } onPress = { () => handlePlayerPress(entry.userId, entry.name) } className = { `flex-row items-center gap-2 rounded-xl border p-2.5 active:scale-[0.98] active:opacity-75 ${!isInProgress && entry.isWinner ? 'border-primary bg-primary/5' : 'border-border bg-card'}` }>
+                                {!isInProgress && rank != null && (
 									<View className = 'h-7 w-7 items-center justify-center rounded-full bg-secondary'>
 										<Text className = 'text-sm font-bold text-muted-foreground'>{rank}°</Text>
 									</View>

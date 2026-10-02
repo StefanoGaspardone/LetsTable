@@ -9,6 +9,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import ScreenHeader from '@/components/common/screen-header';
 import BackButton from '@/components/common/back-button';
+import SegmentedControl from '@/components/common/segmented-control';
 
 import { getMatchById, updateMatch } from '@/api/match';
 
@@ -52,11 +53,13 @@ const FinishMatchScreen = () => {
 	const [notes, setNotes] = useState('');
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [durationMinutes, setDurationMinutes] = useState('');
+	const [resultMode, setResultMode] = useState<'score' | 'outcome'>('score');
 
 	useFocusEffect(
 		useCallback(() => {
 			setNotes('');
 			setDurationMinutes('');
+			setResultMode('score');
 
 			scrollRef.current?.scrollTo({ y: 0, animated: false });
 		}, [id])
@@ -125,7 +128,7 @@ const FinishMatchScreen = () => {
 						return {
 							name: team.name,
 							color: team.color,
-							score: Number(entry.score) || 0,
+							score: resultMode === 'score' ? (Number(entry.score) || 0) : null,
 							isWinner: entry.isWinner,
 							isStartingFirst: entry.isStartingFirst,
 							players: team.players.map(p => ({
@@ -167,8 +170,12 @@ const FinishMatchScreen = () => {
 		}
 	}
 
+	const requiresScore = !match?.isTeamBased || resultMode === 'score';
+
 	const isValid = entries.length > 0
-		&& entries.every(entry => entry.score.trim() !== '');
+		&& (requiresScore
+			? entries.every(entry => entry.score.trim() !== '')
+			: entries.some(entry => entry.isWinner));
 
 	if(isLoading || !match) {
 		return (
@@ -188,6 +195,18 @@ const FinishMatchScreen = () => {
 						{match.isTeamBased ? 'Risultati Squadre' : 'Risultati Giocatori'}
 					</Text>
 				</View>
+				{match.isTeamBased && (
+					<View className = 'mb-4'>
+						<SegmentedControl
+							options = { [
+								{ value: 'score', label: 'Punteggio' },
+								{ value: 'outcome', label: 'Vittoria/Sconfitta' },
+							] }
+							selected = { resultMode }
+							onSelect = { value => setResultMode(value as 'score' | 'outcome') }
+						/>
+					</View>
+				)}
 				<View className = 'gap-3'>
 					{entries.map(entry => (
 						<View key = { entry.id } className = { `rounded-xl border p-4 ${entry.isWinner ? 'border-primary bg-primary/5' : 'border-border bg-card'}` }>
@@ -208,10 +227,12 @@ const FinishMatchScreen = () => {
 									</Text>
 								</Pressable>
 							</View>
-							<View className = 'flex-row items-center gap-3'>
-								<Text className = 'text-sm font-medium text-muted-foreground'>Punteggio:</Text>
-								<TextInput className = 'h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground' keyboardType = 'numeric' placeholder = '0' placeholderTextColor = { colors.card } value = { entry.score } onChangeText = { val => handleScoreChange(entry.id, val) }/>
-							</View>
+							{requiresScore && (
+								<View className = 'flex-row items-center gap-3'>
+									<Text className = 'text-sm font-medium text-muted-foreground'>Punteggio:</Text>
+									<TextInput className = 'h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground' keyboardType = 'numeric' placeholder = '0' placeholderTextColor = { colors.card } value = { entry.score } onChangeText = { val => handleScoreChange(entry.id, val) }/>
+								</View>
+							)}
 						</View>
 					))}
 				</View>
