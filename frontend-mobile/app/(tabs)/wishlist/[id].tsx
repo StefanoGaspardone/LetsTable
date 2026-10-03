@@ -236,7 +236,7 @@ const WishlistDetailScreen = () => {
 					</View>
 				</View>
 				<View className = 'mb-4 flex-row items-center justify-between gap-4'>
-					<Pressable className = 'flex-row items-center gap-1.5 group' onPress = { () => router.push(wishlist.owner.id === user?.id ? `/user/${wishlist.owner.id}` : `/profile`) }>
+					<Pressable className = 'flex-row items-center gap-1.5 group' onPress = { () => router.push(wishlist.owner.id === user?.id ? `/profile` : `/user/${wishlist.owner.id}`) }>
 						<Image source = {{ uri: getAvatarUrl(wishlist.owner.avatarId ?? null, wishlist.owner.username) }} style = {{ width: 24, height: 24, borderRadius: 100 }} contentFit = 'cover'/>
 						<Text className = 'text-xs font-medium text-muted-foreground group-active:underline'>{wishlist.owner.username}</Text>
 					</Pressable>
