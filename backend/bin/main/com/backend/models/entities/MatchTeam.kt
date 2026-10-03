@@ -23,8 +23,8 @@ class MatchTeam(
     @Column(name = "color", nullable = false, length = 20)
     var color: String,
 
-    @Column(name = "score", nullable = false)
-    var score: Int = 0,
+    @Column(name = "score", nullable = true)
+    var score: Int? = null,
 
     @Column(name = "is_winner", nullable = false)
     var isWinner: Boolean = false,

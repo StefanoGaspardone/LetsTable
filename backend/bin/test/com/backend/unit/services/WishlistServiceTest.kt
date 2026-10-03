@@ -4,6 +4,7 @@ import com.backend.exceptions.*
 import com.backend.models.dtos.AddWishlistItemRequest
 import com.backend.models.dtos.AddWishlistMemberRequest
 import com.backend.models.dtos.CreateWishlistRequest
+import com.backend.models.dtos.UpdateWishlistRequest
 import com.backend.models.entities.*
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.UserRole
@@ -126,6 +127,133 @@ class WishlistServiceTest {
 
             assertThatThrownBy {
                 wishlistService.createWishlist(ownerId, request)
+            }.isInstanceOf(RuntimeException::class.java)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // updateWishlist
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("updateWishlist")
+    inner class UpdateWishlistTests {
+
+        @Test
+        fun `should rename the wishlist when user is the owner and it is not default`() {
+            val owner = buildUser(id = ownerId)
+            val wishlist = buildWishlist(owner = owner, isDefault = false)
+            val request = UpdateWishlistRequest(name = "Nuovo nome")
+
+            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+            whenever(wishlistRepository.save(any())).thenAnswer { it.getArgument<Wishlist>(0) }
+
+            val result = wishlistService.updateWishlist(ownerId, wishlistId, request)
+
+            assertThat(result.name).isEqualTo("Nuovo nome")
+            assertThat(result.id).isEqualTo(wishlistId)
+            verify(wishlistRepository).save(wishlist)
+        }
+
+        @Test
+        fun `should trim whitespace from the new name`() {
+            val owner = buildUser(id = ownerId)
+            val wishlist = buildWishlist(owner = owner)
+            val request = UpdateWishlistRequest(name = "  Spazi  ")
+
+            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+            whenever(wishlistRepository.save(any())).thenAnswer { it.getArgument<Wishlist>(0) }
+
+            val result = wishlistService.updateWishlist(ownerId, wishlistId, request)
+
+            assertThat(result.name).isEqualTo("Spazi")
+            assertThat(wishlist.name).isEqualTo("Spazi")
+        }
+
+        @Test
+        fun `should not change sharing or default flags`() {
+            val owner = buildUser(id = ownerId)
+            val wishlist = buildWishlist(owner = owner, isShared = true, isDefault = false)
+            val request = UpdateWishlistRequest(name = "Rinominata")
+
+            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+            whenever(wishlistRepository.save(any())).thenAnswer { it.getArgument<Wishlist>(0) }
+
+            val result = wishlistService.updateWishlist(ownerId, wishlistId, request)
+
+            assertThat(result.isShared).isTrue()
+            assertThat(result.isDefault).isFalse()
+        }
+
+        @Test
+        fun `should throw WishlistNotFoundException when wishlist does not exist`() {
+            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.empty())
+
+            assertThatThrownBy {
+                wishlistService.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Nuovo nome"))
+            }.isInstanceOf(WishlistNotFoundException::class.java)
+
+            verify(wishlistRepository, never()).save(any())
+        }
+
+        @Test
+        fun `should throw CannotModifyDefaultWishlistException when wishlist is default`() {
+            val owner = buildUser(id = ownerId)
+            val wishlist = buildWishlist(owner = owner, isDefault = true)
+            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+
+            assertThatThrownBy {
+                wishlistService.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Nuovo nome"))
+            }.isInstanceOf(CannotModifyDefaultWishlistException::class.java)
+
+            assertThat(wishlist.name).isEqualTo("My Wishlist")
+            verify(wishlistRepository, never()).save(any())
+        }
+
+        @Test
+        fun `should check default status before ownership status`() {
+            val differentOwner = buildUser()
+            val wishlist = buildWishlist(owner = differentOwner, isDefault = true)
+            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+
+            assertThatThrownBy {
+                wishlistService.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Nuovo nome"))
+            }.isInstanceOf(CannotModifyDefaultWishlistException::class.java)
+        }
+
+        @Test
+        fun `should throw NotWishlistOwnerException when user is not the owner`() {
+            val differentOwner = buildUser()
+            val wishlist = buildWishlist(owner = differentOwner, isDefault = false)
+            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+
+            assertThatThrownBy {
+                wishlistService.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Nuovo nome"))
+            }.isInstanceOf(NotWishlistOwnerException::class.java)
+
+            assertThat(wishlist.name).isEqualTo("My Wishlist")
+            verify(wishlistRepository, never()).save(any())
+        }
+
+        @Test
+        fun `should rethrow generic exception when findById fails unexpectedly`() {
+            whenever(wishlistRepository.findById(wishlistId)).thenThrow(RuntimeException("Database error"))
+
+            assertThatThrownBy {
+                wishlistService.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Nuovo nome"))
+            }.isInstanceOf(RuntimeException::class.java)
+        }
+
+        @Test
+        fun `should rethrow generic exception when save fails unexpectedly`() {
+            val owner = buildUser(id = ownerId)
+            val wishlist = buildWishlist(owner = owner)
+
+            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+            whenever(wishlistRepository.save(any())).thenThrow(RuntimeException("Database error"))
+
+            assertThatThrownBy {
+                wishlistService.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Nuovo nome"))
             }.isInstanceOf(RuntimeException::class.java)
         }
     }

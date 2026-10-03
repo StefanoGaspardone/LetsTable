@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { addItemToWishlist, addMemberToWishlist, deleteWishlist, getWishlistById, leaveWishlist, listMyWishlists, listWishlistItems, listWishlistMembers, ListWishlistsParams, removeItemFromWishlist, removeMemberFromWishlist } from '@/api/wishlist';
+import { addItemToWishlist, addMemberToWishlist, deleteWishlist, getWishlistById, leaveWishlist, listMyWishlists, listWishlistItems, listWishlistMembers, ListWishlistsParams, removeItemFromWishlist, removeMemberFromWishlist, updateWishlist } from '@/api/wishlist';
 
 export const useAddToDefaultWishlist = () => {
 	const queryClient = useQueryClient();
@@ -142,6 +142,17 @@ export const useLeaveWishlist = () => {
 
 	return useMutation({
 		mutationFn: (wishlistId: string) => leaveWishlist(wishlistId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['wishlists'] });
+		},
+	});
+}
+
+export const useUpdateWishlist = (wishlistId: string) => {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (name: string) => updateWishlist(wishlistId, name),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['wishlists'] });
 		},

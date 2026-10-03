@@ -36,6 +36,11 @@ export const createWishlist = async (name: string, isShared: boolean): Promise<W
     return data;
 }
 
+export const updateWishlist = async (wishlistId: string, name: string): Promise<Wishlist> => {
+    const { data } = await apiClient.patch<Wishlist>(`/wishlists/${wishlistId}`, { name });
+    return data;
+}
+
 export const deleteWishlist = async (wishlistId: string): Promise<void> => {
     await apiClient.delete(`/wishlists/${wishlistId}`);
 }

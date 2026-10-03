@@ -231,6 +231,7 @@ const MatchDetailScreen = () => {
     const isWinnerOnlyLayout = match.isTeamBased && !hasScores;
 
     const winnerEntries: typeof sortedEntries = isWinnerOnlyLayout ? sortedEntries.filter(entry => entry.isWinner) : [];
+    const singleWinner = winnerEntries.length === 1 ? winnerEntries[0] : null;
     const nonWinnerEntries: typeof sortedEntries = isWinnerOnlyLayout ? sortedEntries.filter(entry => !entry.isWinner) : [];
 
     const ranks: number[] = [];
@@ -393,7 +394,25 @@ const MatchDetailScreen = () => {
                         {getSectionTitle()}
                     </Text>
                 </View>
-				{!isInProgress && isWinnerOnlyLayout && winnerEntries.length > 0 && (
+				{!isInProgress && isWinnerOnlyLayout && singleWinner && (
+					<View className = 'mb-2 items-center rounded-2xl border border-border bg-card px-4 py-6 shadow-sm'>
+						<Pressable onPress = { () => { setSelectedTeam(singleWinner as TeamEntry); teamMembersSheetRef.current?.present(); } } className = 'items-center active:scale-[0.98] active:opacity-75'>
+							<Trophy size = { 28 } color = '#F59E0B'/>
+							<Text className = 'mb-3 mt-1 text-xs font-bold uppercase tracking-widest text-amber-600'>Vincitore</Text>
+							{renderPodiumAvatar(singleWinner, 88)}
+							<View className = 'mt-3 flex-row items-center gap-1.5'>
+								{renderPodiumMeeple(singleWinner, 20)}
+								<Text className = 'text-center font-display text-xl text-foreground' numberOfLines = { 1 }>
+									{singleWinner.name}
+								</Text>
+							</View>
+							{'members' in singleWinner && (
+								<Text className = 'mt-1 text-xs text-muted-foreground'>{singleWinner.members.length} membri</Text>
+							)}
+						</Pressable>
+					</View>
+				)}
+				{!isInProgress && isWinnerOnlyLayout && winnerEntries.length > 1 && (
 					<View className = 'mb-2 rounded-2xl border border-border bg-card p-4 shadow-sm'>
 						<View className = 'flex-row flex-wrap items-center justify-center gap-4'>
 							{winnerEntries.map(winner => (

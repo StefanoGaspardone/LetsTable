@@ -1,10 +1,11 @@
 import { apiClient } from '@/api/client';
-import { listMyWishlists, getWishlistById, createWishlist, deleteWishlist, listWishlistItems, addItemToWishlist, removeItemFromWishlist, getItemStatusInWishlist, listWishlistMembers, addMemberToWishlist, removeMemberFromWishlist, leaveWishlist } from '@/api/wishlist';
+import { listMyWishlists, getWishlistById, createWishlist, deleteWishlist, listWishlistItems, addItemToWishlist, removeItemFromWishlist, getItemStatusInWishlist, listWishlistMembers, addMemberToWishlist, removeMemberFromWishlist, leaveWishlist, updateWishlist } from '@/api/wishlist';
 
 jest.mock('@/api/client', () => ({
 	apiClient: {
 		get: jest.fn(),
 		post: jest.fn(),
+		patch: jest.fn(),
 		delete: jest.fn(),
 	},
 }));
@@ -12,6 +13,7 @@ jest.mock('@/api/client', () => ({
 const mockedGet = apiClient.get as jest.MockedFunction<typeof apiClient.get>;
 const mockedPost = apiClient.post as jest.MockedFunction<typeof apiClient.post>;
 const mockedDelete = apiClient.delete as jest.MockedFunction<typeof apiClient.delete>;
+const mockedPatch = apiClient.patch as jest.MockedFunction<typeof apiClient.patch>;
 
 describe('wishlist API', () => {
 	beforeEach(() => {
@@ -176,6 +178,24 @@ describe('wishlist API', () => {
 			await leaveWishlist('w-1');
 
 			expect(mockedPost).toHaveBeenCalledWith('/wishlists/w-1/leave');
+		});
+	});
+
+		describe('updateWishlist', () => {
+		it('patches /wishlists/:wishlistId with the new name and returns the response data', async () => {
+			const responseData = { id: 'w-1', name: 'Nuovo nome' };
+			mockedPatch.mockResolvedValueOnce({ data: responseData } as any);
+
+			const result = await updateWishlist('w-1', 'Nuovo nome');
+
+			expect(mockedPatch).toHaveBeenCalledWith('/wishlists/w-1', { name: 'Nuovo nome' });
+			expect(result).toEqual(responseData);
+		});
+
+		it('propagates an error when the request fails', async () => {
+			mockedPatch.mockRejectedValueOnce(new Error('Forbidden'));
+
+			await expect(updateWishlist('w-1', 'Nuovo nome')).rejects.toThrow('Forbidden');
 		});
 	});
 });

@@ -5,6 +5,7 @@ import com.backend.models.dtos.AddWishlistItemRequest
 import com.backend.models.dtos.AddWishlistMemberRequest
 import com.backend.models.dtos.CreateWishlistRequest
 import com.backend.models.dtos.PageDTO
+import com.backend.models.dtos.UpdateWishlistRequest
 import com.backend.models.dtos.WishlistDTO
 import com.backend.models.dtos.WishlistItemDTO
 import com.backend.models.dtos.WishlistItemStatusDTO
@@ -64,6 +65,65 @@ class WishlistController(
         @RequestParam(required = false) sort: String?,
     ): ResponseEntity<PageDTO<WishlistDTO>> =
         ResponseEntity.ok(wishlistService.listAccessibleWishlists(CurrentUser.id(), page, size, type, sort))
+
+    @Operation(summary = "Rename wishlist", description = "Update the name of a wishlist. Only the owner can rename it, and the default wishlist cannot be renamed.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Wishlist updated",
+                content = [Content(schema = Schema(implementation = WishlistDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Invalid name or the default wishlist cannot be modified",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [
+                        ExampleObject(
+                            name = "DefaultWishlistExample",
+                            summary = "Default wishlist example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"The default wishlist cannot be modified\"}"
+                        ),
+                        ExampleObject(
+                            name = "ValidationExample",
+                            summary = "Blank name example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"name: must not be blank\"}"
+                        ),
+                    ]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "403", description = "Forbidden - Only the owner can rename this wishlist",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "NotOwnerExample",
+                        summary = "Not the owner example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Only the wishlist owner can perform this action\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "404", description = "Not Found - Wishlist does not exist",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "NotFoundExample",
+                        summary = "Wishlist not found example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Wishlist not found: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
+                    )]
+                )]
+            ),
+        ]
+    )
+    @PatchMapping("/{wishlistId}")
+    fun updateWishlist(
+        @PathVariable wishlistId: UUID,
+        @Valid @RequestBody request: UpdateWishlistRequest,
+    ): ResponseEntity<WishlistDTO> =
+        ResponseEntity.ok(wishlistService.updateWishlist(CurrentUser.id(), wishlistId, request))
 
     @Operation(summary = "Delete wishlist", description = "Delete a wishlist. Only the owner can delete it.")
     @ApiResponses(

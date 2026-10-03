@@ -15,6 +15,7 @@ import {
 	useRemoveMemberFromWishlist,
 	useDeleteWishlist,
 	useLeaveWishlist,
+	useUpdateWishlist,
 } from '@/hooks/use-wishlist';
 
 import {
@@ -28,6 +29,7 @@ import {
 	listWishlistMembers,
 	removeItemFromWishlist,
 	removeMemberFromWishlist,
+	updateWishlist,
 } from '@/api/wishlist';
 
 import { createWrapper } from '@/test/helpers/test-utils';
@@ -44,6 +46,7 @@ const mockedRemoveItemFromWishlist = removeItemFromWishlist as jest.MockedFuncti
 const mockedRemoveMemberFromWishlist = removeMemberFromWishlist as jest.MockedFunction<typeof removeMemberFromWishlist>;
 const mockedDeleteWishlist = deleteWishlist as jest.MockedFunction<typeof deleteWishlist>;
 const mockedLeaveWishlist = leaveWishlist as jest.MockedFunction<typeof leaveWishlist>;
+const mockedUpdateWishlist = updateWishlist as jest.MockedFunction<typeof updateWishlist>;
 
 describe('useMyWishlists', () => {
 	let queryClient: QueryClient;
@@ -645,5 +648,62 @@ describe('useLeaveWishlist', () => {
 		await result.current.mutateAsync('w-1');
 
 		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists'] });
+	});
+});
+
+
+describe('useUpdateWishlist', () => {
+	let queryClient: QueryClient;
+
+	beforeEach(() => {
+		jest.clearAllMocks();
+	});
+
+	afterEach(() => {
+		queryClient?.clear();
+	});
+
+	it('renames the given wishlist', async () => {
+		mockedUpdateWishlist.mockResolvedValueOnce({ id: 'w-1', name: 'Nuovo nome' } as any);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useUpdateWishlist('w-1'), { wrapper: wrapperResult.wrapper });
+
+		await result.current.mutateAsync('Nuovo nome');
+
+		expect(mockedUpdateWishlist).toHaveBeenCalledWith('w-1', 'Nuovo nome');
+	});
+
+	it('invalidates the wishlists query on success', async () => {
+		mockedUpdateWishlist.mockResolvedValueOnce({ id: 'w-1', name: 'Nuovo nome' } as any);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+		const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+		const { result } = await renderHook(() => useUpdateWishlist('w-1'), { wrapper: wrapperResult.wrapper });
+
+		await result.current.mutateAsync('Nuovo nome');
+
+		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists'] });
+	});
+
+	it('does not invalidate the wishlists query when the mutation fails', async () => {
+		mockedUpdateWishlist.mockRejectedValueOnce(new Error('Forbidden'));
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+		const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+		const { result } = await renderHook(() => useUpdateWishlist('w-1'), { wrapper: wrapperResult.wrapper });
+
+		result.current.mutate('Nuovo nome');
+
+		await waitFor(() => expect(result.current.isError).toBe(true));
+
+		expect(result.current.error).toEqual(new Error('Forbidden'));
+		expect(invalidateSpy).not.toHaveBeenCalled();
 	});
 });

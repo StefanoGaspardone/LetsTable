@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { RefreshControl } from 'react-native-gesture-handler';
 import { useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
-import { Heart, Users, Lock, Dices, UserPlus, Trash2, LogOut, X } from 'lucide-react-native';
+import { Heart, Users, Lock, Dices, UserPlus, Trash2, LogOut, X, Pencil } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import ScreenHeader from '@/components/common/screen-header';
@@ -13,8 +13,9 @@ import ComingSoon from '@/components/common/coming-soon';
 import SegmentedControl from '@/components/common/segmented-control';
 import WishlistMemberPickerSheet, { WishlistMemberPickerSheetRef } from '@/components/common/wishlist-member-picker-sheet';
 import WishlistGamePickerSheet, { WishlistGamePickerSheetRef } from '@/components/common/wishlist-game-picker-sheet';
+import RenameWishlistSheet, { RenameWishlistSheetRef } from '@/components/common/rename-wishlist-sheet';
 
-import { useWishlist, useWishlistItems, useWishlistMembers, useAddItemToWishlist, useRemoveItemFromWishlist, useAddMemberToWishlist, useRemoveMemberFromWishlist, useDeleteWishlist, useLeaveWishlist } from '@/hooks/use-wishlist';
+import { useWishlist, useWishlistItems, useWishlistMembers, useAddItemToWishlist, useRemoveItemFromWishlist, useAddMemberToWishlist, useRemoveMemberFromWishlist, useDeleteWishlist, useLeaveWishlist, useUpdateWishlist } from '@/hooks/use-wishlist';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useThemeColors } from '@/hooks/use-theme-colors';
@@ -43,6 +44,7 @@ const WishlistDetailScreen = () => {
 
 	const gamePickerRef = useRef<WishlistGamePickerSheetRef>(null);
 	const memberPickerRef = useRef<WishlistMemberPickerSheetRef>(null);
+	const renameSheetRef = useRef<RenameWishlistSheetRef>(null);
 
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [tab, setTab] = useState<'games' | 'members'>('games');
@@ -69,6 +71,7 @@ const WishlistDetailScreen = () => {
 	const removeMember = useRemoveMemberFromWishlist(id);
 	const deleteWishlist = useDeleteWishlist();
 	const leaveWishlist = useLeaveWishlist();
+	const updateWishlist = useUpdateWishlist(id);
 
 	const items = itemsData?.pages.flatMap(page => page.content) ?? [];
 	const isOwner = wishlist?.owner.id === user?.id;
@@ -115,6 +118,19 @@ const WishlistDetailScreen = () => {
 		if(!ok) return;
 
 		removeMember.mutate(memberUserId);
+	}
+
+	const handleRename = (name: string) => {
+		updateWishlist.mutate(name, {
+			onSuccess: () => {
+				renameSheetRef.current?.dismiss();
+				showToast('Wishlist rinominata', 'success');
+			},
+			onError: (error: any) => {
+				const message = error?.response?.data?.message ?? 'Errore durante la modifica';
+				showToast(message, 'error');
+			},
+		});
 	}
 
 	const handleDelete = async () => {
@@ -183,6 +199,11 @@ const WishlistDetailScreen = () => {
 			icon: <LogOut size = { 18 }/>,
 			onPress: handleLeave,
 		}] : []),
+		...(isOwner && !wishlist.isDefault ? [{
+			label: 'Rinomina wishlist',
+			icon: <Pencil size = { 18 }/>,
+			onPress: () => renameSheetRef.current?.present(wishlist.name),
+		}] : []),
 		...(isOwner ? [{
 			label: 'Invita membri',
 			icon: <UserPlus size = { 18 }/>,
@@ -219,7 +240,7 @@ const WishlistDetailScreen = () => {
 						<Image source = {{ uri: getAvatarUrl(wishlist.owner.avatarId ?? null, wishlist.owner.username) }} style = {{ width: 24, height: 24, borderRadius: 100 }} contentFit = 'cover'/>
 						<Text className = 'text-xs font-medium text-muted-foreground group-active:underline'>{wishlist.owner.username}</Text>
 					</Pressable>
-					<Text className = 'text-xs text-muted-foreground'>Aggiornata il {formatFullDate(wishlist.createdAt)}</Text>
+					<Text className = 'text-xs text-muted-foreground'>Aggiornata il {formatFullDate(wishlist.updatedAt)}</Text>
 				</View>
 				{showTabs && (
 					<View className = 'mb-3'>
@@ -296,6 +317,7 @@ const WishlistDetailScreen = () => {
 			{fabActions.length > 0 && (
 				<FabMenu actions = { fabActions }/>
 			)}			
+			<RenameWishlistSheet ref = { renameSheetRef } isSubmitting = { updateWishlist.isPending } onSubmit = { handleRename }/>
 			<WishlistGamePickerSheet ref = { gamePickerRef } excludeGameIds = { items.map(item => item.game.id) } onSelect = { handleAddGame } onBack = { () => gamePickerRef.current?.dismiss() }/>
 			<WishlistMemberPickerSheet ref = { memberPickerRef } excludeUserIds = { [wishlist.owner.id, ...(members ?? []).map(m => m.user.id)] } onConfirm = { handleInviteMembers } onBack = { () => memberPickerRef.current?.dismiss() }/>
 		</View>

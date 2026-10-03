@@ -12,6 +12,7 @@ export interface Wishlist {
 	isShared: boolean;
 	isDefault: boolean;
 	createdAt: string;
+	updatedAt: string;
 }
 
 export interface WishlistItem {

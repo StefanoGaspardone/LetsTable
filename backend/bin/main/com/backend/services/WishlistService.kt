@@ -51,6 +51,42 @@ class WishlistService(
     }
 
     @Transactional
+    fun updateWishlist(userId: UUID, wishlistId: UUID, request: UpdateWishlistRequest): WishlistDTO {
+        logger.debug("\n\t[DEBUG] [wishlist_service][update_wishlist] User {} updating wishlist {}", userId, wishlistId)
+
+        try {
+            val wishlist = wishlistRepository.findById(wishlistId)
+                .orElseThrow { WishlistNotFoundException(wishlistId) }
+
+            if(wishlist.isDefault) {
+                throw CannotModifyDefaultWishlistException()
+            }
+
+            if(wishlist.owner.id != userId) {
+                throw NotWishlistOwnerException()
+            }
+
+            wishlist.name = request.name.trim()
+            val saved = wishlistRepository.save(wishlist)
+
+            logger.info("\n\t[INFO] [wishlist_service][update_wishlist] Wishlist {} renamed by user {}", wishlistId, userId)
+            return WishlistDTO.from(saved)
+        } catch(e: WishlistNotFoundException) {
+            logger.warn("\n\t[WARN] [wishlist_service][update_wishlist] Wishlist {} not found", wishlistId)
+            throw e
+        } catch(e: CannotModifyDefaultWishlistException) {
+            logger.warn("\n\t[WARN] [wishlist_service][update_wishlist] Wishlist {} is the default one and cannot be modified", wishlistId)
+            throw e
+        } catch(e: NotWishlistOwnerException) {
+            logger.warn("\n\t[WARN] [wishlist_service][update_wishlist] User {} is not the owner of wishlist {}", userId, wishlistId)
+            throw e
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [wishlist_service][update_wishlist] Error updating wishlist {}: {}", wishlistId, e.message)
+            throw e
+        }
+    }
+
+    @Transactional
     fun deleteWishlist(userId: UUID, wishlistId: UUID) {
         logger.debug("\n\t[DEBUG] [wishlist_service][delete_wishlist] User {} deleting wishlist {}", userId, wishlistId)
 

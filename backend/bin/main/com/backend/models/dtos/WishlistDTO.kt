@@ -22,6 +22,14 @@ data class CreateWishlistRequest(
     val isShared: Boolean,
 )
 
+@Schema(description = "Payload to update an existing wishlist (only its name can be changed)")
+data class UpdateWishlistRequest(
+    @field:Schema(description = "New wishlist name", example = "Games I want")
+    @field:NotBlank
+    @field:Size(min = 1, max = 100)
+    val name: String,
+)
+
 @Schema(description = "Payload to add a member to a shared wishlist")
 data class AddWishlistMemberRequest(
     @field:Schema(description = "Id of the user to add as a member")

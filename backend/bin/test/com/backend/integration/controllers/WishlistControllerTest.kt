@@ -231,6 +231,161 @@ class WishlistControllerTest : AbstractIntegrationTest() {
     }
 
     // ---------------------------------------------------------------------
+    // PATCH /api/v1/wishlists/{wishlistId}
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("PATCH /api/v1/wishlists/{wishlistId}")
+    inner class UpdateWishlistTests {
+
+        @Test
+        fun `should rename the wishlist when user is the owner`() {
+            val owner = persistUser()
+            val wishlist = persistWishlist(owner)
+
+            mockMvc.perform(
+                patch("/api/v1/wishlists/${wishlist.id}")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(owner))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"name":"Nuovo nome"}""")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.id").value(wishlist.id.toString()))
+                .andExpect(jsonPath("$.name").value("Nuovo nome"))
+
+            assertThat(wishlistRepository.findById(wishlist.id!!).orElseThrow().name).isEqualTo("Nuovo nome")
+        }
+
+        @Test
+        fun `should trim whitespace from the new name`() {
+            val owner = persistUser()
+            val wishlist = persistWishlist(owner)
+
+            mockMvc.perform(
+                patch("/api/v1/wishlists/${wishlist.id}")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(owner))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"name":"  Spazi  "}""")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.name").value("Spazi"))
+        }
+
+        @Test
+        fun `should not change sharing or default flags`() {
+            val owner = persistUser()
+            val wishlist = persistWishlist(owner, isShared = true)
+
+            mockMvc.perform(
+                patch("/api/v1/wishlists/${wishlist.id}")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(owner))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"name":"Rinominata"}""")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.isShared").value(true))
+                .andExpect(jsonPath("$.isDefault").value(false))
+        }
+
+        @Test
+        fun `should return 403 when user is not the owner`() {
+            val owner = persistUser(username = "owner")
+            val otherUser = persistUser(username = "intruder")
+            val wishlist = persistWishlist(owner)
+
+            mockMvc.perform(
+                patch("/api/v1/wishlists/${wishlist.id}")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(otherUser))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"name":"Hack"}""")
+            ).andExpect(status().isForbidden)
+
+            assertThat(wishlistRepository.findById(wishlist.id!!).orElseThrow().name).isEqualTo("My Wishlist")
+        }
+
+        @Test
+        fun `should return 403 when user is only a member of a shared wishlist`() {
+            val owner = persistUser(username = "owner")
+            val member = persistUser(username = "member")
+            val wishlist = persistWishlist(owner, isShared = true)
+            persistMember(wishlist, member)
+
+            mockMvc.perform(
+                patch("/api/v1/wishlists/${wishlist.id}")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(member))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"name":"Hack"}""")
+            ).andExpect(status().isForbidden)
+        }
+
+        @Test
+        fun `should return 404 when the default wishlist cannot be modified`() {
+            val owner = persistUser()
+            val defaultWishlist = persistWishlist(owner, isDefault = true)
+
+            mockMvc.perform(
+                patch("/api/v1/wishlists/${defaultWishlist.id}")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(owner))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"name":"Nuovo nome"}""")
+            ).andExpect(status().isNotFound)
+
+            assertThat(wishlistRepository.findById(defaultWishlist.id!!).orElseThrow().name).isEqualTo("My Wishlist")
+        }
+
+        @Test
+        fun `should return 404 when wishlist does not exist`() {
+            val user = persistUser()
+
+            mockMvc.perform(
+                patch("/api/v1/wishlists/${UUID.randomUUID()}")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"name":"Nuovo nome"}""")
+            ).andExpect(status().isNotFound)
+        }
+
+        @Test
+        fun `should return 400 when name is blank`() {
+            val owner = persistUser()
+            val wishlist = persistWishlist(owner)
+
+            mockMvc.perform(
+                patch("/api/v1/wishlists/${wishlist.id}")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(owner))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"name":""}""")
+            ).andExpect(status().isBadRequest)
+        }
+
+        @Test
+        fun `should return 400 when name exceeds 100 characters`() {
+            val owner = persistUser()
+            val wishlist = persistWishlist(owner)
+            val longName = "a".repeat(101)
+
+            mockMvc.perform(
+                patch("/api/v1/wishlists/${wishlist.id}")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(owner))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"name":"$longName"}""")
+            ).andExpect(status().isBadRequest)
+        }
+
+        @Test
+        fun `should return 403 when no auth header is provided`() {
+            val owner = persistUser()
+            val wishlist = persistWishlist(owner)
+
+            mockMvc.perform(
+                patch("/api/v1/wishlists/${wishlist.id}")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"name":"Nuovo nome"}""")
+            ).andExpect(status().isForbidden)
+        }
+    }
+
+    // ---------------------------------------------------------------------
     // DELETE /api/v1/wishlists/{wishlistId}
     // ---------------------------------------------------------------------
 
