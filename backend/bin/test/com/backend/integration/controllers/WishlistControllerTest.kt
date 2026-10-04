@@ -187,6 +187,22 @@ class WishlistControllerTest : AbstractIntegrationTest() {
         }
 
         @Test
+        fun `should not include the default wishlist of other users`() {
+            val user = persistUser(username = "user")
+            val other = persistUser(username = "other")
+            val mine = persistWishlist(user, isDefault = true)
+            persistWishlist(other, isDefault = true)
+
+            mockMvc.perform(
+                get("/api/v1/wishlists")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(mine.id.toString()))
+        }
+
+        @Test
         fun `should filter by SHARED type`() {
             val user = persistUser(username = "user")
             persistWishlist(user, isShared = false)

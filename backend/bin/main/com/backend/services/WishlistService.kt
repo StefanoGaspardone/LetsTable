@@ -14,7 +14,6 @@ import com.backend.repositories.*
 import com.backend.utils.resolveSort
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest.of
-import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.*
@@ -437,9 +436,8 @@ class WishlistService(
         logger.debug("\n\t[DEBUG] [wishlist_service][get_default_wishlist_for_user] Retrieving default wishlist items\n\tuserId={}\n\tpage={}\n\tsize={}", userId, page, size)
 
         try {
-            val wishlist = wishlistRepository.findAll(WishlistSpecification.withFilters(userId, null), Pageable.unpaged())
-                .firstOrNull { it.isDefault }
-                ?: throw DefaultWishlistNotFoundException(userId)
+            val wishlist = wishlistRepository.findDefaultByOwnerId(userId)
+                .orElseThrow { DefaultWishlistNotFoundException(userId) }
 
             val pageSafe = if(page < 0) 0 else page
             val sizeSafe = size.coerceIn(1, 100)

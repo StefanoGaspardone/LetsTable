@@ -26,9 +26,7 @@ object WishlistSpecification {
             )
             val isMember = cb.exists(memberSubquery)
 
-            val isDefault = cb.isTrue(root.get("isDefault"))
-
-            predicates.add(cb.or(isOwner, isMember, isDefault))
+            predicates.add(cb.or(isOwner, isMember))
 
             when(type) {
                 WishlistFilterType.SHARED -> predicates.add(cb.isTrue(root.get("isShared")))

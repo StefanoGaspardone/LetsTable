@@ -1213,12 +1213,10 @@ class WishlistServiceTest {
         fun `should return paged items of the user's default wishlist`() {
             val owner = buildUser(id = ownerId)
             val defaultWishlist = buildWishlist(owner = owner, isDefault = true)
-            val nonDefaultWishlist = buildWishlist(id = UUID.randomUUID(), owner = owner, isDefault = false)
             val item = WishlistItem(id = UUID.randomUUID(), wishlist = defaultWishlist, game = buildGame(), addedBy = owner)
             val itemsPage = PageImpl(listOf(item), PageRequest.of(0, 20), 1)
 
-            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), eq(org.springframework.data.domain.Pageable.unpaged())))
-                .thenReturn(PageImpl(listOf(nonDefaultWishlist, defaultWishlist)))
+            whenever(wishlistRepository.findDefaultByOwnerId(ownerId)).thenReturn(Optional.of(defaultWishlist))
             whenever(wishlistItemRepository.findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), any<PageRequest>()))
                 .thenReturn(itemsPage)
 
@@ -1229,11 +1227,7 @@ class WishlistServiceTest {
 
         @Test
         fun `should throw DefaultWishlistNotFoundException when user has no default wishlist`() {
-            val owner = buildUser(id = ownerId)
-            val nonDefaultWishlist = buildWishlist(owner = owner, isDefault = false)
-
-            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), eq(org.springframework.data.domain.Pageable.unpaged())))
-                .thenReturn(PageImpl(listOf(nonDefaultWishlist)))
+            whenever(wishlistRepository.findDefaultByOwnerId(ownerId)).thenReturn(Optional.empty())
 
             assertThatThrownBy {
                 wishlistService.getDefaultWishlistForUser(ownerId, 0, 20)
@@ -1249,8 +1243,7 @@ class WishlistServiceTest {
             val defaultWishlist = buildWishlist(owner = owner, isDefault = true)
             val itemsPage = PageImpl<WishlistItem>(emptyList(), PageRequest.of(0, 20), 0)
 
-            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), eq(org.springframework.data.domain.Pageable.unpaged())))
-                .thenReturn(PageImpl(listOf(defaultWishlist)))
+            whenever(wishlistRepository.findDefaultByOwnerId(ownerId)).thenReturn(Optional.of(defaultWishlist))
             whenever(wishlistItemRepository.findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), any<PageRequest>()))
                 .thenReturn(itemsPage)
 
@@ -1261,8 +1254,7 @@ class WishlistServiceTest {
 
         @Test
         fun `should rethrow generic exception when repository fails unexpectedly`() {
-            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), eq(org.springframework.data.domain.Pageable.unpaged())))
-                .thenThrow(RuntimeException("Database error"))
+            whenever(wishlistRepository.findDefaultByOwnerId(ownerId)).thenThrow(RuntimeException("Database error"))
 
             assertThatThrownBy {
                 wishlistService.getDefaultWishlistForUser(ownerId, 0, 20)

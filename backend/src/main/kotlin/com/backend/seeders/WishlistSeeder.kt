@@ -30,11 +30,12 @@ class WishlistSeeder(
             val (arkNova, seti, dune, twilight) = games
 
             val defaultWishlists = users.associateWith { user ->
-                wishlistRepository.findAll(WishlistSpecification.withFilters(user.id!!, null), Pageable.unpaged())
-                    .firstOrNull { it.isDefault }
-                    ?: wishlistRepository.save(
-                        Wishlist(name = "La mia wishlist", owner = user, isShared = false, isDefault = true)
-                    )
+                wishlistRepository.findDefaultByOwnerId(user.id!!)
+                    .orElseGet {
+                        wishlistRepository.save(
+                            Wishlist(name = "La mia wishlist", owner = user, isShared = false, isDefault = true)
+                        )
+                    }
             }
 
             addItemIfMissing(defaultWishlists[marco]!!, dune, marco)
