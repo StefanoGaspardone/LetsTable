@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack, DefaultTheme, ThemeProvider, DarkTheme, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { KeyboardAvoidingView, Platform, useColorScheme } from 'react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans';
@@ -17,13 +17,21 @@ import { ConfirmDialogProvider } from '@/contexts/confirm-dialog-context';
 import { ThemeProvider as AppThemeProvider, useTheme as useAppTheme } from '@/contexts/theme-context';
 import { NavigationStackProvider } from '@/contexts/navigation-stack-context';
 
+import AchievementCelebrationHost from '@/components/achievements/achievement-celebration-host';
+
 import { useHealthCheck } from '@/hooks/use-health-check';
 
 import ServerDownOverlay from '@/components/common/server-down-overlay';
 
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+	mutationCache: new MutationCache({
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['achievements'] });
+		},
+	}),
+});
 
 const RootLayoutNav = () => {
 	const { isLoading } = useAuth();
@@ -94,6 +102,7 @@ const RootLayout = () => {
 								<NavigationStackProvider>
 									<BottomSheetModalProvider>
 										<RootLayoutNav/>
+										<AchievementCelebrationHost/>
 										{!isHealthy && <ServerDownOverlay isChecking = { isChecking } onRetry = { retryNow }/>}
 									</BottomSheetModalProvider>
 								</NavigationStackProvider>

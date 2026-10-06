@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable, Switch, ActivityIndicator } from 'react-na
 import { Image } from 'expo-image';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
-import { Bell, Moon, Shield, LogOut, ChevronRight, Camera, Users, Trophy, Gamepad2, Edit3, Trash2 } from 'lucide-react-native';
+import { Bell, Moon, Shield, LogOut, ChevronRight, Camera, Users, Trophy, Gamepad2, Edit3, Trash2, Award } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import ScreenHeader from '@/components/common/screen-header';
@@ -19,6 +19,7 @@ import { useHomeStats } from '@/hooks/use-stat';
 import { useFriends } from '@/hooks/use-friend';
 import { useUpdateMe } from '@/hooks/use-user';
 import { useThemeColors } from '@/hooks/use-theme-colors';
+import { useMyAchievements } from '@/hooks/use-achievement';
 
 import { getAvatarUrl } from '@/lib/file';
 
@@ -36,6 +37,8 @@ const ProfileScreen = () => {
 	const { totalMatches, totalWins } = useHomeStats();
 	const { data: friends } = useFriends();
 	const { colors } = useThemeColors();
+	const { data: achievements } = useMyAchievements();
+	const unlockedAchievements = achievements?.filter(a => a.unlocked).length ?? 0;
 
 	const updateMe = useUpdateMe(updateUser);
 	const notificationsEnabled = user?.notificationsEnabled ?? true;
@@ -203,6 +206,18 @@ const ProfileScreen = () => {
 					Account
 				</Text>
 				<View className = 'mb-6 overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm'>
+					<Pressable onPress = { () => router.push('/profile/achievements') } className = 'flex-row items-center justify-between border-b border-border/40 p-3.5 active:bg-secondary/40'>
+						<View className = 'flex-row items-center gap-3'>
+							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-primary/15'>
+								<Award size = { 17 } color = { colors.primary }/>
+							</View>
+							<Text className = 'text-sm font-medium text-foreground'>Traguardi</Text>
+						</View>
+						<View className = 'flex-row items-center gap-1'>
+							<Text className = 'text-xs text-muted-foreground'>{ unlockedAchievements }/{ achievements?.length ?? 0 }</Text>
+							<ChevronRight size = { 18 } color = { colors.mutedForeground }/>
+						</View>
+					</Pressable>
 					<Pressable onPress = { () => router.push('/profile/account') } className = 'flex-row items-center justify-between border-b border-border/40 p-3.5 active:bg-secondary/40'>
 						<View className = 'flex-row items-center gap-3'>
 							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-primary/15'>
