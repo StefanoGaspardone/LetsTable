@@ -12,9 +12,11 @@ import com.backend.repositories.CollectionItemRepository
 import com.backend.repositories.GameRepository
 import com.backend.repositories.UserRepository
 import com.backend.services.CollectionService
+import com.backend.services.UserAchievementService
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.junit5.MockKExtension
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -42,6 +44,9 @@ class CollectionServiceTest {
 
     @InjectMockKs
     private lateinit var collectionService: CollectionService
+
+    @RelaxedMockK
+    private lateinit var userAchievementService: UserAchievementService
 
     private val userId: UUID = UUID.randomUUID()
     private val gameId: UUID = UUID.randomUUID()
@@ -93,6 +98,7 @@ class CollectionServiceTest {
             verify(exactly = 1) { userRepository.findById(userId) }
             verify(exactly = 1) { gameRepository.findById(gameId) }
             verify(exactly = 1) { collectionItemRepository.save(any()) }
+            verify(exactly = 1) { userAchievementService.evaluateAfterCommit(setOf(userId)) }
         }
 
         @Test
@@ -107,6 +113,7 @@ class CollectionServiceTest {
             verify(exactly = 0) { userRepository.findById(any()) }
             verify(exactly = 0) { gameRepository.findById(any()) }
             verify(exactly = 0) { collectionItemRepository.save(any()) }
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test
@@ -121,6 +128,7 @@ class CollectionServiceTest {
             verify(exactly = 1) { userRepository.findById(userId) }
             verify(exactly = 0) { gameRepository.findById(any()) }
             verify(exactly = 0) { collectionItemRepository.save(any()) }
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test
@@ -136,6 +144,8 @@ class CollectionServiceTest {
             verify(exactly = 1) { userRepository.findById(userId) }
             verify(exactly = 1) { gameRepository.findById(gameId) }
             verify(exactly = 0) { collectionItemRepository.save(any()) }
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+
         }
 
         @Test
@@ -146,6 +156,24 @@ class CollectionServiceTest {
             assertThatThrownBy { collectionService.addToCollection(userId, request) }
                 .isInstanceOf(RuntimeException::class.java)
                 .hasMessage("Database error")
+
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+        }
+
+        @Test
+        fun `should not evaluate achievements when saving the item fails`() {
+            val request = AddToCollectionRequest(gameId = gameId)
+
+            every { collectionItemRepository.existsByUserIdAndGameId(userId, gameId) } returns false
+            every { userRepository.findById(userId) } returns Optional.of(mockUser)
+            every { gameRepository.findById(gameId) } returns Optional.of(mockGame)
+            every { collectionItemRepository.save(any()) } throws RuntimeException("Save failed")
+
+            assertThatThrownBy { collectionService.addToCollection(userId, request) }
+                .isInstanceOf(RuntimeException::class.java)
+                .hasMessage("Save failed")
+
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
     }
 
@@ -162,6 +190,8 @@ class CollectionServiceTest {
 
             verify(exactly = 1) { collectionItemRepository.findById(itemId) }
             verify(exactly = 1) { collectionItemRepository.delete(mockCollectionItem) }
+            verify(exactly = 1) { collectionItemRepository.delete(mockCollectionItem) }
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test

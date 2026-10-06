@@ -12,9 +12,11 @@ import com.backend.repositories.FriendRequestRepository
 import com.backend.repositories.UserRepository
 import com.backend.services.FriendService
 import com.backend.services.PushNotificationService
+import com.backend.services.UserAchievementService
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.junit5.MockKExtension
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -35,6 +37,9 @@ class FriendServiceTest {
 
     @MockK
     private lateinit var pushNotificationService: PushNotificationService
+
+    @RelaxedMockK
+    private lateinit var userAchievementService: UserAchievementService
 
     @InjectMockKs
     private lateinit var friendService: FriendService
@@ -101,6 +106,7 @@ class FriendServiceTest {
                     data = mapOf("type" to "FRIEND_REQUEST", "requestId" to requestId.toString())
                 )
             }
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test
@@ -135,6 +141,7 @@ class FriendServiceTest {
                     data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to requestId.toString())
                 )
             }
+            verify(exactly = 1) { userAchievementService.evaluateAfterCommit(setOf(senderId, receiverId)) }
         }
 
         @Test
@@ -145,6 +152,7 @@ class FriendServiceTest {
                 .isInstanceOf(CannotFriendSelfException::class.java)
 
             verify(exactly = 0) { userRepository.findById(any()) }
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test
@@ -154,6 +162,8 @@ class FriendServiceTest {
 
             assertThatThrownBy { friendService.sendRequest(senderId, request) }
                 .isInstanceOf(UserNotFoundByIdentifierException::class.java)
+
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test
@@ -164,6 +174,8 @@ class FriendServiceTest {
 
             assertThatThrownBy { friendService.sendRequest(senderId, request) }
                 .isInstanceOf(UserNotFoundByIdentifierException::class.java)
+
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test
@@ -175,6 +187,8 @@ class FriendServiceTest {
 
             assertThatThrownBy { friendService.sendRequest(senderId, request) }
                 .isInstanceOf(AlreadyFriendsException::class.java)
+
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test
@@ -187,6 +201,8 @@ class FriendServiceTest {
 
             assertThatThrownBy { friendService.sendRequest(senderId, request) }
                 .isInstanceOf(FriendRequestAlreadyExistsException::class.java)
+
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test
@@ -197,6 +213,32 @@ class FriendServiceTest {
             assertThatThrownBy { friendService.sendRequest(senderId, request) }
                 .isInstanceOf(RuntimeException::class.java)
                 .hasMessage("DB Connection error")
+
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+        }
+
+        @Test
+        fun `should not evaluate achievements when auto-accept save fails`() {
+            val request = SendFriendRequestRequest(receiverId = receiverId)
+            val reverseRequest = FriendRequest(
+                id = requestId,
+                sender = mockReceiver,
+                receiver = mockSender,
+                status = FriendRequestStatus.PENDING
+            )
+
+            every { userRepository.findById(senderId) } returns Optional.of(mockSender)
+            every { userRepository.findById(receiverId) } returns Optional.of(mockReceiver)
+            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.empty()
+            every { friendRequestRepository.findBySenderIdAndReceiverId(senderId, receiverId) } returns Optional.empty()
+            every { friendRequestRepository.findBySenderIdAndReceiverId(receiverId, senderId) } returns Optional.of(reverseRequest)
+            every { friendRequestRepository.save(any()) } throws RuntimeException("Save failed")
+
+            assertThatThrownBy { friendService.sendRequest(senderId, request) }
+                .isInstanceOf(RuntimeException::class.java)
+                .hasMessage("Save failed")
+
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
     }
 
@@ -224,6 +266,7 @@ class FriendServiceTest {
                     data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to requestId.toString())
                 )
             }
+            verify(exactly = 1) { userAchievementService.evaluateAfterCommit(setOf(senderId, receiverId)) }
         }
 
         @Test
@@ -232,6 +275,8 @@ class FriendServiceTest {
 
             assertThatThrownBy { friendService.acceptRequest(receiverId, requestId) }
                 .isInstanceOf(FriendRequestNotFoundException::class.java)
+
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test
@@ -241,6 +286,8 @@ class FriendServiceTest {
 
             assertThatThrownBy { friendService.acceptRequest(otherUserId, requestId) }
                 .isInstanceOf(NotFriendRequestReceiverException::class.java)
+
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test
@@ -250,6 +297,8 @@ class FriendServiceTest {
             assertThatThrownBy { friendService.acceptRequest(receiverId, requestId) }
                 .isInstanceOf(RuntimeException::class.java)
                 .hasMessage("Unexpected DB Fail")
+
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
     }
 
@@ -265,6 +314,7 @@ class FriendServiceTest {
             friendService.rejectRequest(receiverId, requestId)
 
             verify(exactly = 1) { friendRequestRepository.delete(mockFriendRequest) }
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test
@@ -306,6 +356,7 @@ class FriendServiceTest {
             friendService.cancelRequest(senderId, requestId)
 
             verify(exactly = 1) { friendRequestRepository.delete(mockFriendRequest) }
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test
@@ -347,6 +398,7 @@ class FriendServiceTest {
             friendService.removeFriend(senderId, receiverId)
 
             verify(exactly = 1) { friendRequestRepository.delete(mockFriendRequest) }
+            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test

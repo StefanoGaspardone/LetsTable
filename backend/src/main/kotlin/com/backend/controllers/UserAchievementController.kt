@@ -18,11 +18,11 @@ import org.springframework.http.HttpStatus
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
 
-@Tag(name = "Achievements", description = "Achievements unlocked by playing, winning, collecting and making friends")
+@Tag(name = "User Achievements", description = "Achievements unlocked by playing, winning, collecting and making friends")
 @RestController
 @RequestMapping("/api/v1/achievements")
 @PreAuthorize("hasRole('USER')")
-class AchievementController(
+class UserAchievementController(
     private val userAchievementService: UserAchievementService,
 ) {
 

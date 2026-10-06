@@ -7,6 +7,7 @@ import com.backend.models.projections.GameMatchStatsProjection
 import com.backend.models.projections.MatchDayCountProjection
 import com.backend.repositories.*
 import com.backend.services.MatchService
+import com.backend.services.UserAchievementService
 import io.mockk.every
 import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
@@ -54,6 +55,9 @@ class MatchServiceTest {
     @Mock
     private lateinit var userRepository: UserRepository
 
+    @Mock
+    private lateinit var userAchievementService: UserAchievementService
+
     @InjectMocks
     private lateinit var matchService: MatchService
 
@@ -81,6 +85,10 @@ class MatchServiceTest {
             minPlayers = 2,
             maxPlayers = 4
         )
+    }
+
+    private fun verifyNoAchievementEvaluation() {
+        verify(userAchievementService, never()).evaluateAfterCommit(kAny<Collection<UUID>>())
     }
 
     @Nested
@@ -138,6 +146,7 @@ class MatchServiceTest {
             assertThat(result.players).hasSize(1)
             verify(matchRepository).save(any(Match::class.java))
             verify(matchPlayerRepository).save(any(MatchPlayer::class.java))
+            verify(userAchievementService).evaluateAfterCommit(setOf(userId))
         }
 
         @Test
@@ -201,6 +210,186 @@ class MatchServiceTest {
             assertThat(result.isTeamBased).isTrue()
             assertThat(result.teams).hasSize(1)
             verify(matchTeamRepository).save(any(MatchTeam::class.java))
+            verify(userAchievementService).evaluateAfterCommit(setOf(userId))
+        }
+
+        @Test
+        fun `should evaluate achievements only for registered participants, ignoring guests`() {
+            val otherUser = User(id = otherUserId, username = "other", email = "other@example.com", passwordHash = "hash")
+            val request = CreateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                durationMinutes = 60,
+                teams = null,
+                players = listOf(
+                    MatchIndividualPlayerRequest(userId, null, "Red", 10, isWinner = true, isStartingFirst = true),
+                    MatchIndividualPlayerRequest(otherUserId, null, "Blue", 5, isWinner = false, isStartingFirst = false),
+                    MatchIndividualPlayerRequest(null, "Guest", "Green", 3, isWinner = false, isStartingFirst = false),
+                )
+            )
+            val createdMatch = Match(
+                id = matchId,
+                game = sampleGame,
+                createdBy = sampleUser,
+                isTeamBased = false,
+                playedAt = Instant.now(),
+                durationMinutes = 60
+            )
+
+            `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(sampleGame))
+            `when`(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            `when`(userRepository.findById(otherUserId)).thenReturn(Optional.of(otherUser))
+            `when`(matchRepository.save(any(Match::class.java))).thenReturn(createdMatch)
+
+            doAnswer { invocation ->
+                val mp = invocation.getArgument<MatchPlayer>(0)
+                mp.id = UUID.randomUUID()
+                mp
+            }.`when`(matchPlayerRepository).save(any(MatchPlayer::class.java))
+
+            matchService.createMatch(userId, request)
+
+            verify(userAchievementService).evaluateAfterCommit(setOf(userId, otherUserId))
+        }
+
+        @Test
+        fun `should evaluate achievements for registered players of every team`() {
+            val otherUser = User(id = otherUserId, username = "other", email = "other@example.com", passwordHash = "hash")
+            val request = CreateMatchRequest(
+                gameId = gameId,
+                isTeamBased = true,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                durationMinutes = 90,
+                teams = listOf(
+                    CreateMatchTeamRequest(
+                        name = "A",
+                        color = "Blue",
+                        score = 20,
+                        isWinner = true,
+                        isStartingFirst = true,
+                        players = listOf(MatchPlayerIdentityRequest(userId = userId, guestName = null))
+                    ),
+                    CreateMatchTeamRequest(
+                        name = "B",
+                        color = "Red",
+                        score = 10,
+                        isWinner = false,
+                        isStartingFirst = false,
+                        players = listOf(
+                            MatchPlayerIdentityRequest(userId = otherUserId, guestName = null),
+                            MatchPlayerIdentityRequest(userId = null, guestName = "Guest"),
+                        )
+                    ),
+                ),
+                players = null
+            )
+            val createdMatch = Match(
+                id = matchId,
+                game = sampleGame,
+                createdBy = sampleUser,
+                isTeamBased = true,
+                playedAt = Instant.now(),
+                durationMinutes = 90
+            )
+            val createdTeam = MatchTeam(
+                id = UUID.randomUUID(),
+                match = createdMatch,
+                name = "A",
+                color = "Blue",
+                score = 20,
+                isWinner = true,
+                isStartingFirst = true
+            )
+
+            `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(sampleGame))
+            `when`(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            `when`(userRepository.findById(otherUserId)).thenReturn(Optional.of(otherUser))
+            `when`(matchRepository.save(any(Match::class.java))).thenReturn(createdMatch)
+            `when`(matchTeamRepository.save(any(MatchTeam::class.java))).thenReturn(createdTeam)
+
+            doAnswer { invocation ->
+                val mp = invocation.getArgument<MatchPlayer>(0)
+                mp.id = UUID.randomUUID()
+                mp
+            }.`when`(matchPlayerRepository).save(any(MatchPlayer::class.java))
+
+            matchService.createMatch(userId, request)
+
+            verify(userAchievementService).evaluateAfterCommit(setOf(userId, otherUserId))
+        }
+
+        @Test
+        fun `should not evaluate achievements when the match is still in progress`() {
+            val request = CreateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                durationMinutes = null,
+                teams = null,
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = true))
+            )
+            val createdMatch = Match(
+                id = matchId,
+                game = sampleGame,
+                createdBy = sampleUser,
+                isTeamBased = false,
+                playedAt = Instant.now(),
+                durationMinutes = null
+            )
+
+            `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(sampleGame))
+            `when`(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            `when`(matchRepository.save(any(Match::class.java))).thenReturn(createdMatch)
+
+            doAnswer { invocation ->
+                val mp = invocation.getArgument<MatchPlayer>(0)
+                mp.id = UUID.randomUUID()
+                mp
+            }.`when`(matchPlayerRepository).save(any(MatchPlayer::class.java))
+
+            matchService.createMatch(userId, request)
+
+            verifyNoAchievementEvaluation()
+        }
+
+        @Test
+        fun `should not evaluate achievements when saving a player fails`() {
+            val request = CreateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                durationMinutes = 30,
+                teams = null,
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = false))
+            )
+            val createdMatch = Match(
+                id = matchId,
+                game = sampleGame,
+                createdBy = sampleUser,
+                isTeamBased = false,
+                playedAt = Instant.now(),
+                durationMinutes = 30
+            )
+
+            `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(sampleGame))
+            `when`(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            `when`(matchRepository.save(any(Match::class.java))).thenReturn(createdMatch)
+            `when`(matchPlayerRepository.save(any(MatchPlayer::class.java))).thenThrow(RuntimeException("Save failed"))
+
+            assertThatThrownBy { matchService.createMatch(userId, request) }
+                .isInstanceOf(RuntimeException::class.java)
+                .hasMessage("Save failed")
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -220,6 +409,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
                 .isInstanceOf(GameNotFoundException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -240,6 +431,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
                 .isInstanceOf(UserNotFoundByIdentifierException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -271,6 +464,7 @@ class MatchServiceTest {
                 createdBy = sampleUser,
                 isTeamBased = false,
                 playedAt = Instant.now(),
+                durationMinutes = 30,
                 expansionsUsed = mutableSetOf(expansion),
             )
 
@@ -289,6 +483,7 @@ class MatchServiceTest {
 
             assertThat(result.expansionsUsed).hasSize(1)
             assertThat(result.expansionsUsed[0].bggId).isEqualTo(500L)
+            verify(userAchievementService).evaluateAfterCommit(setOf(userId))
         }
 
         @Test
@@ -311,6 +506,7 @@ class MatchServiceTest {
                 createdBy = sampleUser,
                 isTeamBased = false,
                 playedAt = Instant.now(),
+                durationMinutes = 30,
             )
 
             `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(sampleGame))
@@ -327,6 +523,7 @@ class MatchServiceTest {
 
             assertThat(result.expansionsUsed).isEmpty()
             verify(gameRepository, never()).findAllById(any<List<UUID>>())
+            verify(userAchievementService).evaluateAfterCommit(setOf(userId))
         }
 
         @Test
@@ -359,6 +556,7 @@ class MatchServiceTest {
                 .isInstanceOf(GameNotFoundException::class.java)
 
             verify(matchRepository, never()).save(any(Match::class.java))
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -392,6 +590,7 @@ class MatchServiceTest {
                 .isInstanceOf(InvalidExpansionForGameException::class.java)
 
             verify(matchRepository, never()).save(any(Match::class.java))
+            verifyNoAchievementEvaluation()
         }
     }
 
@@ -414,6 +613,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
                 .isInstanceOf(InvalidMatchTeamsException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -431,6 +632,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
                 .isInstanceOf(InvalidMatchPlayersException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -448,6 +651,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
                 .isInstanceOf(InvalidMatchPlayersException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -465,6 +670,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
                 .isInstanceOf(InvalidMatchTeamsException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -482,6 +689,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
                 .isInstanceOf(InvalidMatchPlayerIdentityException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -499,6 +708,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
                 .isInstanceOf(InvalidMatchPlayerIdentityException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @ParameterizedTest
@@ -517,6 +728,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.createMatch(userId, request) }
                 .isInstanceOf(InvalidMatchPlayerIdentityException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
     }
 
@@ -565,6 +778,81 @@ class MatchServiceTest {
             verify(matchPlayerRepository).deleteAllByMatchId(matchId)
             verify(matchTeamRepository).deleteAllByMatchId(matchId)
             assertThat(existingMatch.durationMinutes).isGreaterThanOrEqualTo(60)
+            verify(userAchievementService).evaluateAfterCommit(setOf(userId))
+        }
+
+        @Test
+        fun `should evaluate achievements when updating an already completed match`() {
+            val existingMatch = Match(
+                id = matchId,
+                game = sampleGame,
+                createdBy = sampleUser,
+                isTeamBased = false,
+                playedAt = Instant.now(),
+                durationMinutes = 45,
+            )
+
+            val updateRequest = UpdateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                teams = null,
+                players = listOf(
+                    MatchIndividualPlayerRequest(userId, null, "Red", 10, isWinner = true, isStartingFirst = true),
+                    MatchIndividualPlayerRequest(null, "Guest", "Blue", 5, isWinner = false, isStartingFirst = false),
+                )
+            )
+
+            `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
+            `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(sampleGame))
+            `when`(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            `when`(matchRepository.save(any(Match::class.java))).thenAnswer { it.arguments[0] }
+
+            doAnswer { invocation ->
+                val mp = invocation.getArgument<MatchPlayer>(0)
+                mp.id = UUID.randomUUID()
+                mp
+            }.`when`(matchPlayerRepository).save(any(MatchPlayer::class.java))
+
+            matchService.updateMatch(userId, matchId, updateRequest)
+
+            verify(userAchievementService).evaluateAfterCommit(setOf(userId))
+        }
+
+        @Test
+        fun `should not evaluate achievements when saving the updated players fails`() {
+            val existingMatch = Match(
+                id = matchId,
+                game = sampleGame,
+                createdBy = sampleUser,
+                isTeamBased = false,
+                playedAt = Instant.now(),
+                durationMinutes = 45,
+            )
+
+            val updateRequest = UpdateMatchRequest(
+                gameId = gameId,
+                isTeamBased = false,
+                playedAt = LocalDate.now(),
+                place = null,
+                notes = null,
+                teams = null,
+                players = listOf(MatchIndividualPlayerRequest(userId, null, "Red", 0, isWinner = false, isStartingFirst = false))
+            )
+
+            `when`(matchRepository.findById(matchId)).thenReturn(Optional.of(existingMatch))
+            `when`(gameRepository.findById(gameId)).thenReturn(Optional.of(sampleGame))
+            `when`(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
+            `when`(matchRepository.save(any(Match::class.java))).thenAnswer { it.arguments[0] }
+            `when`(matchPlayerRepository.save(any(MatchPlayer::class.java))).thenThrow(RuntimeException("Save failed"))
+
+            assertThatThrownBy { matchService.updateMatch(userId, matchId, updateRequest) }
+                .isInstanceOf(RuntimeException::class.java)
+                .hasMessage("Save failed")
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -591,6 +879,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.updateMatch(otherUserId, matchId, updateRequest) }
                 .isInstanceOf(NotMatchCreatorException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -609,6 +899,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.updateMatch(userId, matchId, updateRequest) }
                 .isInstanceOf(MatchNotFoundException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -629,6 +921,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.updateMatch(userId, matchId, updateRequest) }
                 .isInstanceOf(InvalidMatchTeamsException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -649,6 +943,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.updateMatch(userId, matchId, updateRequest) }
                 .isInstanceOf(InvalidMatchPlayersException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -669,6 +965,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.updateMatch(userId, matchId, updateRequest) }
                 .isInstanceOf(InvalidMatchPlayerIdentityException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -690,6 +988,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.updateMatch(userId, matchId, updateRequest) }
                 .isInstanceOf(GameNotFoundException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -737,6 +1037,7 @@ class MatchServiceTest {
             matchService.updateMatch(userId, matchId, updateRequest)
 
             assertThat(existingMatch.expansionsUsed).containsExactly(expansion)
+            verify(userAchievementService).evaluateAfterCommit(setOf(userId))
         }
 
         @Test
@@ -776,6 +1077,7 @@ class MatchServiceTest {
                 .isInstanceOf(InvalidExpansionForGameException::class.java)
 
             verify(matchRepository, never()).save(any(Match::class.java))
+            verifyNoAchievementEvaluation()
         }
     }
 
@@ -792,6 +1094,7 @@ class MatchServiceTest {
             matchService.deleteMatch(userId, matchId)
 
             verify(matchRepository).delete(match)
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -804,6 +1107,7 @@ class MatchServiceTest {
                 .isInstanceOf(NotMatchCreatorException::class.java)
 
             verify(matchRepository, never()).delete(any(Match::class.java))
+            verifyNoAchievementEvaluation()
         }
 
         @Test
@@ -812,6 +1116,8 @@ class MatchServiceTest {
 
             assertThatThrownBy { matchService.deleteMatch(userId, matchId) }
                 .isInstanceOf(MatchNotFoundException::class.java)
+
+            verifyNoAchievementEvaluation()
         }
     }
 

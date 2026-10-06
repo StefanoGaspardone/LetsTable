@@ -2,6 +2,7 @@ package com.backend.integration.controllers
 
 import com.backend.models.entities.*
 import com.backend.models.enums.AccountStatus
+import com.backend.models.enums.AchievementType
 import com.backend.models.enums.FriendRequestStatus
 import com.backend.models.enums.UserRole
 import com.backend.repositories.*
@@ -44,6 +45,9 @@ class UserControllerTest : AbstractIntegrationTest() {
 
     @Autowired
     private lateinit var friendRequestRepository: FriendRequestRepository
+
+    @Autowired
+    private lateinit var userAchievementRepository: UserAchievementRepository
 
     @Autowired
     private lateinit var refreshTokenRepository: RefreshTokenRepository
@@ -96,6 +100,16 @@ class UserControllerTest : AbstractIntegrationTest() {
             )
         )
 
+    private fun persistUserAchievement(user: User, type: AchievementType, seenAt: Instant? = null): UserAchievement =
+        userAchievementRepository.saveAndFlush(
+            UserAchievement(
+                userId = user.id!!,
+                achievementCode = type.name,
+                unlockedAt = Instant.now(),
+                seenAt = seenAt,
+            )
+        )
+
     @AfterEach
     fun cleanUp() {
         friendRequestRepository.deleteAll()
@@ -106,6 +120,7 @@ class UserControllerTest : AbstractIntegrationTest() {
         matchRepository.deleteAll()
         gameRepository.deleteAll()
         userRepository.deleteAll()
+        userAchievementRepository.deleteAll()
     }
 
     // ---------------------------------------------------------------------
@@ -720,6 +735,117 @@ class UserControllerTest : AbstractIntegrationTest() {
 
             mockMvc.perform(
                 get("/api/v1/users/${target.id}/wishlist")
+            ).andExpect(status().isForbidden)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+// GET /api/v1/users/{userId}/achievements
+// ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("GET /api/v1/users/{userId}/achievements")
+    inner class GetUserAchievementsTests {
+
+        @Test
+        fun `should return the whole catalog for the target user`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/achievements")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.length()").value(AchievementType.entries.size))
+        }
+
+        @Test
+        fun `should mark as unlocked only the achievements the target user has unlocked`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+            persistUserAchievement(target, AchievementType.FIRST_MATCH)
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/achievements")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$[?(@.code == 'FIRST_MATCH')].unlocked").value(true))
+                .andExpect(jsonPath("$[?(@.code == 'FIRST_WIN')].unlocked").value(false))
+        }
+
+        @Test
+        fun `should not return the requester's achievements`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+            persistUserAchievement(requester, AchievementType.FIRST_MATCH)
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/achievements")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$[?(@.code == 'FIRST_MATCH')].unlocked").value(false))
+        }
+
+        @Test
+        fun `should show the target user's progress on locked achievements`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+            val match = persistMatch(persistGame(), target, durationMinutes = 30)
+            persistPlayer(match, user = target)
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/achievements")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$[?(@.code == 'MATCHES_10')].progress").value(1))
+                .andExpect(jsonPath("$[?(@.code == 'MATCHES_10')].unlocked").value(false))
+        }
+
+        @Test
+        fun `should not unlock achievements for the target user when someone else views them`() {
+            val requester = persistUser(username = "requester")
+            val target = persistUser(username = "target")
+            val match = persistMatch(persistGame(), target, durationMinutes = 30)
+            persistPlayer(match, user = target)
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/achievements")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            ).andExpect(status().isOk)
+
+            assertThat(userAchievementRepository.findAllByUserId(target.id!!)).isEmpty()
+        }
+
+        @Test
+        fun `should return 404 when the user does not exist`() {
+            val requester = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/users/${UUID.randomUUID()}/achievements")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(requester))
+            ).andExpect(status().isNotFound)
+        }
+
+        @Test
+        fun `should return 400 when querying your own achievements via this endpoint`() {
+            val user = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/users/${user.id}/achievements")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            ).andExpect(status().isBadRequest)
+        }
+
+        @Test
+        fun `should return 403 when no auth header is provided`() {
+            val target = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/users/${target.id}/achievements")
             ).andExpect(status().isForbidden)
         }
     }
