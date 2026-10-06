@@ -1,8 +1,10 @@
 package com.backend.repositories
 
 import com.backend.models.entities.Match
+import com.backend.models.projections.GameMatchStatsProjection
 import com.backend.models.projections.GamePopularityProjection
 import com.backend.models.projections.MatchDayCountProjection
+import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
@@ -96,4 +98,39 @@ interface MatchRepository: JpaRepository<Match, UUID>, JpaSpecificationExecutor<
         """
     )
     fun findMostPlayedGames(pageable: Pageable): List<GamePopularityProjection>
+
+    @Query(
+        value = """
+        SELECT m.game.id AS gameId,
+               m.game.bggId AS bggId,
+               m.game.name AS gameName,
+               m.game.thumbnailUrl AS gameThumbnailUrl,
+               COUNT(m) AS matchCount,
+               SUM(m.durationMinutes) AS totalMinutes,
+               AVG(m.durationMinutes) AS avgMinutes,
+               SUM(CASE WHEN EXISTS (
+                   SELECT 1 FROM MatchPlayer wp LEFT JOIN wp.team wt
+                   WHERE wp.match = m AND wp.user.id = :userId AND (wp.isWinner = true OR wt.isWinner = true)
+               ) THEN 1 ELSE 0 END) AS wins,
+               SUM(CASE WHEN EXISTS (
+                   SELECT 1 FROM MatchPlayer wp LEFT JOIN wp.team wt
+                   WHERE wp.match = m AND wp.user.id = :userId AND (wp.isWinner = true OR wt.isWinner = true)
+               ) THEN 1.0 ELSE 0.0 END) / COUNT(m) AS winRate,
+               MAX(m.playedAt) AS lastPlayedAt
+        FROM Match m
+        WHERE m.durationMinutes IS NOT NULL
+        AND (m.createdBy.id = :userId OR EXISTS (
+            SELECT 1 FROM MatchPlayer mp WHERE mp.match = m AND mp.user.id = :userId
+        ))
+        GROUP BY m.game.id, m.game.bggId, m.game.name, m.game.thumbnailUrl
+        """,
+        countQuery = """
+        SELECT COUNT(DISTINCT m.game.id) FROM Match m
+        WHERE m.durationMinutes IS NOT NULL
+        AND (m.createdBy.id = :userId OR EXISTS (
+            SELECT 1 FROM MatchPlayer mp WHERE mp.match = m AND mp.user.id = :userId
+        ))
+        """
+    )
+    fun findGameStatsForUser(@Param("userId") userId: UUID, pageable: Pageable): Page<GameMatchStatsProjection>
 }

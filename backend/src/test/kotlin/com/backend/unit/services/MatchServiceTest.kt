@@ -3,6 +3,7 @@ package com.backend.unit.services
 import com.backend.exceptions.*
 import com.backend.models.dtos.*
 import com.backend.models.entities.*
+import com.backend.models.projections.GameMatchStatsProjection
 import com.backend.models.projections.MatchDayCountProjection
 import com.backend.repositories.*
 import com.backend.services.MatchService
@@ -25,8 +26,11 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.Mockito.*
 import org.mockito.junit.jupiter.MockitoExtension
+import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
+import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Sort
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -952,6 +956,52 @@ class MatchServiceTest {
                 matchService.listMyMatches(userId, page = 0, size = 10, gameId = null, fromDate = null, toDate = null, sort = "invalidField")
             }.isInstanceOf(InvalidSortException::class.java)
         }
+
+        private fun capturePageableFor(sort: String?): Pageable {
+            val captor = org.mockito.kotlin.argumentCaptor<Pageable>()
+
+            `when`(matchRepository.findAll(kAny<org.springframework.data.jpa.domain.Specification<Match>>(), captor.capture()))
+                .thenAnswer { PageImpl<Match>(emptyList(), it.getArgument(1), 0) }
+
+            matchService.listMyMatches(userId, 0, 20, null, null, null, sort)
+
+            return captor.firstValue
+        }
+
+        @Test
+        fun `should sort by playedAt desc then createdAt desc by default`() {
+            val orders = capturePageableFor(null).sort.toList()
+
+            assertThat(orders.map { it.property }).containsExactly("playedAt", "createdAt")
+            assertThat(orders).allMatch { it.direction == Sort.Direction.DESC }
+        }
+
+        @Test
+        fun `should sort by playedAt asc keeping createdAt desc as tie-breaker`() {
+            val orders = capturePageableFor("playedAt-asc").sort.toList()
+
+            assertThat(orders.map { it.property }).containsExactly("playedAt", "createdAt")
+            assertThat(orders[0].direction).isEqualTo(Sort.Direction.ASC)
+            assertThat(orders[1].direction).isEqualTo(Sort.Direction.DESC)
+        }
+
+        @Test
+        fun `should sort by durationMinutes desc with nulls last`() {
+            val orders = capturePageableFor("durationMinutes-desc").sort.toList()
+
+            assertThat(orders.map { it.property }).containsExactly("durationMinutes", "playedAt", "createdAt")
+            assertThat(orders[0].direction).isEqualTo(Sort.Direction.DESC)
+            assertThat(orders[0].nullHandling).isEqualTo(Sort.NullHandling.NULLS_LAST)
+        }
+
+        @Test
+        fun `should sort by durationMinutes asc with nulls last`() {
+            val orders = capturePageableFor("durationMinutes-asc").sort.toList()
+
+            assertThat(orders[0].property).isEqualTo("durationMinutes")
+            assertThat(orders[0].direction).isEqualTo(Sort.Direction.ASC)
+            assertThat(orders[0].nullHandling).isEqualTo(Sort.NullHandling.NULLS_LAST)
+        }
     }
 
     @Nested
@@ -1076,6 +1126,124 @@ class MatchServiceTest {
 
             assertThatThrownBy {
                 matchService.getRecentMatchesForUser(userId)
+            }.isInstanceOf(RuntimeException::class.java)
+        }
+    }
+
+    @Nested
+    @DisplayName("listGameStats")
+    inner class ListGameStatsTests {
+
+        private fun buildProjection(name: String = "Catan", matchCount: Long = 5L): GameMatchStatsProjection {
+            val projection = mockk<GameMatchStatsProjection>()
+            every { projection.gameId } returns gameId
+            every { projection.bggId } returns 12345L
+            every { projection.gameName } returns name
+            every { projection.gameThumbnailUrl } returns "https://example.com/thumb.jpg"
+            every { projection.matchCount } returns matchCount
+            every { projection.totalMinutes } returns 300L
+            every { projection.avgMinutes } returns 60.0
+            every { projection.wins } returns 2L
+            every { projection.winRate } returns 0.4
+            every { projection.lastPlayedAt } returns Instant.parse("2026-10-01T10:00:00Z")
+            return projection
+        }
+
+        private fun capturePageableFor(page: Int = 0, size: Int = 20, sort: String? = null): Pageable {
+            val captor = org.mockito.kotlin.argumentCaptor<Pageable>()
+
+            `when`(matchRepository.findGameStatsForUser(kEq(userId), captor.capture()))
+                .thenAnswer { PageImpl<GameMatchStatsProjection>(emptyList(), it.getArgument(1), 0) }
+
+            matchService.listGameStats(userId, page, size, sort)
+
+            return captor.firstValue
+        }
+
+        @Test
+        fun `should map projections to DTOs`() {
+            val page: Page<GameMatchStatsProjection> = PageImpl(listOf(buildProjection()), PageRequest.of(0, 20), 1)
+            `when`(matchRepository.findGameStatsForUser(kEq(userId), kAny())).thenReturn(page)
+
+            val result = matchService.listGameStats(userId, 0, 20, null)
+
+            assertThat(result.content).hasSize(1)
+            val dto = result.content[0]
+            assertThat(dto.gameId).isEqualTo(gameId)
+            assertThat(dto.bggId).isEqualTo(12345L)
+            assertThat(dto.name).isEqualTo("Catan")
+            assertThat(dto.matchCount).isEqualTo(5L)
+            assertThat(dto.totalMinutes).isEqualTo(300L)
+            assertThat(dto.avgMinutes).isEqualTo(60.0)
+            assertThat(dto.wins).isEqualTo(2L)
+            assertThat(dto.winRate).isEqualTo(0.4)
+        }
+
+        @Test
+        fun `should return an empty page when the user has no completed matches`() {
+            `when`(matchRepository.findGameStatsForUser(kEq(userId), kAny()))
+                .thenReturn(PageImpl(emptyList(), PageRequest.of(0, 20), 0))
+
+            val result = matchService.listGameStats(userId, 0, 20, null)
+
+            assertThat(result.content).isEmpty()
+        }
+
+        @Test
+        fun `should sort by matchCount desc then gameName asc by default`() {
+            val orders = capturePageableFor().sort.toList()
+
+            assertThat(orders.map { it.property }).containsExactly("matchCount", "gameName")
+            assertThat(orders[0].direction).isEqualTo(Sort.Direction.DESC)
+            assertThat(orders[1].direction).isEqualTo(Sort.Direction.ASC)
+        }
+
+        @Test
+        fun `should sort by totalMinutes asc when requested`() {
+            val orders = capturePageableFor(sort = "totalMinutes-asc").sort.toList()
+
+            assertThat(orders[0].property).isEqualTo("totalMinutes")
+            assertThat(orders[0].direction).isEqualTo(Sort.Direction.ASC)
+        }
+
+        @Test
+        fun `should not duplicate gameName when sorting by it`() {
+            val orders = capturePageableFor(sort = "gameName-asc").sort.toList()
+
+            assertThat(orders.map { it.property }).containsExactly("gameName")
+        }
+
+        @Test
+        fun `should clamp negative page to zero and oversized size to 100`() {
+            val pageable = capturePageableFor(page = -3, size = 500)
+
+            assertThat(pageable.pageNumber).isEqualTo(0)
+            assertThat(pageable.pageSize).isEqualTo(100)
+        }
+
+        @Test
+        fun `should clamp size below 1 to 1`() {
+            val pageable = capturePageableFor(size = 0)
+
+            assertThat(pageable.pageSize).isEqualTo(1)
+        }
+
+        @Test
+        fun `should throw InvalidSortException when sort field is not allowed`() {
+            assertThatThrownBy {
+                matchService.listGameStats(userId, 0, 20, "notAllowedField-asc")
+            }.isInstanceOf(InvalidSortException::class.java)
+
+            verify(matchRepository, never()).findGameStatsForUser(kAny(), kAny())
+        }
+
+        @Test
+        fun `should rethrow generic exception when repository fails`() {
+            `when`(matchRepository.findGameStatsForUser(kEq(userId), kAny()))
+                .thenThrow(RuntimeException("Database error"))
+
+            assertThatThrownBy {
+                matchService.listGameStats(userId, 0, 20, null)
             }.isInstanceOf(RuntimeException::class.java)
         }
     }

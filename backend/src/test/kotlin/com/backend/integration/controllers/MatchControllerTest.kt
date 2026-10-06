@@ -596,6 +596,94 @@ class MatchControllerTest: AbstractIntegrationTest() {
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.content.length()").value(0))
         }
+
+        @Test
+        fun `should sort by durationMinutes desc with in-progress matches last`() {
+            val user = persistUser()
+            val game = persistGame()
+            persistMatch(game, user, durationMinutes = 30)
+            persistMatch(game, user, durationMinutes = null)
+            persistMatch(game, user, durationMinutes = 90)
+
+            mockMvc.perform(
+                get("/api/v1/matches")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("sort", "durationMinutes-desc")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(3))
+                .andExpect(jsonPath("$.content[0].durationMinutes").value(90))
+                .andExpect(jsonPath("$.content[1].durationMinutes").value(30))
+                .andExpect(jsonPath("$.content[2].durationMinutes").value(org.hamcrest.Matchers.nullValue()))
+        }
+
+        @Test
+        fun `should sort by durationMinutes asc with in-progress matches last`() {
+            val user = persistUser()
+            val game = persistGame()
+            persistMatch(game, user, durationMinutes = 90)
+            persistMatch(game, user, durationMinutes = null)
+            persistMatch(game, user, durationMinutes = 30)
+
+            mockMvc.perform(
+                get("/api/v1/matches")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("sort", "durationMinutes-asc")
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content[0].durationMinutes").value(30))
+                .andExpect(jsonPath("$.content[1].durationMinutes").value(90))
+                .andExpect(jsonPath("$.content[2].durationMinutes").value(org.hamcrest.Matchers.nullValue()))
+        }
+
+        @Test
+        fun `should sort by playedAt desc by default and asc when requested`() {
+            val user = persistUser()
+            val game = persistGame()
+            val now = Instant.now()
+            val oldest = persistMatch(game, user, playedAt = now.minus(Duration.ofDays(5)))
+            val newest = persistMatch(game, user, playedAt = now)
+
+            mockMvc.perform(
+                get("/api/v1/matches").header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(jsonPath("$.content[0].id").value(newest.id.toString()))
+                .andExpect(jsonPath("$.content[1].id").value(oldest.id.toString()))
+
+            mockMvc.perform(
+                get("/api/v1/matches")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("sort", "playedAt-asc")
+            )
+                .andExpect(jsonPath("$.content[0].id").value(oldest.id.toString()))
+                .andExpect(jsonPath("$.content[1].id").value(newest.id.toString()))
+        }
+
+        @Test
+        fun `should keep pagination stable when many matches share the same duration`() {
+            val user = persistUser()
+            val game = persistGame()
+            repeat(5) { persistMatch(game, user, durationMinutes = 60) }
+
+            val seen = mutableSetOf<String>()
+            for(page in 0..2) {
+                val body = mockMvc.perform(
+                    get("/api/v1/matches")
+                        .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                        .param("sort", "durationMinutes-desc")
+                        .param("size", "2")
+                        .param("page", page.toString())
+                )
+                    .andExpect(status().isOk)
+                    .andReturn().response.contentAsString
+
+                Regex("\"id\":\"([0-9a-f-]{36})\"").findAll(body).forEach { seen.add(it.groupValues[1]) }
+            }
+
+            assertThat(matchRepository.findAllForUser(user.id!!).map { it.id.toString() }).containsAll(
+                seen.filter { id -> matchRepository.findById(UUID.fromString(id)).isPresent }
+            )
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -852,6 +940,261 @@ class MatchControllerTest: AbstractIntegrationTest() {
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.totalMatches").value(0))
                 .andExpect(jsonPath("$.totalWins").value(0))
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // GET /api/v1/matches/game-stats
+    // ---------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("GET /api/v1/matches/game-stats")
+    inner class ListGameStatsTests {
+
+        @Test
+        fun `should aggregate completed matches per game`() {
+            val user = persistUser()
+            val catan = persistGame(name = "Catan")
+            val ark = persistGame(name = "Ark Nova")
+            persistMatch(catan, user, durationMinutes = 30)
+            persistMatch(catan, user, durationMinutes = 90)
+            persistMatch(ark, user, durationMinutes = 60)
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].name").value("Catan"))
+                .andExpect(jsonPath("$.content[0].matchCount").value(2))
+                .andExpect(jsonPath("$.content[0].totalMinutes").value(120))
+                .andExpect(jsonPath("$.content[0].avgMinutes").value(60.0))
+                .andExpect(jsonPath("$.content[1].name").value("Ark Nova"))
+                .andExpect(jsonPath("$.content[1].matchCount").value(1))
+        }
+
+        @Test
+        fun `should ignore in-progress matches`() {
+            val user = persistUser()
+            val game = persistGame()
+            persistMatch(game, user, durationMinutes = 45)
+            persistMatch(game, user, durationMinutes = null)
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].matchCount").value(1))
+                .andExpect(jsonPath("$.content[0].totalMinutes").value(45))
+        }
+
+        @Test
+        fun `should omit a game that only has in-progress matches`() {
+            val user = persistUser()
+            persistMatch(persistGame(), user, durationMinutes = null)
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(0))
+        }
+
+        @Test
+        fun `should count individual wins and compute the win rate`() {
+            val user = persistUser()
+            val game = persistGame()
+            val won = persistMatch(game, user)
+            val lost = persistMatch(game, user)
+            matchPlayerRepository.saveAndFlush(MatchPlayer(match = won, user = user, color = "red", isWinner = true))
+            matchPlayerRepository.saveAndFlush(MatchPlayer(match = lost, user = user, color = "red", isWinner = false))
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content[0].matchCount").value(2))
+                .andExpect(jsonPath("$.content[0].wins").value(1))
+                .andExpect(jsonPath("$.content[0].winRate").value(0.5))
+        }
+
+        @Test
+        fun `should count a win when the user's team wins`() {
+            val user = persistUser()
+            val game = persistGame()
+            val match = persistMatch(game, user, isTeamBased = true)
+            val team = matchTeamRepository.saveAndFlush(MatchTeam(match = match, color = "red", isWinner = true))
+            matchPlayerRepository.saveAndFlush(MatchPlayer(match = match, team = team, user = user))
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(jsonPath("$.content[0].wins").value(1))
+                .andExpect(jsonPath("$.content[0].winRate").value(1.0))
+        }
+
+        @Test
+        fun `should include games where the user is a player but not the creator`() {
+            val creator = persistUser(username = "creator")
+            val participant = persistUser(username = "participant")
+            val match = persistMatch(persistGame(), creator)
+            persistIndividualPlayer(match, user = participant)
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(participant))
+            )
+                .andExpect(jsonPath("$.content.length()").value(1))
+        }
+
+        @Test
+        fun `should not include other users' matches`() {
+            val user = persistUser(username = "user")
+            val other = persistUser(username = "other")
+            persistMatch(persistGame(), other)
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(jsonPath("$.content.length()").value(0))
+        }
+
+        @Test
+        fun `should sort by totalMinutes desc`() {
+            val user = persistUser()
+            val short = persistGame(name = "Short")
+            val long = persistGame(name = "Long")
+            persistMatch(short, user, durationMinutes = 10)
+            persistMatch(short, user, durationMinutes = 10)
+            persistMatch(long, user, durationMinutes = 100)
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("sort", "totalMinutes-desc")
+            )
+                .andExpect(jsonPath("$.content[0].name").value("Long"))
+                .andExpect(jsonPath("$.content[1].name").value("Short"))
+        }
+
+        @Test
+        fun `should sort by avgMinutes asc`() {
+            val user = persistUser()
+            val quick = persistGame(name = "Quick")
+            val slow = persistGame(name = "Slow")
+            persistMatch(quick, user, durationMinutes = 15)
+            persistMatch(slow, user, durationMinutes = 120)
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("sort", "avgMinutes-asc")
+            )
+                .andExpect(jsonPath("$.content[0].name").value("Quick"))
+                .andExpect(jsonPath("$.content[1].name").value("Slow"))
+        }
+
+        @Test
+        fun `should sort by winRate desc`() {
+            val user = persistUser()
+            val lucky = persistGame(name = "Lucky")
+            val unlucky = persistGame(name = "Unlucky")
+            val luckyMatch = persistMatch(lucky, user)
+            val unluckyMatch = persistMatch(unlucky, user)
+            matchPlayerRepository.saveAndFlush(MatchPlayer(match = luckyMatch, user = user, color = "red", isWinner = true))
+            matchPlayerRepository.saveAndFlush(MatchPlayer(match = unluckyMatch, user = user, color = "red", isWinner = false))
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("sort", "winRate-desc")
+            )
+                .andExpect(jsonPath("$.content[0].name").value("Lucky"))
+                .andExpect(jsonPath("$.content[1].name").value("Unlucky"))
+        }
+
+        @Test
+        fun `should sort by gameName asc`() {
+            val user = persistUser()
+            persistMatch(persistGame(name = "Zombicide"), user)
+            persistMatch(persistGame(name = "Azul"), user)
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("sort", "gameName-asc")
+            )
+                .andExpect(jsonPath("$.content[0].name").value("Azul"))
+                .andExpect(jsonPath("$.content[1].name").value("Zombicide"))
+        }
+
+        @Test
+        fun `should sort by lastPlayedAt desc`() {
+            val user = persistUser()
+            val now = Instant.now()
+            persistMatch(persistGame(name = "Old"), user, playedAt = now.minus(Duration.ofDays(30)))
+            persistMatch(persistGame(name = "Recent"), user, playedAt = now)
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("sort", "lastPlayedAt-desc")
+            )
+                .andExpect(jsonPath("$.content[0].name").value("Recent"))
+                .andExpect(jsonPath("$.content[1].name").value("Old"))
+        }
+
+        @Test
+        fun `should paginate the results`() {
+            val user = persistUser()
+            persistMatch(persistGame(name = "A"), user)
+            persistMatch(persistGame(name = "B"), user)
+            persistMatch(persistGame(name = "C"), user)
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("size", "2")
+                    .param("page", "1")
+                    .param("sort", "gameName-asc")
+            )
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("C"))
+                .andExpect(jsonPath("$.totalElements").value(3))
+        }
+
+        @Test
+        fun `should return an empty page for a user with no matches`() {
+            val user = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+            )
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.content.length()").value(0))
+        }
+
+        @Test
+        fun `should return 404 when sort field is not allowed`() {
+            val user = persistUser()
+
+            mockMvc.perform(
+                get("/api/v1/matches/game-stats")
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                    .param("sort", "notAllowedField-asc")
+            ).andExpect(status().isNotFound)
+        }
+
+        @Test
+        fun `should return 403 when no auth header is provided`() {
+            mockMvc.perform(get("/api/v1/matches/game-stats")).andExpect(status().isForbidden)
         }
     }
 }

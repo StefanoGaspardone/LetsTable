@@ -2,7 +2,9 @@ package com.backend.models.dtos
 
 import com.backend.models.entities.Game
 import com.backend.models.entities.GameSleeve
+import com.backend.models.projections.GameMatchStatsProjection
 import io.swagger.v3.oas.annotations.media.Schema
+import java.time.Instant
 import java.util.*
 
 @Schema(description = "Full or partial details of a game, sourced from BoardGameGeek")
@@ -164,6 +166,54 @@ data class GameSleeveDTO(
             width = sleeve.width,
             quantity = sleeve.quantity,
             quantityNote = sleeve.quantityNote,
+        )
+    }
+}
+
+@Schema(description = "Aggregated statistics about the completed matches of a user for a single game")
+data class GameMatchStatsDTO(
+    @field:Schema(description = "Internal game id")
+    val gameId: UUID,
+
+    @field:Schema(description = "BoardGameGeek id of the game")
+    val bggId: Long,
+
+    @field:Schema(description = "Game name")
+    val name: String,
+
+    @field:Schema(description = "Game thumbnail URL")
+    val thumbnailUrl: String?,
+
+    @field:Schema(description = "Number of completed matches played")
+    val matchCount: Long,
+
+    @field:Schema(description = "Total time played, in minutes")
+    val totalMinutes: Long,
+
+    @field:Schema(description = "Average match duration, in minutes")
+    val avgMinutes: Double,
+
+    @field:Schema(description = "Number of matches won")
+    val wins: Long,
+
+    @field:Schema(description = "Fraction of matches won, between 0 and 1")
+    val winRate: Double,
+
+    @field:Schema(description = "When the game was last played")
+    val lastPlayedAt: Instant,
+) {
+    companion object {
+        fun from(projection: GameMatchStatsProjection) = GameMatchStatsDTO(
+            gameId = projection.gameId,
+            bggId = projection.bggId,
+            name = projection.gameName,
+            thumbnailUrl = projection.gameThumbnailUrl,
+            matchCount = projection.matchCount,
+            totalMinutes = projection.totalMinutes,
+            avgMinutes = projection.avgMinutes,
+            wins = projection.wins,
+            winRate = projection.winRate,
+            lastPlayedAt = projection.lastPlayedAt,
         )
     }
 }

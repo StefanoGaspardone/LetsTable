@@ -3,6 +3,7 @@ package com.backend.services
 import com.backend.exceptions.*
 import com.backend.models.dtos.CreateMatchRequest
 import com.backend.models.dtos.GameDTO
+import com.backend.models.dtos.GameMatchStatsDTO
 import com.backend.models.dtos.MatchDTO
 import com.backend.models.dtos.MatchDayCountDTO
 import com.backend.models.dtos.MatchIndividualPlayerRequest
@@ -21,6 +22,7 @@ import com.backend.repositories.*
 import com.backend.utils.resolveSort
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
@@ -215,7 +217,13 @@ class MatchService(
         try {
             val pageSafe = if(page < 0) 0 else page
             val sizeSafe = size.coerceIn(1, 100)
-            val sortObj = resolveSort(sort, setOf("playedAt", "createdAt"), "playedAt")
+            val sortObj = resolveSort(
+                sort = sort,
+                allowedFields = setOf("playedAt", "createdAt", "durationMinutes"),
+                defaultField = "playedAt",
+                nullsLastFields = setOf("durationMinutes"),
+                tieBreaker = Sort.by(Sort.Order.desc("playedAt"), Sort.Order.desc("createdAt")),
+            )
             val pageable = PageRequest.of(pageSafe, sizeSafe, sortObj)
 
             val spec = MatchSpecification.withFilters(userId, gameId, fromDate, toDate, onlyCompleted)
@@ -300,6 +308,34 @@ class MatchService(
             return response
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [match_service][get_recent_matches_for_user] Error retrieving matches for user {}: {}", userId, e.message)
+            throw e
+        }
+    }
+
+    @Transactional
+    fun listGameStats(userId: UUID, page: Int, size: Int, sort: String?): PageDTO<GameMatchStatsDTO> {
+        logger.debug("\n\t[DEBUG] [match_service][list_game_stats] Listing game stats\n\tuserId={}\n\tpage={}\n\tsize={}\n\tsort={}", userId, page, size, sort)
+
+        try {
+            val pageSafe = if(page < 0) 0 else page
+            val sizeSafe = size.coerceIn(1, 100)
+            val sortObj = resolveSort(
+                sort = sort,
+                allowedFields = setOf("matchCount", "totalMinutes", "avgMinutes", "winRate", "lastPlayedAt", "gameName"),
+                defaultField = "matchCount",
+                tieBreaker = Sort.by(Sort.Order.asc("gameName")),
+            )
+            val pageable = PageRequest.of(pageSafe, sizeSafe, sortObj)
+
+            val result = matchRepository.findGameStatsForUser(userId, pageable)
+
+            logger.info("\n\t[INFO] [match_service][list_game_stats] Retrieved {} game stats for user {}", result.numberOfElements, userId)
+            return result.toPageDTO { GameMatchStatsDTO.from(it) }
+        } catch(e: InvalidSortException) {
+            logger.warn("\n\t[WARN] [match_service][list_game_stats] Invalid sort field: {}", sort)
+            throw e
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [match_service][list_game_stats] Error listing game stats for user {}: {}", userId, e.message)
             throw e
         }
     }

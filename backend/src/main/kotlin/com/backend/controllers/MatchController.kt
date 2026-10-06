@@ -5,6 +5,7 @@ import com.backend.models.dtos.MatchDTO
 import com.backend.models.dtos.PageDTO
 import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.GameDTO
+import com.backend.models.dtos.GameMatchStatsDTO
 import com.backend.models.dtos.MatchDayCountDTO
 import com.backend.models.dtos.MatchWinStatsDTO
 import com.backend.models.dtos.UpdateMatchRequest
@@ -224,7 +225,7 @@ class MatchController(
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) fromDate: LocalDate?,
         @Parameter(description = "Only matches played on or before this date")
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) toDate: LocalDate?,
-        @Parameter(description = "Sort field and direction, e.g. 'playedAt-desc'") @RequestParam(required = false) sort: String?,
+        @Parameter(description = "Sort field and direction: playedAt, createdAt or durationMinutes, followed by -asc or -desc, e.g. 'durationMinutes-desc'. In-progress matches (no duration) are always listed last when sorting by duration.") @RequestParam(required = false) sort: String?,
     ): PageDTO<MatchDTO> =
         matchService.listMyMatches(CurrentUser.id(), page, size, gameId, fromDate, toDate, sort)
 
@@ -272,4 +273,36 @@ class MatchController(
     @GetMapping("/win-stats")
     fun getWinStats(): MatchWinStatsDTO =
         matchService.getWinStats(CurrentUser.id())
+
+    @Operation(
+        summary = "Game statistics",
+        description = "Paginated per-game statistics for the current user (created or played), counting completed matches only: number of matches, total and average time played, wins, win rate and last played date. Sortable by matchCount, totalMinutes, avgMinutes, winRate, lastPlayedAt or gameName."
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Page of per-game statistics",
+                content = [Content(schema = Schema(implementation = GameMatchStatsDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "404", description = "Not Found - Invalid sort field",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "InvalidSortExample",
+                        summary = "Invalid sort field example",
+                        value = "{\"timestamp\":\"2026-10-03T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Invalid sort field: unknownField\"}"
+                    )]
+                )]
+            ),
+        ]
+    )
+    @GetMapping("/game-stats")
+    fun listGameStats(
+        @Parameter(description = "Zero-based page index") @RequestParam(defaultValue = "0") page: Int,
+        @Parameter(description = "Number of items per page") @RequestParam(defaultValue = "20") size: Int,
+        @Parameter(description = "Sort field and direction, e.g. 'totalMinutes-desc'. Default is matchCount-desc.") @RequestParam(required = false) sort: String?,
+    ): PageDTO<GameMatchStatsDTO> =
+        matchService.listGameStats(CurrentUser.id(), page, size, sort)
 }

@@ -94,3 +94,16 @@ export interface MatchWinStats {
 	totalMatches: number;
 	totalWins: number;
 }
+
+export interface GameMatchStats {
+	gameId: string;
+	bggId: number;
+	name: string;
+	thumbnailUrl: string | null;
+	matchCount: number;
+	totalMinutes: number;
+	avgMinutes: number;
+	wins: number;
+	winRate: number;
+	lastPlayedAt: string;
+}

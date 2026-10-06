@@ -1,6 +1,6 @@
 import { apiClient } from '@/api/client';
 
-import { CreateMatchPayload, Match, MatchDayCount, MatchWinStats, UpdateMatchPayload } from '@/types/match';
+import { CreateMatchPayload, GameMatchStats, Match, MatchDayCount, MatchWinStats, UpdateMatchPayload } from '@/types/match';
 import { Game } from '@/types/game';
 import { PageDTO } from '@/types/page';
 
@@ -60,5 +60,23 @@ export const getWinStats = async (): Promise<MatchWinStats> => {
 
 export const getRecentGames = async (): Promise<Game[]> => {
 	const { data } = await apiClient.get<Game[]>('/matches/recent-games');
+	return data;
+}
+
+export interface ListGameStatsParams {
+	page?: number;
+	size?: number;
+	sort?: string;
+}
+
+export const listGameStats = async (params?: ListGameStatsParams): Promise<PageDTO<GameMatchStats>> => {
+	const { data } = await apiClient.get<PageDTO<GameMatchStats>>('/matches/game-stats', {
+		params: {
+			page: params?.page ?? 0,
+			size: params?.size ?? 20,
+			sort: params?.sort,
+		},
+	});
+
 	return data;
 }
