@@ -23,6 +23,7 @@ class CollectionService(
     private val collectionItemRepository: CollectionItemRepository,
     private val gameRepository: GameRepository,
     private val userRepository: UserRepository,
+    private val userAchievementService: UserAchievementService
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -41,6 +42,8 @@ class CollectionService(
 
             val item = CollectionItem(user = user, game = game)
             val saved = collectionItemRepository.save(item)
+
+            userAchievementService.evaluateAfterCommit(setOf(userId))
 
             logger.info("\n\t[INFO] [collection_service][add_to_collection] Game {} added to collection of user {}", request.gameId, userId)
             return CollectionItemDTO.from(saved)

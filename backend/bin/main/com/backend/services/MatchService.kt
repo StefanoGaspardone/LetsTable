@@ -40,6 +40,7 @@ class MatchService(
     private val matchPlayerRepository: MatchPlayerRepository,
     private val gameRepository: GameRepository,
     private val userRepository: UserRepository,
+    private val userAchievementService: UserAchievementService
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -71,6 +72,10 @@ class MatchService(
             val savedMatch = matchRepository.save(match)
 
             val response = buildMatchPlayersAndTeams(savedMatch, request)
+
+            if(savedMatch.durationMinutes != null) {
+                userAchievementService.evaluateAfterCommit(participantUserIds(request))
+            }
 
             logger.info("\n\t[INFO] [match_service][create_match] Match {} created by user {}", savedMatch.id, userId)
             return response
@@ -135,6 +140,8 @@ class MatchService(
             matchTeamRepository.deleteAllByMatchId(matchId)
 
             val response = buildMatchPlayersAndTeams(savedMatch, request)
+
+            userAchievementService.evaluateAfterCommit(participantUserIds(request))
 
             logger.info("\n\t[INFO] [match_service][update_match] Match {} updated by user {}", matchId, userId)
             return response
@@ -488,5 +495,12 @@ class MatchService(
         }
 
         return expansions
+    }
+
+    private fun participantUserIds(request: MatchPlayersPayload): Set<UUID> {
+        val fromTeams = request.teams.orEmpty().flatMap { team -> team.players.mapNotNull { it.userId } }
+        val fromPlayers = request.players.orEmpty().mapNotNull { it.userId }
+
+        return (fromTeams + fromPlayers).toSet()
     }
 }

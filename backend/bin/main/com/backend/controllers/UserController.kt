@@ -6,6 +6,7 @@ import com.backend.models.dtos.*
 import com.backend.security.CurrentUser
 import com.backend.services.FriendService
 import com.backend.services.MatchService
+import com.backend.services.UserAchievementService
 import com.backend.services.UserService
 import com.backend.services.WishlistService
 import io.swagger.v3.oas.annotations.Operation
@@ -30,6 +31,7 @@ class UserController(
     private val matchService: MatchService,
     private val friendService: FriendService,
     private val wishlistService: WishlistService,
+    private val userAchievementService: UserAchievementService
 ) {
 
     @Operation(summary = "Search users", description = "Search active users by username, e.g. to add a player to a match.")
@@ -231,5 +233,39 @@ class UserController(
         }
 
         return wishlistService.getDefaultWishlistForUser(userId, page, size)
+    }
+
+    @Operation(summary = "Get a user's achievements", description = "List every achievement in the catalog with the specified user's progress and unlock status. Cannot be used for your own id, use GET /achievements/me instead.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Achievements with progress",
+                content = [Content(schema = Schema(implementation = UserAchievementDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Cannot query your own achievements via this endpoint",
+                content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+            ),
+            ApiResponse(
+                responseCode = "404", description = "Not Found - User does not exist",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "NotFoundExample",
+                        summary = "User not found example",
+                        value = "{\"timestamp\":\"2026-10-06T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"User not found: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
+                    )]
+                )]
+            ),
+        ]
+    )
+    @GetMapping("/{userId}/achievements")
+    fun getUserAchievements(@PathVariable userId: UUID): List<UserAchievementDTO> {
+        if(userId == CurrentUser.id()) {
+            throw CannotAccessOwnResourceViaPublicEndpointException()
+        }
+
+        return userAchievementService.getUserAchievements(userId)
     }
 }

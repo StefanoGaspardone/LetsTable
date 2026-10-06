@@ -27,6 +27,7 @@ class FriendService(
     private val friendRequestRepository: FriendRequestRepository,
     private val userRepository: UserRepository,
     private val pushNotificationService: PushNotificationService,
+    private val userAchievementService: UserAchievementService
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -65,6 +66,8 @@ class FriendService(
                     body = "${sender.username} ha accettato la tua richiesta di amicizia",
                     data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to saved.id.toString()),
                 )
+
+                userAchievementService.evaluateAfterCommit(setOf(senderId, request.receiverId))
 
                 logger.info("\n\t[INFO] [friend_service][send_request] Reverse request found, auto-accepted friendship between {} and {}", senderId, request.receiverId)
                 return FriendRequestDTO.from(saved)
@@ -121,6 +124,8 @@ class FriendService(
                 body = "${request.receiver.username} ha accettato la tua richiesta di amicizia",
                 data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to request.id.toString()),
             )
+
+            userAchievementService.evaluateAfterCommit(setOf(request.sender.id!!, currentUserId))
 
             logger.info("\n\t[INFO] [friend_service][accept_request] Request {} accepted by {}", requestId, currentUserId)
             return FriendRequestDTO.from(saved)
