@@ -21,3 +21,13 @@ export interface AuthResponse {
 	refreshToken: string;
 	user: User;
 }
+
+export interface ForgotPasswordPayload {
+	identifier: string;
+}
+
+export interface ResetPasswordPayload {
+	identifier: string;
+	otpCode: string;
+	newPassword: string;
+}

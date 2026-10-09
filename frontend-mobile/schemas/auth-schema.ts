@@ -24,6 +24,20 @@ export const activateSchema = z.object({
 	otpCode: z.string().length(6, 'Il codice deve avere 6 cifre'),
 });
 
+export const forgotPasswordSchema = z.object({
+	identifier: z.string().trim().min(1, 'Inserisci email o username'),
+});
+
+export const resetPasswordSchema = z.object({
+	newPassword: z.string().min(8, 'La password deve avere almeno 8 caratteri').max(72, 'La password può avere al massimo 72 caratteri'),
+	confirmPassword: z.string().min(1, 'Conferma la nuova password'),
+}).refine(values => values.newPassword === values.confirmPassword, {
+	message: 'Le password non coincidono',
+	path: ['confirmPassword'],
+});
+
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type SignupFormValues = z.infer<typeof signupSchema>;
 export type ActivateFormValues = z.infer<typeof activateSchema>;
+export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;

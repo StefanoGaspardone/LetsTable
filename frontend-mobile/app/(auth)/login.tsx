@@ -24,7 +24,7 @@ const LoginScreen = () => {
 
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
-	const { control, handleSubmit, formState: { errors, isValid } } = useForm<LoginFormValues>({
+	const { control, handleSubmit, getValues, formState: { errors, isValid } } = useForm<LoginFormValues>({
 		resolver: zodResolver(loginSchema),
 		defaultValues: { identifier: '', password: '' },
 		mode: 'onChange',
@@ -45,6 +45,12 @@ const LoginScreen = () => {
 		} finally {
 			setIsSubmitting(false);
 		}
+	}
+
+	const onForgotPassword = () => {
+		const identifier = getValues('identifier').trim();
+
+		router.push(identifier ? `/(auth)/forgot-password?identifier=${encodeURIComponent(identifier)}` : '/(auth)/forgot-password');
 	}
 
 	return (
@@ -71,6 +77,7 @@ const LoginScreen = () => {
 					</View>
 				)}
 			/>
+			<Text className = 'mt-2 self-end text-xs font-semibold text-primary active:underline' onPress = { onForgotPassword }>Password dimenticata?</Text>
 			<Button className = 'mt-4 h-14 rounded-full' onPress = { handleSubmit(onSubmit) } disabled = { !isValid || isSubmitting }>
 				<Text className = 'text-base font-semibold text-primary-foreground'>
 					{isSubmitting ? 'Accesso in corso...' : 'Accedi'}

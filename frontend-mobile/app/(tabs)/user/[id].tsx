@@ -4,7 +4,7 @@ import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { RefreshControl } from 'react-native-gesture-handler';
-import { Trophy, Dices, Gamepad2, UserPlus, UserCheck, Clock, UserX, Users, Heart } from 'lucide-react-native';
+import { Trophy, Dices, Gamepad2, UserPlus, UserCheck, Clock, UserX, Users, Heart, Award } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import ScreenHeader from '@/components/common/screen-header';
@@ -12,6 +12,7 @@ import BackButton from '@/components/common/back-button';
 import MatchListItem from '@/components/common/match-list-item';
 import EmptyState from '@/components/common/empty-state';
 import SegmentedControl from '@/components/common/segmented-control';
+import AchievementList from '@/components/achievements/achievement-list';
 
 import { getUserProfile } from '@/api/user';
 import { sendFriendRequest, removeFriend, listPendingSent, cancelFriendRequest, listPendingReceived, acceptFriendRequest } from '@/api/friend';
@@ -24,14 +25,18 @@ import { useAuth } from '@/contexts/auth-context';
 import { getAvatarUrl } from '@/lib/file';
 
 import { useUserMatches, useUserFriends, useUserDefaultWishlistItems } from '@/hooks/use-user';
+import { useUserAchievements } from '@/hooks/use-achievement';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useThemeColors } from '@/hooks/use-theme-colors';
+
+type ProfileTab = 'matches' | 'friends' | 'wishlist' | 'achievements';
 
 const TAB_OPTIONS = [
 	{ value: 'matches', label: 'Partite' },
 	{ value: 'friends', label: 'Amici' },
 	{ value: 'wishlist', label: 'Wishlist' },
+	{ value: 'achievements', label: 'Traguardi' },
 ]
 
 const UserProfileScreen = () => {
@@ -45,7 +50,9 @@ const UserProfileScreen = () => {
 	const { colors } = useThemeColors();
 
 	const [isActionPending, setIsActionPending] = useState(false);
-	const [tab, setTab] = useState<'matches' | 'friends' | 'wishlist'>('matches');
+	const [tab, setTab] = useState<ProfileTab>('matches');
+
+	const isSelf = id === user?.id;
 
 	const { data: profile, isLoading } = useQuery({
 		queryKey: ['users', 'profile', id],
@@ -55,6 +62,7 @@ const UserProfileScreen = () => {
 	const { data: matchesData, isLoading: isLoadingMatches, fetchNextPage: fetchNextMatches, hasNextPage: hasNextMatches, isFetchingNextPage: isFetchingNextMatches, refetch: refetchMatches } = useUserMatches(id);
 	const { data: friends, isLoading: isLoadingFriends, refetch: refetchFriends } = useUserFriends(id);
 	const { data: wishlistData, isLoading: isLoadingWishlist, fetchNextPage: fetchNextWishlist, hasNextPage: hasNextWishlist, isFetchingNextPage: isFetchingNextWishlist, refetch: refetchWishlist } = useUserDefaultWishlistItems(id);
+	const { data: achievements, isLoading: isLoadingAchievements, refetch: refetchAchievements } = useUserAchievements(id, !isSelf);
 
 	const matches = matchesData?.pages.flatMap(page => page.content) ?? [];
 	const wishlistItems = wishlistData?.pages.flatMap(page => page.content) ?? [];
@@ -63,11 +71,13 @@ const UserProfileScreen = () => {
 	useRefetchOnFocus(['users', 'matches', id]);
 	useRefetchOnFocus(['users', 'friends', id]);
 	useRefetchOnFocus(['users', 'wishlist', id]);
+	useRefetchOnFocus(['achievements', 'user', id]);
 
 	const { refreshing, onRefresh } = usePullToRefresh(
 		tab === 'matches' ? [['users', 'profile', id], ['users', 'matches', id]] :
 		tab === 'friends' ? [['users', 'profile', id], ['users', 'friends', id]] :
-		[['users', 'profile', id], ['users', 'wishlist', id]]
+		tab === 'wishlist' ? [['users', 'profile', id], ['users', 'wishlist', id]] :
+		[['users', 'profile', id], ['achievements', 'user', id]]
 	);
 
 	useEffect(() => {
@@ -77,6 +87,8 @@ const UserProfileScreen = () => {
 			refetchFriends();
 		} else if(tab === 'wishlist') {
 			refetchWishlist();
+		} else if(tab === 'achievements') {
+			refetchAchievements();
 		}
 	}, [tab]);
 
@@ -100,7 +112,7 @@ const UserProfileScreen = () => {
 
 		try {
 			await sendFriendRequest(id);
-			
+
 			invalidateProfile();
 			showToast('Richiesta di amicizia inviata', 'success');
 		} catch(error: any) {
@@ -119,7 +131,7 @@ const UserProfileScreen = () => {
 
 			if(request) {
 				await cancelFriendRequest(request.id);
-				
+
 				invalidateProfile();
 				showToast('Richiesta annullata', 'success');
 			}
@@ -139,7 +151,7 @@ const UserProfileScreen = () => {
 
 			if(request) {
 				await acceptFriendRequest(request.id);
-				
+
 				invalidateProfile();
 				showToast('Richiesta accettata', 'success');
 			}
@@ -164,7 +176,7 @@ const UserProfileScreen = () => {
 
 		try {
 			await removeFriend(id);
-			
+
 			invalidateProfile();
 			showToast('Amico rimosso', 'success');
 		} catch(error: any) {
@@ -210,7 +222,7 @@ const UserProfileScreen = () => {
 			return (
 				<Pressable onPress = { handleCancelRequest } className = 'mt-3 h-11 w-full flex-row items-center justify-center gap-2 rounded-full border border-border active:border-primary/90 active:bg-primary/90 active:scale-[0.98]'>
                     {({ pressed }) => (
-                        <>   
+                        <>
                             <Clock size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
                             <Text className = { `text-sm font-semibold text-muted-foreground ${pressed && 'text-[#FFFFFF]'}` }>Annulla richiesta</Text>
                         </>
@@ -272,12 +284,12 @@ const UserProfileScreen = () => {
 					</View>
 				</View>
 				<View className = 'mb-3'>
-					<SegmentedControl options = { TAB_OPTIONS } selected = { tab } onSelect = { value => setTab(value as 'matches' | 'friends' | 'wishlist') }/>
+					<SegmentedControl options = { isSelf ? TAB_OPTIONS.filter(option => option.value !== 'achievements') : TAB_OPTIONS } selected = { tab } onSelect = { value => setTab(value as ProfileTab) }/>
 				</View>
 				{tab === 'matches' ? (
 					isLoadingMatches ? (
 						<View className = 'flex-1 items-center justify-center py-8'>
-							<ActivityIndicator color = { colors .primary}/>
+							<ActivityIndicator color = { colors.primary }/>
 						</View>
 					) : matches.length > 0 ? (
 						<View className = 'gap-2'>
@@ -314,7 +326,7 @@ const UserProfileScreen = () => {
 					) : (
 						<EmptyState icon = { <Users size = { 32 } color = { colors.primary }/> } title = 'Nessun amico' subtitle = 'Questo utente non ha ancora amici.'/>
 					)
-				) : (
+				) : tab === 'wishlist' ? (
 					isLoadingWishlist ? (
 						<View className = 'flex-1 items-center justify-center py-8'>
 							<ActivityIndicator color = { colors.primary }/>
@@ -347,6 +359,16 @@ const UserProfileScreen = () => {
 						</View>
 					) : (
 						<EmptyState icon = { <Heart size = { 32 } color = { colors.primary }/> } title = 'Wishlist vuota' subtitle = 'Questo utente non ha ancora giochi nella sua wishlist.'/>
+					)
+				) : (
+					isLoadingAchievements ? (
+						<View className = 'flex-1 items-center justify-center py-8'>
+							<ActivityIndicator color = { colors.primary }/>
+						</View>
+					) : achievements ? (
+						<AchievementList achievements = { achievements }/>
+					) : (
+						<EmptyState icon = { <Award size = { 32 } color = { colors.primary }/> } title = 'Traguardi non disponibili' subtitle = 'Impossibile caricare i traguardi di questo utente.'/>
 					)
 				)}
 			</ScrollView>

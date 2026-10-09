@@ -352,7 +352,9 @@ npm test
 
 ## Backlog
 
+- finish matches filters (improve)
 - friend section in create match
 - edit match
 - fix push notifications
 - edit wishlist name
+- improve footer section in Layout for activate and forgot/reset password

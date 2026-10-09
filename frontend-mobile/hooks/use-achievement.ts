@@ -9,10 +9,11 @@ export const useMyAchievements = () => {
 	});
 }
 
-export const useUserAchievements = (userId: string) => {
+export const useUserAchievements = (userId: string, enabled = true) => {
 	return useQuery({
 		queryKey: ['achievements', 'user', userId],
 		queryFn: () => getUserAchievements(userId),
+		enabled,
 	});
 }
 
