@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Configurazione Risorse Always Free A1 Flex
-OCPUs=4
-MEMORY_IN_GBS=24
+OCPUs=2
+MEMORY_IN_GBS=12
 SHAPE="VM.Standard.A1.Flex"
 
 # Compartment ID dalla Tenancy autenticata
