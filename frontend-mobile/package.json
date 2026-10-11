@@ -8,7 +8,10 @@
 		"ios": "expo start -c --ios",
 		"web": "expo start -c --web",
 		"clean": "rm -rf .expo node_modules",
-		"build": "eas build -p android --profile preview --non-interactive",
+		"build": "eas build -p all --profile production",
+		"build:android": "eas build -p android --profile production --non-interactive",
+		"build:ios": "eas build -p ios --profile production",
+		"submit:ios": "eas submit -p ios --latest",
 		"test": "jest --watch",
 		"test:run": "jest",
 		"test:coverage": "jest --coverage"
