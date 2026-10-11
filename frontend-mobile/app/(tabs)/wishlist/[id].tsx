@@ -11,9 +11,9 @@ import BackButton from '@/components/common/back-button';
 import FabMenu from '@/components/common/fab-menu';
 import ComingSoon from '@/components/common/coming-soon';
 import SegmentedControl from '@/components/common/segmented-control';
-import WishlistMemberPickerSheet, { WishlistMemberPickerSheetRef } from '@/components/common/wishlist-member-picker-sheet';
-import WishlistGamePickerSheet, { WishlistGamePickerSheetRef } from '@/components/common/wishlist-game-picker-sheet';
-import RenameWishlistSheet, { RenameWishlistSheetRef } from '@/components/common/rename-wishlist-sheet';
+import WishlistMemberPickerSheet, { WishlistMemberPickerSheetRef } from '@/components/wishlists/wishlist-member-picker-sheet';
+import WishlistGamePickerSheet, { WishlistGamePickerSheetRef } from '@/components/wishlists/wishlist-game-picker-sheet';
+import RenameWishlistSheet, { RenameWishlistSheetRef } from '@/components/wishlists/rename-wishlist-sheet';
 
 import { useWishlist, useWishlistItems, useWishlistMembers, useAddItemToWishlist, useRemoveItemFromWishlist, useAddMemberToWishlist, useRemoveMemberFromWishlist, useDeleteWishlist, useLeaveWishlist, useUpdateWishlist } from '@/hooks/use-wishlist';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';

@@ -8,7 +8,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import AppBottomSheet from '@/components/common/app-bottom-sheet';
 import CreateWishlistSheet, { CreateWishlistSheetRef } from '@/components/common/create-wishlist-sheet';
-import WishlistMiniCard from '@/components/common/wishlist-mini-card';
+import WishlistMiniCard from '@/components/wishlists/wishlist-mini-card';
 
 import { addItemToWishlist, getItemStatusInWishlist, removeItemFromWishlist } from '@/api/wishlist';
 

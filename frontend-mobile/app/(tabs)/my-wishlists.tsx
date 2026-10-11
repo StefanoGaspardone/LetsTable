@@ -8,7 +8,7 @@ import ScreenHeader from '@/components/common/screen-header';
 import BackButton from '@/components/common/back-button';
 import ComingSoon from '@/components/common/coming-soon';
 import SegmentedControl from '@/components/common/segmented-control';
-import WishlistMiniCard from '@/components/common/wishlist-mini-card';
+import WishlistMiniCard from '@/components/wishlists/wishlist-mini-card';
 import FabMenu from '@/components/common/fab-menu';
 import CreateWishlistSheet, { CreateWishlistSheetRef } from '@/components/common/create-wishlist-sheet';
 

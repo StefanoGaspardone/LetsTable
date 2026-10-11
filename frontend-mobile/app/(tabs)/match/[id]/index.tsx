@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import ScreenHeader from '@/components/common/screen-header';
 import BackButton from '@/components/common/back-button';
 import FabMenu from '@/components/common/fab-menu';
-import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/register-match-sheet';
+import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/matches/register-match-sheet';
 import AppBottomSheet from '@/components/common/app-bottom-sheet';
 import MeepleIllustration from '@/components/common/meeple-illustration';
 

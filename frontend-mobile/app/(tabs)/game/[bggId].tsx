@@ -20,10 +20,10 @@ import MeepleIllustration from '@/components/common/meeple-illustration';
 import BackButton from '@/components/common/back-button';
 import FabMenu from '@/components/common/fab-menu';
 import SegmentedControl from '@/components/common/segmented-control';
-import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/register-match-sheet';
-import AddToWishlistSheet, { AddToWishlistSheetRef } from '@/components/common/add-to-wishlist-sheet';
-import GameListItem from '@/components/common/game-list-item';
-import MatchListItem from '@/components/common/match-list-item';
+import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/matches/register-match-sheet';
+import AddToWishlistSheet, { AddToWishlistSheetRef } from '@/components/wishlists/add-to-wishlist-sheet';
+import GameListItem from '@/components/games/game-list-item';
+import MatchListItem from '@/components/matches/match-list-item';
 
 import { getGameByBggId, getGameExpansions } from '@/api/game';
 import { downloadRuleFile, listGameRules, uploadGameRule } from '@/api/game-rules';

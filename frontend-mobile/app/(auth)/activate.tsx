@@ -4,7 +4,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import AuthScreenLayout from '@/components/auth/auth-screen-layout';
-import OtpInput from '@/components/common/otp-input';
+import OtpInput from '@/components/auth/otp-input';
 
 import { useToast } from '@/contexts/toast-context';
 

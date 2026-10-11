@@ -6,8 +6,8 @@ import { Search, List, LayoutGrid, X } from 'lucide-react-native';
 
 import ScreenHeader from '@/components/common/screen-header';
 import BackButton from '@/components/common/back-button';
-import GameListItem from '@/components/common/game-list-item';
-import GameGridItem from '@/components/common/game-grid-item';
+import GameListItem from '@/components/games/game-list-item';
+import GameGridItem from '@/components/games/game-grid-item';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import SegmentedControl from '@/components/common/segmented-control';

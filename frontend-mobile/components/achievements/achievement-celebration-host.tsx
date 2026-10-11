@@ -69,7 +69,7 @@ const AchievementCelebrationHost = () => {
 						</View>
 						<Text className = 'mb-2 text-center font-display text-2xl text-foreground'>{ current.title }</Text>
 						<Text className = 'mb-8 text-center text-sm text-muted-foreground'>{ current.description }</Text>
-						<Pressable onPress = { handleClose } className = 'w-full items-center rounded-2xl bg-primary py-3.5 active:opacity-80'>
+						<Pressable onPress = { handleClose } className = 'w-full items-center rounded-full bg-primary py-3.5 active:opacity-80'>
 							<Text className = 'text-sm font-semibold text-primary-foreground'>{ queue.length > 1 ? `Avanti (altri ${queue.length - 1})` : 'Fantastico!' }</Text>
 						</Pressable>
 					</View>

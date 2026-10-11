@@ -8,10 +8,10 @@ import QuickStatCard from '@/components/home/quick-stat-card';
 import EmptyState from '@/components/common/empty-state';
 import FabMenu from '@/components/common/fab-menu';
 import LatestMatchCard from '@/components/home/latest-match-card';
-import WishlistMiniCard from '@/components/common/wishlist-mini-card';
-import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/common/register-match-sheet';
+import WishlistMiniCard from '@/components/wishlists/wishlist-mini-card';
+import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/matches/register-match-sheet';
 import WinRateCard from '@/components/home/win-rate-card';
-import MatchListItem from '@/components/common/match-list-item';
+import MatchListItem from '@/components/matches/match-list-item';
 
 import { useHomeStats } from '@/hooks/use-stat';
 import { useMatches } from '@/hooks/use-match';

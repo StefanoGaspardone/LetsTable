@@ -9,7 +9,7 @@ import { Trophy, Dices, Gamepad2, UserPlus, UserCheck, Clock, UserX, Users, Hear
 import { Text } from '@/components/ui/text';
 import ScreenHeader from '@/components/common/screen-header';
 import BackButton from '@/components/common/back-button';
-import MatchListItem from '@/components/common/match-list-item';
+import MatchListItem from '@/components/matches/match-list-item';
 import EmptyState from '@/components/common/empty-state';
 import SegmentedControl from '@/components/common/segmented-control';
 import AchievementList from '@/components/achievements/achievement-list';

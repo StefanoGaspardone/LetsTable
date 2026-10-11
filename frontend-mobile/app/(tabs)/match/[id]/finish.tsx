@@ -239,11 +239,11 @@ const FinishMatchScreen = () => {
 				<Text className = 'mb-1.5 mt-6 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
 					Durata (opzionale)
 				</Text>
-				<TextInput value = { durationMinutes } onChangeText = { setDurationMinutes } placeholder = 'Lascia vuoto per calcolarla automaticamente' keyboardType = 'numeric' className = 'h-11 rounded-xl border border-border bg-secondary px-3 text-sm text-foreground'/>
+				<TextInput value = { durationMinutes } onChangeText = { setDurationMinutes } placeholderTextColor = { colors.mutedForeground } placeholder = 'Lascia vuoto per calcolarla automaticamente' keyboardType = 'numeric' className = 'h-11 rounded-xl border border-border bg-secondary px-3 text-sm text-foreground'/>
 				<Text className = 'mb-1.5 mt-6 text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
 					Note (opzionale)
 				</Text>
-				<TextInput value = { notes } onChangeText = { setNotes } placeholder = "Com'è andata? Dettagli sulla partita..." multiline numberOfLines = { 4 } textAlignVertical = 'top' className = 'min-h-[100px] rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-foreground'/>
+				<TextInput value = { notes } onChangeText = { setNotes } placeholderTextColor = { colors.mutedForeground } placeholder = "Com'è andata? Dettagli sulla partita..." multiline numberOfLines = { 4 } textAlignVertical = 'top' className = 'min-h-[100px] rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm text-foreground'/>
 				<Button className = 'mt-6 h-12 rounded-full active:scale-[0.98]' disabled = { isSubmitting || !isValid } onPress = { handleSubmit }>
 					{isSubmitting ? (
 						<ActivityIndicator color = '#FFFFFF'/>

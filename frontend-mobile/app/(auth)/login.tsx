@@ -7,7 +7,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import AuthScreenLayout from '@/components/auth/auth-screen-layout';
 import AuthField from '@/components/auth/auth-field';
-import PasswordInput from '@/components/common/password-input';
+import PasswordInput from '@/components/auth/password-input';
 
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';

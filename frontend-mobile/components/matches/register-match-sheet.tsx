@@ -10,9 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppBottomSheet from '@/components/common/app-bottom-sheet';
 import DatePickerField from '@/components/common/date-picker-field';
-import GamePickerSheet, { GamePickerSheetRef, PickedGame } from '@/components/common/game-picker-sheet';
+import GamePickerSheet, { GamePickerSheetRef, PickedGame } from '@/components/games/game-picker-sheet';
 import SegmentedControl from '@/components/common/segmented-control';
-import PlayerIdentityPickerSheet, { PickedIdentity, PlayerIdentityPickerSheetRef } from '@/components/common/player-identity-picker-sheet';
+import PlayerIdentityPickerSheet, { PickedIdentity, PlayerIdentityPickerSheetRef } from '@/components/matches/player-identity-picker-sheet';
 import ColorSwatchPicker from '@/components/common/color-swatch-picker';
 import ExpansionPickerSheet, { ExpansionPickerSheetRef, PickedExpansion } from '@/components/common/expansion-picker-sheet';
 import SpinWheel from '@/components/common/spin-wheel';
@@ -338,7 +338,7 @@ const RegisterMatchSheet = forwardRef<RegisterMatchSheetRef>((_, ref) => {
 	return (
         <>
             <AppBottomSheet ref = { sheetRef }>
-                <BottomSheetScrollView contentContainerStyle = {{ padding: 16, paddingBottom: 32 }}>
+                <BottomSheetScrollView contentContainerStyle = {{ padding: 16, paddingBottom: 96 }}>
                     <Text className = 'mb-4 font-display text-xl text-foreground'>Nuova Partita</Text>
                     {presetGame ? (
                         <Pressable onPress = { handleOpenGamePicker } className = 'mb-4 flex-row items-center gap-3 rounded-2xl border border-border bg-secondary p-2 active:bg-card active:scale-[0.98]'>

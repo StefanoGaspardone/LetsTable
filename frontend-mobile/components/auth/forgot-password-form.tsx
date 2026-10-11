@@ -6,8 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import AuthField from '@/components/auth/auth-field';
-import PasswordInput from '@/components/common/password-input';
-import OtpInput from '@/components/common/otp-input';
+import PasswordInput from '@/components/auth/password-input';
+import OtpInput from '@/components/auth/otp-input';
 
 import { useToast } from '@/contexts/toast-context';
 
