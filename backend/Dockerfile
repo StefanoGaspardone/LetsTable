@@ -8,6 +8,7 @@ COPY gradle gradle
 COPY build.gradle.kts settings.gradle.kts ./
 
 RUN chmod +x ./gradlew
+
 RUN ./gradlew dependencies --no-daemon || true
 
 COPY src src
@@ -29,6 +30,6 @@ USER spring
 EXPOSE 8080
 
 ENV SPRING_PROFILES_ACTIVE=prod
-ENV JAVA_OPTS="-Xmx256m -Xms256m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC -XX:+UseStringDeduplication"
+ENV JAVA_OPTS=""
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
