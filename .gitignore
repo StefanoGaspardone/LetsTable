@@ -4,6 +4,7 @@
 **/target/
 **/android/
 **/ios/
+backend/bin/
 
 # Gradle
 .gradle/
@@ -32,6 +33,8 @@ logs/
 # Environment and secrets (keep templates tracked)
 .env
 .env.local
+env.*.yml
+env.*.yaml
 *.properties
 !**/gradle/wrapper/gradle-wrapper.properties
 !**/sonar-project.properties

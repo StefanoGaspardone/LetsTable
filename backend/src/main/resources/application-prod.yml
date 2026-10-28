@@ -21,3 +21,6 @@ logging:
 
 mail:
   enabled: ${MAIL_ENABLED:true}
+
+server:
+  forward-headers-strategy: framework

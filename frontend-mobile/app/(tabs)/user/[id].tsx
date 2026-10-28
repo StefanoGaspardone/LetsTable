@@ -251,7 +251,7 @@ const UserProfileScreen = () => {
 	return (
 		<View className = 'flex-1 bg-background'>
 			<ScreenHeader title = 'Profilo' leftElement = { <BackButton/> }/>
-			<ScrollView contentContainerStyle = {{ paddingBottom: 40, flexGrow: 1 }} className = 'flex-1 px-4 pt-2' refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.mutedForeground }/> }>
+			<ScrollView contentContainerStyle = {{ paddingBottom: 40, flexGrow: 1 }} className = 'flex-1 px-4 pt-2' refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.card }/> }>
 				<View className = 'items-center justify-center pb-4'>
 					<View className = 'h-28 w-28 items-center justify-center overflow-hidden rounded-full border-2 border-border/50 bg-secondary shadow-sm'>
 						<Image source = {{ uri: getAvatarUrl(profile.user.avatarId, profile.user.username) }} style = {{ width: 112, height: 112 }} contentFit = 'cover'/>

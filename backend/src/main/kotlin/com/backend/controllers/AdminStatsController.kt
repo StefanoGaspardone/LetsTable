@@ -1,9 +1,11 @@
 package com.backend.controllers
 
+import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.AdminStatsDTO
 import com.backend.services.AdminStatsService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
@@ -28,6 +30,30 @@ class AdminStatsController(
             ApiResponse(
                 responseCode = "200", description = "Ok - Aggregated statistics",
                 content = [Content(schema = Schema(implementation = AdminStatsDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "401", description = "Unauthorized - Missing or invalid access token",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "UnauthorizedExample",
+                        summary = "Authentication required example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "403", description = "Forbidden - User is not an admin",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "ForbiddenExample",
+                        summary = "Access denied example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access denied\"}"
+                    )]
+                )]
             ),
         ]
     )

@@ -1,1 +1,0 @@
-ALTER TABLE games RENAME COLUMN expansion_bgg_ids TO expansion_refs;

@@ -7,6 +7,7 @@ import com.backend.models.enums.UserRole
 import com.backend.security.CurrentUser
 import com.backend.services.AdminUserService
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
@@ -14,6 +15,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
@@ -32,18 +34,61 @@ class AdminUserController(
         value = [
             ApiResponse(
                 responseCode = "200", description = "Ok - Paginated list of users",
-                content = [Content(schema = Schema(implementation = AdminUserDTO::class))]
+                content = [Content(schema = Schema(implementation = PageDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Invalid sort field or filter value",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [
+                        ExampleObject(
+                            name = "InvalidSortExample",
+                            summary = "Invalid sort field example",
+                            value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid sort field: email\"}"
+                        ),
+                        ExampleObject(
+                            name = "InvalidFilterExample",
+                            summary = "Invalid enum filter example",
+                            value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid value for parameter 'status'\"}"
+                        ),
+                    ]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "401", description = "Unauthorized - Missing or invalid access token",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "UnauthorizedExample",
+                        summary = "Authentication required example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "403", description = "Forbidden - User is not an admin",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "ForbiddenExample",
+                        summary = "Access denied example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access denied\"}"
+                    )]
+                )]
             ),
         ]
     )
     @GetMapping
     fun listUsers(
-        @RequestParam(required = false) role: UserRole?,
-        @RequestParam(required = false) status: AccountStatus?,
-        @RequestParam(required = false) search: String?,
-        @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "20") size: Int,
-        @RequestParam(required = false) sort: String?,
+        @Parameter(description = "Filter by user role") @RequestParam(required = false) role: UserRole?,
+        @Parameter(description = "Filter by account status") @RequestParam(required = false) status: AccountStatus?,
+        @Parameter(description = "Search by username or email") @RequestParam(required = false) search: String?,
+        @Parameter(description = "Page number (0-indexed)") @RequestParam(defaultValue = "0") page: Int,
+        @Parameter(description = "Page size (1-100)") @RequestParam(defaultValue = "20") size: Int,
+        @Parameter(description = "Sort field and direction, e.g. 'username-asc', 'createdAt-desc'") @RequestParam(required = false) sort: String?,
     ): ResponseEntity<PageDTO<AdminUserDTO>> =
         ResponseEntity.ok(adminUserService.listUsers(role, status, search, page, size, sort))
 
@@ -53,6 +98,42 @@ class AdminUserController(
             ApiResponse(
                 responseCode = "200", description = "Ok - User detail",
                 content = [Content(schema = Schema(implementation = AdminUserDetailDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Invalid user id",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "InvalidIdExample",
+                        summary = "Invalid path parameter example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid value for parameter 'userId'\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "401", description = "Unauthorized - Missing or invalid access token",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "UnauthorizedExample",
+                        summary = "Authentication required example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "403", description = "Forbidden - User is not an admin",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "ForbiddenExample",
+                        summary = "Access denied example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access denied\"}"
+                    )]
+                )]
             ),
             ApiResponse(
                 responseCode = "404", description = "Not Found - User does not exist",
@@ -69,7 +150,9 @@ class AdminUserController(
         ]
     )
     @GetMapping("/{userId}")
-    fun getUserDetail(@PathVariable userId: UUID): ResponseEntity<AdminUserDetailDTO> =
+    fun getUserDetail(
+        @Parameter(description = "ID of the user") @PathVariable userId: UUID,
+    ): ResponseEntity<AdminUserDetailDTO> =
         ResponseEntity.ok(adminUserService.getUserDetail(userId))
 
     @Operation(summary = "Suspend a user", description = "Suspends an active user's account. Admins cannot suspend their own account.")
@@ -78,6 +161,49 @@ class AdminUserController(
             ApiResponse(
                 responseCode = "200", description = "Ok - User suspended",
                 content = [Content(schema = Schema(implementation = AdminUserDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Cannot suspend own account, or invalid user id",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [
+                        ExampleObject(
+                            name = "CannotSuspendSelfExample",
+                            summary = "Attempted to suspend own account",
+                            value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"You cannot suspend your own account\"}"
+                        ),
+                        ExampleObject(
+                            name = "InvalidIdExample",
+                            summary = "Invalid path parameter example",
+                            value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid value for parameter 'userId'\"}"
+                        ),
+                    ]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "401", description = "Unauthorized - Missing or invalid access token",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "UnauthorizedExample",
+                        summary = "Authentication required example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "403", description = "Forbidden - User is not an admin",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "ForbiddenExample",
+                        summary = "Access denied example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access denied\"}"
+                    )]
+                )]
             ),
             ApiResponse(
                 responseCode = "404", description = "Not Found - User does not exist",
@@ -92,28 +218,23 @@ class AdminUserController(
                 )]
             ),
             ApiResponse(
-                responseCode = "409", description = "Conflict - Cannot suspend own account, or account is not active",
+                responseCode = "409", description = "Conflict - Account is not currently active",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
-                    examples = [
-                        ExampleObject(
-                            name = "CannotSuspendSelfExample",
-                            summary = "Attempted to suspend own account",
-                            value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"You cannot suspend your own account\"}"
-                        ),
-                        ExampleObject(
-                            name = "InvalidTransitionExample",
-                            summary = "Account is not currently active",
-                            value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"Only active accounts can be suspended\"}"
-                        ),
-                    ]
+                    examples = [ExampleObject(
+                        name = "InvalidTransitionExample",
+                        summary = "Account is not active",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"Only active accounts can be suspended\"}"
+                    )]
                 )]
             ),
         ]
     )
     @PatchMapping("/{userId}/suspend")
-    fun suspendUser(@PathVariable userId: UUID): ResponseEntity<AdminUserDTO> =
+    fun suspendUser(
+        @Parameter(description = "ID of the user to suspend") @PathVariable userId: UUID,
+    ): ResponseEntity<AdminUserDTO> =
         ResponseEntity.ok(adminUserService.suspendUser(CurrentUser.id(), userId))
 
     @Operation(summary = "Reactivate a user", description = "Reactivates a suspended user's account.")
@@ -122,6 +243,42 @@ class AdminUserController(
             ApiResponse(
                 responseCode = "200", description = "Ok - User reactivated",
                 content = [Content(schema = Schema(implementation = AdminUserDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Invalid user id",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "InvalidIdExample",
+                        summary = "Invalid path parameter example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid value for parameter 'userId'\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "401", description = "Unauthorized - Missing or invalid access token",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "UnauthorizedExample",
+                        summary = "Authentication required example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "403", description = "Forbidden - User is not an admin",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "ForbiddenExample",
+                        summary = "Access denied example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access denied\"}"
+                    )]
+                )]
             ),
             ApiResponse(
                 responseCode = "404", description = "Not Found - User does not exist",
@@ -150,7 +307,9 @@ class AdminUserController(
         ]
     )
     @PatchMapping("/{userId}/reactivate")
-    fun reactivateUser(@PathVariable userId: UUID): ResponseEntity<AdminUserDTO> =
+    fun reactivateUser(
+        @Parameter(description = "ID of the user to reactivate") @PathVariable userId: UUID,
+    ): ResponseEntity<AdminUserDTO> =
         ResponseEntity.ok(adminUserService.reactivateUser(userId))
 
     @Operation(summary = "Create an admin account", description = "Creates a new administrator account, active immediately (no email verification required).")
@@ -161,14 +320,45 @@ class AdminUserController(
                 content = [Content(schema = Schema(implementation = AdminUserDTO::class))]
             ),
             ApiResponse(
-                responseCode = "400", description = "Bad Request - Invalid request data",
+                responseCode = "400", description = "Bad Request - Invalid or malformed request data",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [
+                        ExampleObject(
+                            name = "InvalidDataExample",
+                            summary = "Validation error example",
+                            value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"email: must be a well-formed email address\"}"
+                        ),
+                        ExampleObject(
+                            name = "MalformedBodyExample",
+                            summary = "Malformed JSON example",
+                            value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Malformed request body\"}"
+                        ),
+                    ]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "401", description = "Unauthorized - Missing or invalid access token",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
                     examples = [ExampleObject(
-                        name = "InvalidDataExample",
-                        summary = "Validation error example",
-                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid request data\"}"
+                        name = "UnauthorizedExample",
+                        summary = "Authentication required example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "403", description = "Forbidden - User is not an admin",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "ForbiddenExample",
+                        summary = "Access denied example",
+                        value = "{\"timestamp\":\"2026-09-12T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access denied\"}"
                     )]
                 )]
             ),
@@ -195,5 +385,5 @@ class AdminUserController(
     )
     @PostMapping("/admin")
     fun createAdmin(@Valid @RequestBody request: CreateAdminRequest): ResponseEntity<AdminUserDTO> =
-        ResponseEntity.status(201).body(adminUserService.createAdmin(request))
+        ResponseEntity.status(HttpStatus.CREATED).body(adminUserService.createAdmin(request))
 }

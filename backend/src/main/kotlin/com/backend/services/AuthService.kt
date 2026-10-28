@@ -22,7 +22,6 @@ import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.*
-import kotlin.random.Random
 
 @Service
 class AuthService(
@@ -105,9 +104,9 @@ class AuthService(
         logger.debug("\n\t[DEBUG] [auth_service][activate_account] Activating account for identifier {}", request.identifier)
 
         try {
-            val user = findByIdentifier(request.identifier)
+            val user = findByIdentifierOrNull(request.identifier) ?: throw EmailVerificationNotFoundException()
             val verification = emailVerificationRepository.findByUserId(user.id!!)
-                .orElseThrow { EmailVerificationNotFoundException(user.id!!) }
+                .orElseThrow { EmailVerificationNotFoundException() }
 
             if(verification.isExpired()) {
                 throw OtpExpiredException()
@@ -149,10 +148,11 @@ class AuthService(
     @Transactional
     fun resendActivationOtp(request: ResendOtpRequest) {
         logger.debug("\n\t[DEBUG] [auth_service][resend_activation_otp] Resending activation OTP for identifier {}", request.identifier)
+
         try {
-            val user = findByIdentifier(request.identifier)
+            val user = findByIdentifierOrNull(request.identifier) ?: throw EmailVerificationNotFoundException()
             val verification = emailVerificationRepository.findByUserId(user.id!!)
-                .orElseThrow { EmailVerificationNotFoundException(user.id!!) }
+                .orElseThrow { EmailVerificationNotFoundException() }
 
             val secondsSinceLastSent = Duration.between(verification.lastSentAt, Instant.now()).seconds
             if(secondsSinceLastSent < resendCooldownSeconds) {
@@ -341,9 +341,9 @@ class AuthService(
         logger.debug("\n\t[DEBUG] [auth_service][reset_password] Completing password reset for identifier {}", request.identifier)
 
         try {
-            val user = findByIdentifier(request.identifier)
+            val user = findByIdentifierOrNull(request.identifier) ?: throw PasswordResetNotFoundException()
             val reset = passwordResetRepository.findByUserId(user.id!!)
-                .orElseThrow { PasswordResetNotFoundException(user.id!!) }
+                .orElseThrow { PasswordResetNotFoundException() }
 
             if(reset.isExpired()) {
                 throw OtpExpiredException()
@@ -401,9 +401,6 @@ class AuthService(
         )
     }
 
-    private fun findByIdentifier(identifier: String): User =
-        findByIdentifierOrNull(identifier) ?: throw UserNotFoundByIdentifierException(identifier)
-
     private fun findByIdentifierOrNull(identifier: String): User? {
         val normalized = identifier.trim().lowercase()
         val result = if(normalized.contains("@")) {
@@ -415,7 +412,8 @@ class AuthService(
         return result.orElse(null)
     }
 
-    private fun generateOtp(): String = Random.nextInt(100000, 1000000).toString()
+    private fun generateOtp(): String =
+        secureRandom.nextInt(100000, 1000000).toString()
 
     private fun generateOpaqueToken(): String {
         val bytes = ByteArray(32)

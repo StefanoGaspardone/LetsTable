@@ -8,6 +8,7 @@ import com.backend.exceptions.FriendshipNotFoundException
 import com.backend.exceptions.NotFriendRequestReceiverException
 import com.backend.exceptions.NotFriendRequestSenderException
 import com.backend.exceptions.UserNotFoundByIdentifierException
+import com.backend.exceptions.UserNotFoundException
 import com.backend.models.dtos.FriendRequestDTO
 import com.backend.models.dtos.SendFriendRequestRequest
 import com.backend.models.dtos.UserDTO
@@ -42,9 +43,9 @@ class FriendService(
             }
 
             val sender = userRepository.findById(senderId)
-                .orElseThrow { UserNotFoundByIdentifierException(senderId.toString()) }
+                .orElseThrow { UserNotFoundException(senderId) }
             val receiver = userRepository.findById(request.receiverId)
-                .orElseThrow { UserNotFoundByIdentifierException(request.receiverId.toString()) }
+                .orElseThrow { UserNotFoundException(request.receiverId) }
 
             friendRequestRepository.findFriendshipBetween(senderId, request.receiverId).ifPresent {
                 throw AlreadyFriendsException(request.receiverId)
@@ -94,7 +95,7 @@ class FriendService(
         } catch(e: FriendRequestAlreadyExistsException) {
             logger.warn("\n\t[WARN] [friend_service][send_request] Duplicate request from {} to {}", senderId, request.receiverId)
             throw e
-        } catch(e: UserNotFoundByIdentifierException) {
+        } catch(e: UserNotFoundException) {
             logger.warn("\n\t[WARN] [friend_service][send_request] User not found while sending request from {} to {}", senderId, request.receiverId)
             throw e
         } catch(e: Exception) {
@@ -109,6 +110,7 @@ class FriendService(
 
         try {
             val request = friendRequestRepository.findById(requestId)
+                .filter { it.status == FriendRequestStatus.PENDING }
                 .orElseThrow { FriendRequestNotFoundException(requestId) }
 
             if(request.receiver.id != currentUserId) {
@@ -147,6 +149,7 @@ class FriendService(
 
         try {
             val request = friendRequestRepository.findById(requestId)
+                .filter { it.status == FriendRequestStatus.PENDING }
                 .orElseThrow { FriendRequestNotFoundException(requestId) }
 
             if (request.receiver.id != currentUserId) {
@@ -174,6 +177,7 @@ class FriendService(
 
         try {
             val request = friendRequestRepository.findById(requestId)
+                .filter { it.status == FriendRequestStatus.PENDING }
                 .orElseThrow { FriendRequestNotFoundException(requestId) }
 
             if(request.sender.id != currentUserId) {

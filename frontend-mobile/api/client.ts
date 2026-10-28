@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 
 import { tokenStorage } from '@/lib/token-storage';
 
-export const API_URL =  process.env.EXPO_PUBLIC_API_URL ?? 'https://letstable.onrender.com/api/v1';
+export const API_URL =  process.env.EXPO_PUBLIC_API_URL ?? 'https://letstable-backend-1040192390713.europe-west1.run.app/api/v1';
 
 export const apiClient = axios.create({
 	baseURL: API_URL,

@@ -1,6 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
-export const BASE_URL = `${import.meta.env.VITE_SERVER_URL || 'https://letstable.onrender.com'}/api/v1`;
+export const BASE_URL = `${import.meta.env.VITE_SERVER_URL || 'https://letstable-backend-1040192390713.europe-west1.run.app'}/api/v1`;
 
 const axiosInstance = axios.create({
 	baseURL: BASE_URL,

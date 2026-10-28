@@ -42,15 +42,22 @@ class AuthController(
                 content = [Content(schema = Schema(implementation = SignupResponse::class))]
             ),
             ApiResponse(
-                responseCode = "400", description = "Bad Request - Invalid signup data",
+                responseCode = "400", description = "Bad Request - Invalid or malformed signup data",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
-                    examples = [ExampleObject(
-                        name = "InvalidDataExample",
-                        summary = "Validation error example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid request data\"}"
-                    )]
+                    examples = [
+                        ExampleObject(
+                            name = "InvalidDataExample",
+                            summary = "Validation error example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"email: must be a well-formed email address\"}"
+                        ),
+                        ExampleObject(
+                            name = "MalformedBodyExample",
+                            summary = "Malformed JSON example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Malformed request body\"}"
+                        ),
+                    ]
                 )]
             ),
             ApiResponse(
@@ -58,11 +65,18 @@ class AuthController(
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
-                    examples = [ExampleObject(
-                        name = "ConflictExample",
-                        summary = "Email already taken example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"Email already taken: mario.rossi@example.com\"}"
-                    )]
+                    examples = [
+                        ExampleObject(
+                            name = "EmailTakenExample",
+                            summary = "Email already taken example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"Email already taken: mario.rossi@example.com\"}"
+                        ),
+                        ExampleObject(
+                            name = "UsernameTakenExample",
+                            summary = "Username already taken example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"Username already taken: mariorossi\"}"
+                        ),
+                    ]
                 )]
             ),
         ]
@@ -79,30 +93,38 @@ class AuthController(
                 content = [Content(schema = Schema(hidden = true))]
             ),
             ApiResponse(
-                responseCode = "400", description = "Bad Request - OTP is invalid or expired",
+                responseCode = "400", description = "Bad Request - OTP is invalid or expired, or request data is invalid",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
-                    examples = [ExampleObject(
-                        name = "InvalidOtpExample",
-                        summary = "Invalid OTP example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid OTP code\"}"
-                    ), ExampleObject(
-                        name = "ExpiredOtpExample",
-                        summary = "Expired OTP example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"OTP code expired\"}"
-                    )]
+                    examples = [
+                        ExampleObject(
+                            name = "InvalidOtpExample",
+                            summary = "Invalid OTP example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid OTP code\"}"
+                        ),
+                        ExampleObject(
+                            name = "ExpiredOtpExample",
+                            summary = "Expired OTP example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"OTP code expired\"}"
+                        ),
+                        ExampleObject(
+                            name = "InvalidDataExample",
+                            summary = "Validation error example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"otpCode: must not be blank\"}"
+                        ),
+                    ]
                 )]
             ),
             ApiResponse(
-                responseCode = "404", description = "Not Found - No pending verification for this account",
+                responseCode = "404", description = "Not Found - No pending verification for this identifier",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
                     examples = [ExampleObject(
                         name = "NotFoundExample",
                         summary = "No pending verification example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Email verification not found for user: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"No pending email verification\"}"
                     )]
                 )]
             ),
@@ -134,14 +156,26 @@ class AuthController(
                 content = [Content(schema = Schema(hidden = true))]
             ),
             ApiResponse(
-                responseCode = "404", description = "Not Found - No pending verification for this account",
+                responseCode = "400", description = "Bad Request - Invalid request data",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "InvalidDataExample",
+                        summary = "Validation error example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"identifier: must not be blank\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "404", description = "Not Found - No pending verification for this identifier",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
                     examples = [ExampleObject(
                         name = "NotFoundExample",
                         summary = "No pending verification example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Email verification not found for user: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"No pending email verification\"}"
                     )]
                 )]
             ),
@@ -173,6 +207,18 @@ class AuthController(
                 content = [Content(schema = Schema(implementation = AuthResponse::class))]
             ),
             ApiResponse(
+                responseCode = "400", description = "Bad Request - Invalid request data",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "InvalidDataExample",
+                        summary = "Validation error example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"password: must not be blank\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
                 responseCode = "401", description = "Unauthorized - Invalid credentials",
                 content = [Content(
                     mediaType = "application/json",
@@ -185,7 +231,7 @@ class AuthController(
                 )]
             ),
             ApiResponse(
-                responseCode = "403", description = "Forbidden - Account is not activated",
+                responseCode = "403", description = "Forbidden - Account is not active (not yet activated or suspended)",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
@@ -210,19 +256,38 @@ class AuthController(
                 content = [Content(schema = Schema(implementation = RefreshResponse::class))]
             ),
             ApiResponse(
-                responseCode = "400", description = "Bad Request - Refresh token is invalid, expired or revoked",
+                responseCode = "400", description = "Bad Request - Invalid request data",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
                     examples = [ExampleObject(
-                        name = "InvalidRefreshTokenExample",
-                        summary = "Invalid refresh token example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Refresh token expired or revoked\"}"
+                        name = "InvalidDataExample",
+                        summary = "Validation error example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"refreshToken: must not be blank\"}"
                     )]
                 )]
             ),
             ApiResponse(
-                responseCode = "403", description = "Forbidden - Account is not activated",
+                responseCode = "401", description = "Unauthorized - Refresh token is unknown, expired or revoked",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [
+                        ExampleObject(
+                            name = "RefreshTokenNotFoundExample",
+                            summary = "Unknown refresh token example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Refresh token not found\"}"
+                        ),
+                        ExampleObject(
+                            name = "RefreshTokenExpiredExample",
+                            summary = "Expired or revoked refresh token example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Refresh token expired or revoked\"}"
+                        ),
+                    ]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "403", description = "Forbidden - Account is not active (not yet activated or suspended)",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
@@ -239,12 +304,24 @@ class AuthController(
     fun refresh(@Valid @RequestBody request: RefreshTokenRequest): ResponseEntity<RefreshResponse> =
         ResponseEntity.ok(authService.refresh(request.refreshToken))
 
-    @Operation(summary = "Logout", description = "Revoke the given refresh token.")
+    @Operation(summary = "Logout", description = "Revoke the given refresh token. Always succeeds, even if the token is unknown.")
     @ApiResponses(
         value = [
             ApiResponse(
                 responseCode = "204", description = "No Content - Successfully logged out",
                 content = [Content(schema = Schema(hidden = true))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Invalid request data",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "InvalidDataExample",
+                        summary = "Validation error example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"refreshToken: must not be blank\"}"
+                    )]
+                )]
             ),
         ]
     )
@@ -260,6 +337,18 @@ class AuthController(
             ApiResponse(
                 responseCode = "204", description = "No Content - If an account exists, a reset code has been sent",
                 content = [Content(schema = Schema(hidden = true))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Invalid request data",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "InvalidDataExample",
+                        summary = "Validation error example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"identifier: must not be blank\"}"
+                    )]
+                )]
             ),
             ApiResponse(
                 responseCode = "429", description = "Too Many Requests - Resend cooldown still active",
@@ -289,26 +378,38 @@ class AuthController(
                 content = [Content(schema = Schema(hidden = true))]
             ),
             ApiResponse(
-                responseCode = "400", description = "Bad Request - OTP is invalid or expired",
+                responseCode = "400", description = "Bad Request - OTP is invalid or expired, or request data is invalid",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
-                    examples = [ExampleObject(
-                        name = "InvalidOtpExample",
-                        summary = "Invalid OTP example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid OTP code\"}"
-                    )]
+                    examples = [
+                        ExampleObject(
+                            name = "InvalidOtpExample",
+                            summary = "Invalid OTP example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid OTP code\"}"
+                        ),
+                        ExampleObject(
+                            name = "ExpiredOtpExample",
+                            summary = "Expired OTP example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"OTP code expired\"}"
+                        ),
+                        ExampleObject(
+                            name = "InvalidDataExample",
+                            summary = "Validation error example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"newPassword: size must be between 8 and 100\"}"
+                        ),
+                    ]
                 )]
             ),
             ApiResponse(
-                responseCode = "404", description = "Not Found - No pending reset for this account",
+                responseCode = "404", description = "Not Found - No pending reset for this identifier",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
                     examples = [ExampleObject(
                         name = "NotFoundExample",
                         summary = "No pending reset example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Password reset not found for user: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"No pending password reset\"}"
                     )]
                 )]
             ),

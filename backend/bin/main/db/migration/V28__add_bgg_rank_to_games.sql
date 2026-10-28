@@ -1,1 +1,0 @@
-ALTER TABLE games ADD COLUMN bgg_rank INTEGER NULL;

@@ -47,6 +47,7 @@ class SecurityConfig(
                     .requestMatchers("/api/v1/auth/**").permitAll()
                     .requestMatchers("/api/v1/health").permitAll()
                     .requestMatchers("/api/v1/avatars/**").permitAll()
+                    .requestMatchers("/api/v1/internal/jobs/**").permitAll()
                     .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                     .anyRequest().authenticated()
             }

@@ -8,6 +8,7 @@ import com.backend.models.dtos.PageDTO
 import com.backend.security.CurrentUser
 import com.backend.services.CollectionService
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
@@ -35,6 +36,49 @@ class CollectionController(
             ApiResponse(
                 responseCode = "201", description = "Created - Game added to collection",
                 content = [Content(schema = Schema(implementation = CollectionItemDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Invalid or malformed request data",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [
+                        ExampleObject(
+                            name = "InvalidDataExample",
+                            summary = "Validation error example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"gameId: must not be null\"}"
+                        ),
+                        ExampleObject(
+                            name = "MalformedBodyExample",
+                            summary = "Malformed JSON example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Malformed request body\"}"
+                        ),
+                    ]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "401", description = "Unauthorized - Missing or invalid access token",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "UnauthorizedExample",
+                        summary = "Authentication required example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "403", description = "Forbidden - User does not have the USER role",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "ForbiddenExample",
+                        summary = "Access denied example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access denied\"}"
+                    )]
+                )]
             ),
             ApiResponse(
                 responseCode = "404", description = "Not Found - Game does not exist",
@@ -74,15 +118,46 @@ class CollectionController(
                 content = [Content(schema = Schema(hidden = true))]
             ),
             ApiResponse(
-                responseCode = "403", description = "Forbidden - You do not own this collection item",
+                responseCode = "400", description = "Bad Request - Invalid collection item id",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
                     examples = [ExampleObject(
-                        name = "NotOwnerExample",
-                        summary = "Not the owner example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"You do not own this collection item\"}"
+                        name = "InvalidIdExample",
+                        summary = "Invalid path parameter example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid value for parameter 'itemId'\"}"
                     )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "401", description = "Unauthorized - Missing or invalid access token",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "UnauthorizedExample",
+                        summary = "Authentication required example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "403", description = "Forbidden - You do not own this collection item, or user does not have the USER role",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [
+                        ExampleObject(
+                            name = "NotOwnerExample",
+                            summary = "Not the owner example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"You do not own this collection item\"}"
+                        ),
+                        ExampleObject(
+                            name = "ForbiddenExample",
+                            summary = "Access denied example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access denied\"}"
+                        ),
+                    ]
                 )]
             ),
             ApiResponse(
@@ -100,23 +175,75 @@ class CollectionController(
         ]
     )
     @DeleteMapping("/{itemId}")
-    fun removeFromCollection(@PathVariable itemId: UUID): ResponseEntity<Unit> {
+    fun removeFromCollection(
+        @Parameter(description = "ID of the collection item") @PathVariable itemId: UUID,
+    ): ResponseEntity<Unit> {
         collectionService.removeFromCollection(CurrentUser.id(), itemId)
         return ResponseEntity.noContent().build()
     }
 
-    @Operation(summary = "List collection", description = "List all games in the current user's collection.")
+    @Operation(summary = "List collection", description = "List the games in the current user's collection, with optional filters by name, played status and expansion, and sorting.")
     @ApiResponses(
         value = [
             ApiResponse(
-                responseCode = "200", description = "Ok - List of owned games",
-                content = [Content(schema = Schema(implementation = CollectionItemDTO::class))]
+                responseCode = "200", description = "Ok - Paginated list of owned games",
+                content = [Content(schema = Schema(implementation = PageDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Invalid sort field or query parameter",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [
+                        ExampleObject(
+                            name = "InvalidSortExample",
+                            summary = "Invalid sort field example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid sort field: rating\"}"
+                        ),
+                        ExampleObject(
+                            name = "InvalidParameterExample",
+                            summary = "Invalid query parameter example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid value for parameter 'played'\"}"
+                        ),
+                    ]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "401", description = "Unauthorized - Missing or invalid access token",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "UnauthorizedExample",
+                        summary = "Authentication required example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "403", description = "Forbidden - User does not have the USER role",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "ForbiddenExample",
+                        summary = "Access denied example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access denied\"}"
+                    )]
+                )]
             ),
         ]
     )
     @GetMapping
-    fun listCollection(@RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int, @RequestParam(required = false) gameName: String?, @RequestParam(required = false) played: Boolean?, @RequestParam(required = false) isExpansion: Boolean?, @RequestParam(required = false) sort: String?): PageDTO<CollectionItemDTO> =
-        collectionService.listCollection(CurrentUser.id(), page, size, gameName, played, isExpansion, sort)
+    fun listCollection(
+        @Parameter(description = "Page number (0-indexed)") @RequestParam(defaultValue = "0") page: Int,
+        @Parameter(description = "Page size (1-100)") @RequestParam(defaultValue = "20") size: Int,
+        @Parameter(description = "Search by game name") @RequestParam(required = false) gameName: String?,
+        @Parameter(description = "True for played games only, false for never played, omitted for both") @RequestParam(required = false) played: Boolean?,
+        @Parameter(description = "True for expansions only, false for base games only, omitted for both") @RequestParam(required = false) isExpansion: Boolean?,
+        @Parameter(description = "Sort field and direction, e.g. 'game.name-asc', 'createdAt-desc'") @RequestParam(required = false) sort: String?,
+    ): ResponseEntity<PageDTO<CollectionItemDTO>> =
+        ResponseEntity.ok(collectionService.listCollection(CurrentUser.id(), page, size, gameName, played, isExpansion, sort))
 
     @Operation(summary = "Check collection status", description = "Check whether a game is in the current user's collection.")
     @ApiResponses(
@@ -125,9 +252,54 @@ class CollectionController(
                 responseCode = "200", description = "Ok - Collection status",
                 content = [Content(schema = Schema(implementation = CollectionStatusDTO::class))]
             ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Missing or invalid game id",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [
+                        ExampleObject(
+                            name = "MissingParameterExample",
+                            summary = "Missing game id example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Missing required parameter 'gameId'\"}"
+                        ),
+                        ExampleObject(
+                            name = "InvalidIdExample",
+                            summary = "Invalid game id example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid value for parameter 'gameId'\"}"
+                        ),
+                    ]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "401", description = "Unauthorized - Missing or invalid access token",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "UnauthorizedExample",
+                        summary = "Authentication required example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "403", description = "Forbidden - User does not have the USER role",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "ForbiddenExample",
+                        summary = "Access denied example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access denied\"}"
+                    )]
+                )]
+            ),
         ]
     )
     @GetMapping("/status")
-    fun getStatus(@RequestParam gameId: UUID): CollectionStatusDTO =
-        collectionService.getStatus(CurrentUser.id(), gameId)
+    fun getStatus(
+        @Parameter(description = "Internal Let's Table id of the game") @RequestParam gameId: UUID,
+    ): ResponseEntity<CollectionStatusDTO> =
+        ResponseEntity.ok(collectionService.getStatus(CurrentUser.id(), gameId))
 }
