@@ -48,8 +48,6 @@ class DataSeeder(
             friendSeeder.seed(users)
 
             logger.info("\n\t[INFO] [demo_data_seeder][run] Demo data seeding completed")
-
-            logger.info("\n\t[INFO] [demo_data_seeder][run] Demo data seeding completed")
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [demo_data_seeder][run] Error during demo data seeding: {}", e.message)
             throw e

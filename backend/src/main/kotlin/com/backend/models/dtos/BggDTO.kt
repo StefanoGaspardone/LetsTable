@@ -3,11 +3,11 @@ package com.backend.models.dtos
 import com.backend.models.entities.ExpansionRef
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper
-import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty
-import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement
+import tools.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper
+import tools.jackson.dataformat.xml.annotation.JacksonXmlProperty
+import com.fasterxml.jackson.annotation.JsonRootName
 
-@JacksonXmlRootElement(localName = "items")
+@JsonRootName("items")
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class BggSearchResponseXml(
     @field:JacksonXmlProperty(localName = "item")
@@ -39,7 +39,7 @@ data class BggValueXml(
     val value: String,
 )
 
-@JacksonXmlRootElement(localName = "items")
+@JsonRootName("items")
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class BggThingResponseXml(
     @field:JacksonXmlProperty(localName = "item")
@@ -171,7 +171,7 @@ data class BggThingPollSummaryResultXml(
     val value: String,
 )
 
-@JacksonXmlRootElement(localName = "items")
+@JsonRootName("items")
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class BggHotResponseXml(
     @field:JacksonXmlProperty(localName = "item")

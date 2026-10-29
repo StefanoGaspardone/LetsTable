@@ -12,6 +12,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.core.userdetails.UserDetailsService
+import org.springframework.security.core.userdetails.UsernameNotFoundException
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 
@@ -21,6 +23,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 class SecurityConfig(
     private val jwtAuthFilter: JwtAuthFilter,
 ) {
+
+    @Bean
+    fun userDetailsService(): UserDetailsService = UserDetailsService { throw UsernameNotFoundException(it) }
 
     @Bean
     fun roleHierarchy(): RoleHierarchy {
@@ -49,6 +54,7 @@ class SecurityConfig(
                     .requestMatchers("/api/v1/avatars/**").permitAll()
                     .requestMatchers("/api/v1/internal/jobs/**").permitAll()
                     .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                    .requestMatchers("/error").permitAll()
                     .anyRequest().authenticated()
             }
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)

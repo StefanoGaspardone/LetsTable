@@ -5,15 +5,15 @@ import com.backend.models.dtos.BggHotResponseXml
 import com.backend.models.dtos.BggSearchResponseXml
 import com.backend.models.dtos.BggThingResponseXml
 import com.backend.models.dtos.CardSetsByGameResponse
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.xml.XmlMapper
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
+import tools.jackson.databind.json.JsonMapper
+import tools.jackson.dataformat.xml.XmlMapper
+import tools.jackson.module.kotlin.KotlinModule
 import java.net.URI
 import java.time.Duration
 
@@ -25,8 +25,8 @@ class BggClient(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    private val xmlMapper = XmlMapper().registerKotlinModule()
-    private val jsonMapper = ObjectMapper().registerKotlinModule()
+    private val xmlMapper = XmlMapper.builder().addModule(KotlinModule.Builder().build()).build()
+    private val jsonMapper = JsonMapper.builder().addModule(KotlinModule.Builder().build()).build()
 
     fun searchGames(query: String): BggSearchResponseXml {
         logger.debug("\n\t[DEBUG] [bgg_client][search_games] Searching BGG for query {}", query)
