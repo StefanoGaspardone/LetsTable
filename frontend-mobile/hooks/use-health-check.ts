@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 
-const HEALTH_URL = `${process.env.EXPO_PUBLIC_API_URL ?? 'https://letstable.onrender.com/api/v1'}/health`;
+const HEALTH_URL = `${process.env.EXPO_PUBLIC_API_URL ?? 'https://letstable-backend-1040192390713.europe-west1.run.app/api/v1'}/health`;
 
 const POLL_INTERVAL_MS = 10000;
 const CHECK_TIMEOUT_MS = 8000;

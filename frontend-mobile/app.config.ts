@@ -56,7 +56,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 	},
 	extra: {
 		...config.extra,
-		apiUrl: process.env.EXPO_PUBLIC_API_URL ?? "https://letstable.onrender.com/api/v1",
+		apiUrl: process.env.EXPO_PUBLIC_API_URL ?? "https://letstable-backend-1040192390713.europe-west1.run.app/api/v1",
 		eas: {
 			projectId: "051685f9-5f00-4569-b4f4-483ffefc6bc8"
 		}
