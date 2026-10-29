@@ -9,6 +9,8 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+    servlet:
+      load-on-startup: 1
   servlet:
     multipart:
       max-file-size: 50MB

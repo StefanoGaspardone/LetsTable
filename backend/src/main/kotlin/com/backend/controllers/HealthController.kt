@@ -49,6 +49,25 @@ class HealthController(
                     )]
                 )]
             ),
+            ApiResponse(
+                responseCode = "503", description = "Service Unavailable - Application is still starting or database is unreachable",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = HealthResponse::class),
+                    examples = [
+                        ExampleObject(
+                            name = "DownExample",
+                            summary = "Database down example",
+                            value = "{\"status\":\"DOWN\",\"database\":\"DOWN\"}"
+                        ),
+                        ExampleObject(
+                            name = "StartingExample",
+                            summary = "Application starting example",
+                            value = "{\"status\":\"STARTING\",\"database\":\"UNKNOWN\"}"
+                        ),
+                    ]
+                )]
+            ),
         ]
     )
     @GetMapping
