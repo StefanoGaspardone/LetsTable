@@ -33,18 +33,10 @@ class FriendSeeder(
     }
 
     private fun createIfNotExists(sender: User, receiver: User, status: FriendRequestStatus) {
-        val existing = friendRequestRepository.findBySenderIdAndReceiverId(sender.id!!, receiver.id!!)
-        if(existing.isPresent) return
+        if(friendRequestRepository.findAllBetween(sender.id!!, receiver.id!!).isNotEmpty()) {
+            return
+        }
 
-        val reciprocal = friendRequestRepository.findBySenderIdAndReceiverId(receiver.id!!, sender.id!!)
-        if(reciprocal.isPresent) return
-
-        friendRequestRepository.save(
-            FriendRequest(
-                sender = sender,
-                receiver = receiver,
-                status = status,
-            )
-        )
+        friendRequestRepository.save(FriendRequest(sender = sender, receiver = receiver, status = status))
     }
 }

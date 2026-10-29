@@ -1,6 +1,7 @@
 package com.backend.services
 
 import com.backend.exceptions.StorageNotFoundException
+import com.backend.exceptions.StorageReadException
 import com.backend.exceptions.StorageWriteException
 import com.backend.properties.S3Properties
 import org.slf4j.LoggerFactory
@@ -9,6 +10,7 @@ import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
 import software.amazon.awssdk.services.s3.model.GetObjectRequest
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import java.io.InputStream
 
@@ -49,11 +51,15 @@ class StorageService(
                     .key(objectKey)
                     .build()
             )
+
             logger.info("\n\t[INFO] [storage_service][get_object] Successful retrieval\n\tobjectKey={}", objectKey)
             return result
-        } catch (e: Exception) {
-            logger.error("\n\t[ERROR] [storage_service][get_object] Failed retrieval\n\tobjectKey={}", objectKey, e)
+        } catch(e: NoSuchKeyException) {
+            logger.warn("\n\t[WARN] [storage_service][get_object] Object not found\n\tobjectKey={}", objectKey)
             throw StorageNotFoundException(objectKey)
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [storage_service][get_object] Failed retrieval\n\tobjectKey={}", objectKey, e)
+            throw StorageReadException(objectKey)
         }
     }
 

@@ -14,7 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
-import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
 
@@ -26,10 +26,7 @@ class UserAchievementController(
     private val userAchievementService: UserAchievementService,
 ) {
 
-    @Operation(
-        summary = "Get my achievements",
-        description = "Returns every achievement in the catalog with the authenticated user's progress and whether it is unlocked."
-    )
+    @Operation(summary = "Get my achievements", description = "Every achievement in the catalog with the current user's progress and unlock status. Achievements reached but not yet unlocked are unlocked before answering.")
     @ApiResponses(
         value = [
             ApiResponse(
@@ -39,15 +36,10 @@ class UserAchievementController(
         ]
     )
     @GetMapping("/me")
-    fun getMyAchievements(): List<UserAchievementDTO> =
-        userAchievementService.getUserAchievements(CurrentUser.id())
+    fun getMyAchievements(): ResponseEntity<List<UserAchievementDTO>> =
+        ResponseEntity.ok(userAchievementService.getUserAchievements(CurrentUser.id(), evaluate = true))
 
-    @Operation(
-        summary = "Get unseen achievements",
-        description = "Returns the authenticated user's achievements that are unlocked but not yet acknowledged, oldest first. " +
-                "Any achievement reached but not yet received is unlocked before answering. " +
-                "The app calls it on launch to show the celebration screen, then confirms with the seen endpoint."
-    )
+    @Operation(summary = "Get unseen achievements", description = "The current user's achievements that are unlocked but not yet acknowledged, oldest first. Achievements reached but not yet unlocked are unlocked before answering. The app calls it on launch to show the celebration screen, then confirms with the seen endpoint.")
     @ApiResponses(
         value = [
             ApiResponse(
@@ -57,32 +49,40 @@ class UserAchievementController(
         ]
     )
     @GetMapping("/unseen")
-    fun getUnseenAchievements(): List<UserAchievementDTO> =
-        userAchievementService.getUnseenAchievements()
+    fun getUnseenAchievements(): ResponseEntity<List<UserAchievementDTO>> =
+        ResponseEntity.ok(userAchievementService.getUnseenAchievements(CurrentUser.id()))
 
-    @Operation(
-        summary = "Mark achievements as seen",
-        description = "Marks the given achievements as acknowledged for the authenticated user. Unknown or already seen codes are ignored."
-    )
+    @Operation(summary = "Mark achievements as seen", description = "Marks the given achievements as acknowledged for the current user. Unknown or already seen codes are ignored.")
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "204", description = "No Content - Achievements marked as seen"),
             ApiResponse(
-                responseCode = "400", description = "Bad Request - Empty list of codes",
+                responseCode = "204", description = "No Content - Achievements marked as seen",
+                content = [Content(schema = Schema(hidden = true))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Empty list of codes or malformed body",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
-                    examples = [ExampleObject(
-                        name = "ValidationError",
-                        summary = "Validation error example",
-                        value = "{\"timestamp\":\"2026-10-06T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"codes: must not be empty\"}"
-                    )]
+                    examples = [
+                        ExampleObject(
+                            name = "ValidationExample",
+                            summary = "Empty codes example",
+                            value = "{\"timestamp\":\"2026-10-06T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"codes: must not be empty\"}"
+                        ),
+                        ExampleObject(
+                            name = "MalformedBodyExample",
+                            summary = "Malformed JSON example",
+                            value = "{\"timestamp\":\"2026-10-06T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Malformed request body\"}"
+                        ),
+                    ]
                 )]
             ),
         ]
     )
     @PostMapping("/seen")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun markSeen(@Valid @RequestBody request: MarkAchievementsSeenRequest) =
-        userAchievementService.markSeen(request.codes)
+    fun markSeen(@Valid @RequestBody request: MarkAchievementsSeenRequest): ResponseEntity<Unit> {
+        userAchievementService.markSeen(CurrentUser.id(), request.codes)
+        return ResponseEntity.noContent().build()
+    }
 }

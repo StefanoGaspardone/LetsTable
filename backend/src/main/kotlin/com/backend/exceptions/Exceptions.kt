@@ -118,7 +118,7 @@ class GameAlreadyInWishlistException(gameId: UUID): RuntimeException("Game alrea
 
 class UserAlreadyWishlistMemberException(userId: UUID): RuntimeException("User is already a member of this wishlist: $userId")
 
-class CannotModifyDefaultWishlistException: RuntimeException("The default wishlist cannot be deleted or shared")
+class CannotModifyDefaultWishlistException: RuntimeException("The default wishlist cannot be renamed or deleted")
 
 class InvalidAccountStatusTransitionException(message: String): RuntimeException(message)
 
@@ -136,6 +136,6 @@ class OtpResendCooldownException(secondsRemaining: Long): RuntimeException("OTP 
 
 class BggRequestFailedException(cause: Throwable): RuntimeException("Failed to reach BoardGameGeek API", cause)
 
-class PushNotificationSendException(cause: Throwable): RuntimeException("Failed to send push notification", cause)
-
 class StorageWriteException(objectKey: String): RuntimeException("Failed to write object to storage: $objectKey")
+
+class StorageReadException(objectKey: String): RuntimeException("Failed to read object from storage: $objectKey")

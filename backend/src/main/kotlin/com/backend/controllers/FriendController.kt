@@ -7,6 +7,7 @@ import com.backend.models.dtos.UserDTO
 import com.backend.security.CurrentUser
 import com.backend.services.FriendService
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.ArraySchema
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
@@ -36,19 +37,26 @@ class FriendController(
                 content = [Content(schema = Schema(implementation = FriendRequestDTO::class))]
             ),
             ApiResponse(
-                responseCode = "400", description = "Bad Request - Cannot send a friend request to yourself",
+                responseCode = "400", description = "Bad Request - Cannot friend yourself or invalid request data",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
-                    examples = [ExampleObject(
-                        name = "CannotFriendSelfExample",
-                        summary = "Cannot friend self example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Cannot send a friend request to yourself\"}"
-                    )]
+                    examples = [
+                        ExampleObject(
+                            name = "CannotFriendSelfExample",
+                            summary = "Cannot friend self example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Cannot send a friend request to yourself\"}"
+                        ),
+                        ExampleObject(
+                            name = "MalformedBodyExample",
+                            summary = "Missing or malformed receiverId example",
+                            value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Malformed request body\"}"
+                        ),
+                    ]
                 )]
             ),
             ApiResponse(
-                responseCode = "404", description = "Not Found - Receiver user does not exist",
+                responseCode = "404", description = "Not Found - Receiver user does not exist or is not active",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
@@ -228,34 +236,37 @@ class FriendController(
         value = [
             ApiResponse(
                 responseCode = "200", description = "Ok - List of friends",
-                content = [Content(schema = Schema(implementation = UserDTO::class))]
+                content = [Content(array = ArraySchema(schema = Schema(implementation = UserDTO::class)))]
             ),
         ]
     )
     @GetMapping
-    fun listFriends(): List<UserDTO> = friendService.listFriends(CurrentUser.id())
+    fun listFriends(): ResponseEntity<List<UserDTO>> =
+        ResponseEntity.ok(friendService.listFriends(CurrentUser.id()))
 
     @Operation(summary = "List pending friend requests received", description = "List all friend requests received by the current user that are still pending.")
     @ApiResponses(
         value = [
             ApiResponse(
                 responseCode = "200", description = "Ok - List of pending received requests",
-                content = [Content(schema = Schema(implementation = FriendRequestDTO::class))]
+                content = [Content(array = ArraySchema(schema = Schema(implementation = FriendRequestDTO::class)))]
             ),
         ]
     )
     @GetMapping("/requests/received")
-    fun listPendingReceived(): List<FriendRequestDTO> = friendService.listPendingReceived(CurrentUser.id())
+    fun listPendingReceived(): ResponseEntity<List<FriendRequestDTO>> =
+        ResponseEntity.ok(friendService.listPendingReceived(CurrentUser.id()))
 
     @Operation(summary = "List pending friend requests sent", description = "List all friend requests sent by the current user that are still pending.")
     @ApiResponses(
         value = [
             ApiResponse(
                 responseCode = "200", description = "Ok - List of pending sent requests",
-                content = [Content(schema = Schema(implementation = FriendRequestDTO::class))]
+                content = [Content(array = ArraySchema(schema = Schema(implementation = FriendRequestDTO::class)))]
             ),
         ]
     )
     @GetMapping("/requests/sent")
-    fun listPendingSent(): List<FriendRequestDTO> = friendService.listPendingSent(CurrentUser.id())
+    fun listPendingSent(): ResponseEntity<List<FriendRequestDTO>> =
+        ResponseEntity.ok(friendService.listPendingSent(CurrentUser.id()))
 }

@@ -2,6 +2,8 @@ package com.backend.models.dtos
 
 import com.backend.models.entities.User
 import io.swagger.v3.oas.annotations.media.Schema
+import jakarta.validation.constraints.Pattern
+import jakarta.validation.constraints.Size
 import java.util.UUID
 
 @Schema(description = "Public representation of a user account")
@@ -45,6 +47,8 @@ data class DeleteAccountDTO(
 @Schema(description = "Payload to update the current user's profile. Fields left null are not modified.")
 data class UpdateUserRequest(
     @field:Schema(description = "New username, if changing it", example = "marco2")
+    @field:Size(min = 3, max = 50)
+    @field:Pattern(regexp = "^\\S(.*\\S)?$", message = "must not start or end with whitespace")
     val username: String? = null,
 
     @field:Schema(description = "New notifications-enabled preference, if changing it", example = "false")

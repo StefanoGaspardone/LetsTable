@@ -2,7 +2,9 @@ package com.backend.repositories
 
 import com.backend.models.entities.FriendRequest
 import com.backend.models.enums.FriendRequestStatus
+import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
@@ -12,7 +14,17 @@ import java.util.UUID
 @Repository
 interface FriendRequestRepository: JpaRepository<FriendRequest, UUID> {
 
-    fun findBySenderIdAndReceiverId(senderId: UUID, receiverId: UUID): Optional<FriendRequest>
+    @EntityGraph(attributePaths = ["sender", "receiver"])
+    fun findWithUsersById(id: UUID): Optional<FriendRequest>
+
+    @Query(
+        """
+        SELECT fr FROM FriendRequest fr
+        WHERE (fr.sender.id = :userIdA AND fr.receiver.id = :userIdB)
+        OR (fr.sender.id = :userIdB AND fr.receiver.id = :userIdA)
+        """
+    )
+    fun findAllBetween(@Param("userIdA") userIdA: UUID, @Param("userIdB") userIdB: UUID): List<FriendRequest>
 
     @Query(
         """
@@ -54,4 +66,8 @@ interface FriendRequestRepository: JpaRepository<FriendRequest, UUID> {
         """
     )
     fun findFriendshipBetween(@Param("userIdA") userIdA: UUID, @Param("userIdB") userIdB: UUID): Optional<FriendRequest>
+
+    @Modifying
+    @Query("DELETE FROM FriendRequest fr WHERE fr.sender.id = :userId OR fr.receiver.id = :userId")
+    fun deleteAllInvolvingUser(@Param("userId") userId: UUID)
 }

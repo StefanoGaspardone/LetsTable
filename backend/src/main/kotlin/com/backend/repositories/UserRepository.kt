@@ -2,6 +2,7 @@ package com.backend.repositories
 
 import com.backend.models.entities.User
 import com.backend.models.enums.AccountStatus
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
 import org.springframework.data.jpa.repository.Query
@@ -35,4 +36,18 @@ interface UserRepository: JpaRepository<User, UUID>, JpaSpecificationExecutor<Us
     fun countByAccountStatus(accountStatus: AccountStatus): Long
 
     fun deleteAllByAccountStatusAndCreatedAtBefore(accountStatus: AccountStatus, createdAt: Instant): Long
+
+    @Query(
+        """
+        SELECT u FROM User u
+        WHERE u.accountStatus = 'ACTIVE'
+        AND u.id <> :excludedUserId
+        AND LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) ESCAPE '\'
+        ORDER BY u.username ASC
+        """
+    )
+    fun searchActiveByUsername(@Param("query") query: String, @Param("excludedUserId") excludedUserId: UUID, pageable: Pageable): List<User>
+
+    @Query("SELECT u.id FROM User u WHERE u.accountStatus = :status")
+    fun findIdsByAccountStatus(@Param("status") status: AccountStatus): List<UUID>
 }

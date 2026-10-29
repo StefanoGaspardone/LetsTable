@@ -2,6 +2,7 @@ package com.backend.repositories
 
 import com.backend.models.entities.UserAchievement
 import com.backend.models.enums.FriendRequestStatus
+import com.backend.models.projections.FinishedMatchProjection
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -42,31 +43,15 @@ interface UserAchievementRepository: JpaRepository<UserAchievement, UUID> {
 
     @Query(
         """
-        SELECT m.playedAt FROM MatchPlayer mp JOIN mp.match m
-        WHERE mp.user.id = :userId AND m.durationMinutes IS NOT NULL
-        ORDER BY m.playedAt ASC, m.createdAt ASC
-        """
-    )
-    fun findFinishedMatchDates(@Param("userId") userId: UUID): List<Instant>
-
-    @Query(
-        """
-        SELECT CASE WHEN (t.isWinner = true OR (t.id IS NULL AND mp.isWinner = true))
-                    THEN true ELSE false END
+        SELECT m.playedAt AS playedAt,
+               CASE WHEN (t.isWinner = true OR (t.id IS NULL AND mp.isWinner = true)) THEN true ELSE false END AS won,
+               m.game.id AS gameId
         FROM MatchPlayer mp JOIN mp.match m LEFT JOIN mp.team t
         WHERE mp.user.id = :userId AND m.durationMinutes IS NOT NULL
         ORDER BY m.playedAt ASC, m.createdAt ASC
         """
     )
-    fun findFinishedMatchWins(@Param("userId") userId: UUID): List<Boolean>
-
-    @Query(
-        """
-        SELECT COUNT(DISTINCT m.game.id) FROM MatchPlayer mp JOIN mp.match m
-        WHERE mp.user.id = :userId AND m.durationMinutes IS NOT NULL
-        """
-    )
-    fun countDistinctGamesPlayed(@Param("userId") userId: UUID): Long
+    fun findFinishedMatches(@Param("userId") userId: UUID): List<FinishedMatchProjection>
 
     @Query("SELECT COUNT(ci) FROM CollectionItem ci WHERE ci.user.id = :userId")
     fun countCollectionItems(@Param("userId") userId: UUID): Long

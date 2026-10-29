@@ -370,7 +370,7 @@ class AuthController(
         return ResponseEntity.noContent().build()
     }
 
-    @Operation(summary = "Reset password", description = "Verify the OTP and set a new password.")
+    @Operation(summary = "Reset password", description = "Verify the OTP and set a new password. All active sessions of the user are revoked.")
     @ApiResponses(
         value = [
             ApiResponse(

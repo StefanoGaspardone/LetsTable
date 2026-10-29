@@ -2,7 +2,7 @@ package com.backend.models.dtos
 
 import com.backend.models.entities.CollectionItem
 import io.swagger.v3.oas.annotations.media.Schema
-import org.jetbrains.annotations.NotNull
+import jakarta.validation.constraints.NotNull
 import java.time.Instant
 import java.util.UUID
 

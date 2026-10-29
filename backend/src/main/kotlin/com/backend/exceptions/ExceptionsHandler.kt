@@ -1,15 +1,18 @@
 package com.backend.exceptions
 
 import io.swagger.v3.oas.annotations.media.Schema
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.core.AuthenticationException
+import org.springframework.validation.method.ParameterValidationResult
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.multipart.MaxUploadSizeExceededException
 import java.time.Instant
@@ -32,6 +35,8 @@ data class ErrorResponse(
 
 @RestControllerAdvice
 class ExceptionsHandler {
+
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     private fun buildResponse(status: HttpStatus, message: String): ResponseEntity<ErrorResponse> =
         ResponseEntity(
@@ -97,6 +102,18 @@ class ExceptionsHandler {
     @ExceptionHandler(MissingServletRequestParameterException::class)
     fun handleMissingParameter(ex: MissingServletRequestParameterException) =
         buildResponse(HttpStatus.BAD_REQUEST, "Missing required parameter '${ex.parameterName}'")
+
+    @ExceptionHandler(HandlerMethodValidationException::class)
+    fun handleMethodValidation(ex: HandlerMethodValidationException): ResponseEntity<ErrorResponse> {
+        val details = ex.parameterValidationResults
+            .flatMap { result: ParameterValidationResult ->
+                result.resolvableErrors.map { error -> "${result.methodParameter.parameterName}: ${error.defaultMessage}" }
+            }
+            .joinToString("; ")
+            .ifBlank { "Invalid request parameters" }
+
+        return buildResponse(HttpStatus.BAD_REQUEST, details)
+    }
 
     // ============================================================
     // 401 UNAUTHORIZED
@@ -203,8 +220,8 @@ class ExceptionsHandler {
 
     @ExceptionHandler(
         BggRequestFailedException::class,
-        PushNotificationSendException::class,
         StorageWriteException::class,
+        StorageReadException::class
     )
     fun handleBadGateway(ex: RuntimeException): ResponseEntity<ErrorResponse> =
         buildResponse(HttpStatus.BAD_GATEWAY, ex)
@@ -220,6 +237,7 @@ class ExceptionsHandler {
             return buildResponse(status, ex.body.detail ?: status.reasonPhrase)
         }
 
+        logger.error("\n\t[ERROR] [exceptions_handler][handle_unexpected] Unhandled exception: {}", ex.message, ex)
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred")
     }
 }

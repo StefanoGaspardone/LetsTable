@@ -8,6 +8,7 @@ import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.PositiveOrZero
 import org.springframework.validation.annotation.Validated
 import java.time.Instant
 import java.time.LocalDate
@@ -89,6 +90,7 @@ data class CreateMatchRequest(
     override val isTeamBased: Boolean,
 
     @field:Schema(description = "How long the match actually took, in minutes")
+    @field:PositiveOrZero
     val durationMinutes: Int? = null,
 
     @field:Schema(description = "Internal ids of the expansions used in this match, if any. All must belong to the same game as gameId.")
@@ -103,40 +105,7 @@ data class CreateMatchRequest(
     override val players: List<MatchIndividualPlayerRequest>? = null,
 ): MatchPlayersPayload
 
-@Schema(description = "Payload to update an existing match")
-data class UpdateMatchRequest(
-    @field:Schema(description = "Internal id of the game played (obtained via GET /games/{bggId})")
-    @field:NotNull
-    val gameId: UUID,
-
-    @field:Schema(description = "Date the match was played")
-    @field:NotNull
-    val playedAt: LocalDate,
-
-    @field:Schema(description = "Where the match was played", example = "Marco's place")
-    val place: String? = null,
-
-    @field:Schema(description = "How long the match actually took, in minutes")
-    val durationMinutes: Int? = null,
-
-    @field:Schema(description = "Free-form notes about the match")
-    val notes: String? = null,
-
-    @field:Schema(description = "Whether players are grouped into teams")
-    @field:NotNull
-    override val isTeamBased: Boolean,
-
-    @field:Schema(description = "Internal ids of the expansions used in this match, if any. All must belong to the same game as gameId.")
-    val expansionIds: List<UUID> = emptyList(),
-
-    @field:Schema(description = "Teams, required and non-empty only if isTeamBased is true")
-    @field:Valid
-    override val teams: List<CreateMatchTeamRequest>? = null,
-
-    @field:Schema(description = "Individual players, required and non-empty only if isTeamBased is false")
-    @field:Valid
-    override val players: List<MatchIndividualPlayerRequest>? = null,
-): MatchPlayersPayload
+typealias UpdateMatchRequest = CreateMatchRequest
 
 @Schema(description = "A player's identity within a team (no individual color/score, those are team-level)")
 data class MatchPlayerRefDTO(

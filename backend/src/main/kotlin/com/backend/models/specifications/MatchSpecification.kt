@@ -4,41 +4,44 @@ import com.backend.models.entities.Game
 import com.backend.models.entities.Match
 import com.backend.models.entities.MatchPlayer
 import com.backend.models.entities.User
+import jakarta.persistence.criteria.JoinType
+import jakarta.persistence.criteria.Predicate
 import org.springframework.data.jpa.domain.Specification
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.UUID
 
 object MatchSpecification {
+
     fun withFilters(userId: UUID, gameId: UUID?, fromDate: LocalDate?, toDate: LocalDate?, onlyCompleted: Boolean = false): Specification<Match> {
         return Specification { root, query, cb ->
-            val predicates = mutableListOf<jakarta.persistence.criteria.Predicate>()
+            if(query.resultType != Long::class.javaObjectType) {
+                root.fetch<Match, Game>("game", JoinType.INNER)
+                root.fetch<Match, User>("createdBy", JoinType.INNER)
+            }
 
-            val creatorPredicate = cb.equal(root.get<User>("createdBy").get<UUID>("id"), userId)
+            val predicates = mutableListOf<Predicate>()
 
-            val subquery = query.subquery(Long::class.java)
-            val mpRoot = subquery.from(MatchPlayer::class.java)
-            subquery.select(cb.literal(1L))
-            subquery.where(
-                cb.equal(mpRoot.get<Match>("match"), root),
-                cb.equal(mpRoot.get<User>("user").get<UUID>("id"), userId),
+            val playerSubquery = query.subquery(Long::class.java)
+            val playerRoot = playerSubquery.from(MatchPlayer::class.java)
+            playerSubquery.select(cb.literal(1L))
+            playerSubquery.where(
+                cb.equal(playerRoot.get<Match>("match"), root),
+                cb.equal(playerRoot.get<User>("user").get<UUID>("id"), userId),
             )
-            val playerPredicate = cb.exists(subquery)
 
-            predicates.add(cb.or(creatorPredicate, playerPredicate))
+            predicates.add(cb.or(cb.equal(root.get<User>("createdBy").get<UUID>("id"), userId), cb.exists(playerSubquery)))
 
             if(gameId != null) {
                 predicates.add(cb.equal(root.get<Game>("game").get<UUID>("id"), gameId))
             }
 
             if(fromDate != null) {
-                val fromInstant = fromDate.atStartOfDay(ZoneOffset.UTC).toInstant()
-                predicates.add(cb.greaterThanOrEqualTo(root.get("playedAt"), fromInstant))
+                predicates.add(cb.greaterThanOrEqualTo(root.get("playedAt"), fromDate.atStartOfDay(ZoneOffset.UTC).toInstant()))
             }
 
             if(toDate != null) {
-                val toInstant = toDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant()
-                predicates.add(cb.lessThan(root.get("playedAt"), toInstant))
+                predicates.add(cb.lessThan(root.get("playedAt"), toDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant()))
             }
 
             if(onlyCompleted) {

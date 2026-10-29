@@ -5,30 +5,39 @@ import com.backend.models.projections.GamePopularityProjection
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
 import java.util.Optional
 import java.util.UUID
 
 @Repository
-interface CollectionItemRepository : JpaRepository<CollectionItem, UUID>, JpaSpecificationExecutor<CollectionItem> {
+interface CollectionItemRepository: JpaRepository<CollectionItem, UUID>, JpaSpecificationExecutor<CollectionItem> {
 
     fun existsByUserIdAndGameId(userId: UUID, gameId: UUID): Boolean
 
     fun findByUserIdAndGameId(userId: UUID, gameId: UUID): Optional<CollectionItem>
 
+    @Query("SELECT ci.id FROM CollectionItem ci WHERE ci.user.id = :userId AND ci.game.id = :gameId")
+    fun findIdByUserIdAndGameId(@Param("userId") userId: UUID, @Param("gameId") gameId: UUID): UUID?
+
     @Query("SELECT ci.game.id FROM CollectionItem ci WHERE ci.user.id = :userId AND ci.game.id IN :gameIds")
-    fun findGameIdsInCollection(userId: UUID, gameIds: List<UUID>): Set<UUID>
+    fun findGameIdsInCollection(@Param("userId") userId: UUID, @Param("gameIds") gameIds: List<UUID>): Set<UUID>
 
     fun countByUserId(userId: UUID): Long
 
     @Query(
         """
-        SELECT ci.game.id AS gameId, ci.game.name AS gameName, ci.game.thumbnailUrl as gameThumbnailUrl, COUNT(ci) AS count
+        SELECT ci.game.id AS gameId, ci.game.name AS gameName, ci.game.thumbnailUrl AS gameThumbnailUrl, COUNT(ci) AS count
         FROM CollectionItem ci
         GROUP BY ci.game.id, ci.game.name, ci.game.thumbnailUrl
         ORDER BY COUNT(ci) DESC
         """
     )
     fun findMostOwnedGames(pageable: Pageable): List<GamePopularityProjection>
+
+    @Modifying
+    @Query("DELETE FROM CollectionItem ci WHERE ci.user.id = :userId")
+    fun deleteAllByUserId(@Param("userId") userId: UUID)
 }

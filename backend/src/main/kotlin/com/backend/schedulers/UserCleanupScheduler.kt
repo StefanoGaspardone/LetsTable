@@ -1,6 +1,7 @@
 package com.backend.schedulers
 
 import com.backend.models.enums.AccountStatus
+import com.backend.repositories.RefreshTokenRepository
 import com.backend.repositories.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -11,6 +12,7 @@ import java.time.temporal.ChronoUnit
 @Component
 class UserCleanupScheduler(
     private val userRepository: UserRepository,
+    private val refreshTokenRepository: RefreshTokenRepository,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -21,10 +23,14 @@ class UserCleanupScheduler(
 
     @Transactional
     fun deleteStaleInactiveAccounts(): Long {
-        val cutoff = Instant.now().minus(INACTIVE_ACCOUNT_MAX_AGE_DAYS, ChronoUnit.DAYS)
+        val now = Instant.now()
+        val cutoff = now.minus(INACTIVE_ACCOUNT_MAX_AGE_DAYS, ChronoUnit.DAYS)
+
         val deletedCount = userRepository.deleteAllByAccountStatusAndCreatedAtBefore(AccountStatus.INACTIVE, cutoff)
+        val deletedTokens = refreshTokenRepository.deleteRevokedOrExpired(now)
 
         logger.info("\n\t[INFO] [user_cleanup_scheduler][delete_stale_inactive_accounts] Deleted {} unverified accounts older than {} days", deletedCount, INACTIVE_ACCOUNT_MAX_AGE_DAYS)
+        logger.info("\n\t[INFO] [user_cleanup_scheduler][delete_stale_inactive_accounts] Deleted {} revoked or expired refresh tokens", deletedTokens)
         return deletedCount
     }
 }

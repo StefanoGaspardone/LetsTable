@@ -7,18 +7,18 @@ import com.backend.exceptions.FriendRequestNotFoundException
 import com.backend.exceptions.FriendshipNotFoundException
 import com.backend.exceptions.NotFriendRequestReceiverException
 import com.backend.exceptions.NotFriendRequestSenderException
-import com.backend.exceptions.UserNotFoundByIdentifierException
 import com.backend.exceptions.UserNotFoundException
 import com.backend.models.dtos.FriendRequestDTO
 import com.backend.models.dtos.SendFriendRequestRequest
 import com.backend.models.dtos.UserDTO
 import com.backend.models.entities.FriendRequest
-import com.backend.models.entities.User
+import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.FriendRequestStatus
 import com.backend.models.enums.FriendshipStatus
 import com.backend.repositories.FriendRequestRepository
 import com.backend.repositories.UserRepository
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -28,78 +28,83 @@ class FriendService(
     private val friendRequestRepository: FriendRequestRepository,
     private val userRepository: UserRepository,
     private val pushNotificationService: PushNotificationService,
-    private val userAchievementService: UserAchievementService
+    private val userAchievementService: UserAchievementService,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @Transactional
     fun sendRequest(senderId: UUID, request: SendFriendRequestRequest): FriendRequestDTO {
-        logger.debug("\n\t[DEBUG] [friend_service][send_request] User {} sending friend request to {}", senderId, request.receiverId)
+        val receiverId = request.receiverId
+        logger.debug("\n\t[DEBUG] [friend_service][send_request] User {} sending friend request to {}", senderId, receiverId)
 
         try {
-            if(senderId == request.receiverId) {
+            if(senderId == receiverId) {
                 throw CannotFriendSelfException()
             }
 
             val sender = userRepository.findById(senderId)
                 .orElseThrow { UserNotFoundException(senderId) }
-            val receiver = userRepository.findById(request.receiverId)
-                .orElseThrow { UserNotFoundException(request.receiverId) }
+            val receiver = userRepository.findById(receiverId)
+                .filter { it.accountStatus == AccountStatus.ACTIVE }
+                .orElseThrow { UserNotFoundException(receiverId) }
 
-            friendRequestRepository.findFriendshipBetween(senderId, request.receiverId).ifPresent {
-                throw AlreadyFriendsException(request.receiverId)
+            val existing = friendRequestRepository.findAllBetween(senderId, receiverId)
+
+            if(existing.any { it.status == FriendRequestStatus.ACCEPTED }) {
+                throw AlreadyFriendsException(receiverId)
             }
 
-            friendRequestRepository.findBySenderIdAndReceiverId(senderId, request.receiverId).ifPresent {
-                throw FriendRequestAlreadyExistsException(request.receiverId)
+            if(existing.any { it.sender.id == senderId }) {
+                throw FriendRequestAlreadyExistsException(receiverId)
             }
 
-            val reverseRequest = friendRequestRepository.findBySenderIdAndReceiverId(request.receiverId, senderId)
-            if(reverseRequest.isPresent) {
-                val existing = reverseRequest.get()
-                existing.status = FriendRequestStatus.ACCEPTED
-                val saved = friendRequestRepository.save(existing)
+            val reverseRequest = existing.firstOrNull { it.status == FriendRequestStatus.PENDING && it.sender.id == receiverId }
+
+            if(reverseRequest != null) {
+                reverseRequest.status = FriendRequestStatus.ACCEPTED
 
                 pushNotificationService.sendToUser(
-                    userId = existing.sender.id!!,
+                    userId = receiverId,
                     title = "Richiesta accettata",
                     body = "${sender.username} ha accettato la tua richiesta di amicizia",
-                    data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to saved.id.toString()),
+                    data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to reverseRequest.id.toString()),
                 )
+                userAchievementService.evaluateAfterCommit(setOf(senderId, receiverId))
 
-                userAchievementService.evaluateAfterCommit(setOf(senderId, request.receiverId))
-
-                logger.info("\n\t[INFO] [friend_service][send_request] Reverse request found, auto-accepted friendship between {} and {}", senderId, request.receiverId)
-                return FriendRequestDTO.from(saved)
+                logger.info("\n\t[INFO] [friend_service][send_request] Reverse request found, auto-accepted friendship between {} and {}", senderId, receiverId)
+                return FriendRequestDTO.from(reverseRequest)
             }
 
-            val newRequest = FriendRequest(sender = sender, receiver = receiver, status = FriendRequestStatus.PENDING)
-            val saved = friendRequestRepository.save(newRequest)
+            val saved = try {
+                friendRequestRepository.saveAndFlush(FriendRequest(sender = sender, receiver = receiver, status = FriendRequestStatus.PENDING))
+            } catch(_: DataIntegrityViolationException) {
+                throw FriendRequestAlreadyExistsException(receiverId)
+            }
 
             pushNotificationService.sendToUser(
-                userId = receiver.id!!,
+                userId = receiverId,
                 title = "Nuova richiesta di amicizia",
                 body = "${sender.username} ti ha inviato una richiesta di amicizia",
                 data = mapOf("type" to "FRIEND_REQUEST", "requestId" to saved.id.toString()),
             )
 
-            logger.info("\n\t[INFO] [friend_service][send_request] Friend request sent from {} to {}", senderId, request.receiverId)
+            logger.info("\n\t[INFO] [friend_service][send_request] Friend request sent from {} to {}", senderId, receiverId)
             return FriendRequestDTO.from(saved)
         } catch(e: CannotFriendSelfException) {
             logger.warn("\n\t[WARN] [friend_service][send_request] User {} tried to friend themselves", senderId)
             throw e
         } catch(e: AlreadyFriendsException) {
-            logger.warn("\n\t[WARN] [friend_service][send_request] User {} already friends with {}", senderId, request.receiverId)
+            logger.warn("\n\t[WARN] [friend_service][send_request] User {} already friends with {}", senderId, receiverId)
             throw e
         } catch(e: FriendRequestAlreadyExistsException) {
-            logger.warn("\n\t[WARN] [friend_service][send_request] Duplicate request from {} to {}", senderId, request.receiverId)
+            logger.warn("\n\t[WARN] [friend_service][send_request] Duplicate request from {} to {}", senderId, receiverId)
             throw e
         } catch(e: UserNotFoundException) {
-            logger.warn("\n\t[WARN] [friend_service][send_request] User not found while sending request from {} to {}", senderId, request.receiverId)
+            logger.warn("\n\t[WARN] [friend_service][send_request] User not found while sending request from {} to {}", senderId, receiverId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [friend_service][send_request] Error sending friend request from {} to {}: {}", senderId, request.receiverId, e.message)
+            logger.error("\n\t[ERROR] [friend_service][send_request] Error sending friend request from {} to {}: {}", senderId, receiverId, e.message)
             throw e
         }
     }
@@ -109,28 +114,25 @@ class FriendService(
         logger.debug("\n\t[DEBUG] [friend_service][accept_request] User {} accepting request {}", currentUserId, requestId)
 
         try {
-            val request = friendRequestRepository.findById(requestId)
-                .filter { it.status == FriendRequestStatus.PENDING }
-                .orElseThrow { FriendRequestNotFoundException(requestId) }
+            val request = findPendingRequest(requestId)
 
             if(request.receiver.id != currentUserId) {
                 throw NotFriendRequestReceiverException()
             }
 
             request.status = FriendRequestStatus.ACCEPTED
-            val saved = friendRequestRepository.save(request)
+            val senderId = request.sender.id!!
 
             pushNotificationService.sendToUser(
-                userId = request.sender.id!!,
+                userId = senderId,
                 title = "Richiesta accettata",
                 body = "${request.receiver.username} ha accettato la tua richiesta di amicizia",
-                data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to request.id.toString()),
+                data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to requestId.toString()),
             )
-
-            userAchievementService.evaluateAfterCommit(setOf(request.sender.id!!, currentUserId))
+            userAchievementService.evaluateAfterCommit(setOf(senderId, currentUserId))
 
             logger.info("\n\t[INFO] [friend_service][accept_request] Request {} accepted by {}", requestId, currentUserId)
-            return FriendRequestDTO.from(saved)
+            return FriendRequestDTO.from(request)
         } catch(e: FriendRequestNotFoundException) {
             logger.warn("\n\t[WARN] [friend_service][accept_request] Request {} not found", requestId)
             throw e
@@ -148,11 +150,9 @@ class FriendService(
         logger.debug("\n\t[DEBUG] [friend_service][reject_request] User {} rejecting request {}", currentUserId, requestId)
 
         try {
-            val request = friendRequestRepository.findById(requestId)
-                .filter { it.status == FriendRequestStatus.PENDING }
-                .orElseThrow { FriendRequestNotFoundException(requestId) }
+            val request = findPendingRequest(requestId)
 
-            if (request.receiver.id != currentUserId) {
+            if(request.receiver.id != currentUserId) {
                 throw NotFriendRequestReceiverException()
             }
 
@@ -176,9 +176,7 @@ class FriendService(
         logger.debug("\n\t[DEBUG] [friend_service][cancel_request] User {} cancelling request {}", currentUserId, requestId)
 
         try {
-            val request = friendRequestRepository.findById(requestId)
-                .filter { it.status == FriendRequestStatus.PENDING }
-                .orElseThrow { FriendRequestNotFoundException(requestId) }
+            val request = findPendingRequest(requestId)
 
             if(request.sender.id != currentUserId) {
                 throw NotFriendRequestSenderException()
@@ -219,15 +217,13 @@ class FriendService(
         }
     }
 
+    @Transactional(readOnly = true)
     fun listFriends(userId: UUID): List<UserDTO> {
         logger.debug("\n\t[DEBUG] [friend_service][list_friends] Listing friends for user {}", userId)
 
         try {
-            val friendships = friendRequestRepository.findAllFriendshipsForUser(userId)
-            val friends = friendships.map { friendship ->
-                val otherUser: User = if(friendship.sender.id == userId) friendship.receiver else friendship.sender
-                UserDTO.from(otherUser)
-            }
+            val friends = friendRequestRepository.findAllFriendshipsForUser(userId)
+                .map { UserDTO.from(if(it.sender.id == userId) it.receiver else it.sender) }
 
             logger.info("\n\t[INFO] [friend_service][list_friends] Found {} friends for user {}", friends.size, userId)
             return friends
@@ -237,6 +233,7 @@ class FriendService(
         }
     }
 
+    @Transactional(readOnly = true)
     fun listPendingReceived(userId: UUID): List<FriendRequestDTO> {
         logger.debug("\n\t[DEBUG] [friend_service][list_pending_received] Listing pending requests received by user {}", userId)
 
@@ -252,6 +249,7 @@ class FriendService(
         }
     }
 
+    @Transactional(readOnly = true)
     fun listPendingSent(userId: UUID): List<FriendRequestDTO> {
         logger.debug("\n\t[DEBUG] [friend_service][list_pending_sent] Listing pending requests sent by user {}", userId)
 
@@ -267,6 +265,7 @@ class FriendService(
         }
     }
 
+    @Transactional(readOnly = true)
     fun getFriendshipStatus(currentUserId: UUID, otherUserId: UUID): FriendshipStatus {
         logger.debug("\n\t[DEBUG] [friend_service][get_friendship_status] Checking friendship status between {} and {}", currentUserId, otherUserId)
 
@@ -274,18 +273,18 @@ class FriendService(
             return FriendshipStatus.SELF
         }
 
-        if(friendRequestRepository.findFriendshipBetween(currentUserId, otherUserId).isPresent) {
-            return FriendshipStatus.FRIENDS
-        }
+        val requests = friendRequestRepository.findAllBetween(currentUserId, otherUserId)
 
-        if(friendRequestRepository.findBySenderIdAndReceiverId(currentUserId, otherUserId).isPresent) {
-            return FriendshipStatus.REQUEST_SENT
+        return when {
+            requests.any { it.status == FriendRequestStatus.ACCEPTED } -> FriendshipStatus.FRIENDS
+            requests.any { it.status == FriendRequestStatus.PENDING && it.sender.id == currentUserId } -> FriendshipStatus.REQUEST_SENT
+            requests.any { it.status == FriendRequestStatus.PENDING && it.sender.id == otherUserId } -> FriendshipStatus.REQUEST_RECEIVED
+            else -> FriendshipStatus.NONE
         }
-
-        if(friendRequestRepository.findBySenderIdAndReceiverId(otherUserId, currentUserId).isPresent) {
-            return FriendshipStatus.REQUEST_RECEIVED
-        }
-
-        return FriendshipStatus.NONE
     }
+
+    private fun findPendingRequest(requestId: UUID): FriendRequest =
+        friendRequestRepository.findWithUsersById(requestId)
+            .filter { it.status == FriendRequestStatus.PENDING }
+            .orElseThrow { FriendRequestNotFoundException(requestId) }
 }

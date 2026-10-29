@@ -3,6 +3,8 @@ package com.backend.models.specifications
 import com.backend.models.entities.User
 import com.backend.models.entities.Wishlist
 import com.backend.models.entities.WishlistMember
+import jakarta.persistence.criteria.JoinType
+import jakarta.persistence.criteria.Predicate
 import org.springframework.data.jpa.domain.Specification
 import java.util.UUID
 
@@ -11,9 +13,14 @@ enum class WishlistFilterType {
 }
 
 object WishlistSpecification {
+
     fun withFilters(userId: UUID, type: WishlistFilterType?): Specification<Wishlist> {
         return Specification { root, query, cb ->
-            val predicates = mutableListOf<jakarta.persistence.criteria.Predicate>()
+            if(query.resultType != Long::class.javaObjectType) {
+                root.fetch<Wishlist, User>("owner", JoinType.INNER)
+            }
+
+            val predicates = mutableListOf<Predicate>()
 
             val isOwner = cb.equal(root.get<User>("owner").get<UUID>("id"), userId)
 
@@ -24,9 +31,8 @@ object WishlistSpecification {
                 cb.equal(memberRoot.get<Wishlist>("wishlist"), root),
                 cb.equal(memberRoot.get<User>("user").get<UUID>("id"), userId),
             )
-            val isMember = cb.exists(memberSubquery)
 
-            predicates.add(cb.or(isOwner, isMember))
+            predicates.add(cb.or(isOwner, cb.exists(memberSubquery)))
 
             when(type) {
                 WishlistFilterType.SHARED -> predicates.add(cb.isTrue(root.get("isShared")))

@@ -2,11 +2,11 @@ package com.backend.services
 
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import org.springframework.web.reactive.function.client.WebClient
 import org.thymeleaf.TemplateEngine
 import org.thymeleaf.context.Context
+import java.time.Duration
 
 @Service
 class MailService(
@@ -20,25 +20,21 @@ class MailService(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    @Async
-    fun sendActivationOtp(to: String, otpCode: String, expiresInMinutes: Long) {
-        val context = Context().apply {
+    companion object {
+        private val SEND_TIMEOUT: Duration = Duration.ofSeconds(10)
+    }
+
+    fun sendActivationOtp(to: String, otpCode: String, expiresInMinutes: Long) =
+        send(to = to, subject = "Codice di attivazione - Let's Table", template = "emails/otp", context = otpContext(otpCode, expiresInMinutes))
+
+    fun sendPasswordResetOtp(to: String, otpCode: String, expiresInMinutes: Long) =
+        send(to = to, subject = "Reimposta la tua password - Let's Table", template = "emails/password-reset", context = otpContext(otpCode, expiresInMinutes))
+
+    private fun otpContext(otpCode: String, expiresInMinutes: Long): Context =
+        Context().apply {
             setVariable("otpCode", otpCode)
             setVariable("expiresInMinutes", expiresInMinutes)
         }
-
-        send(to = to, subject = "Codice di attivazione - Let's Table", template = "emails/otp", context = context)
-    }
-
-    @Async
-    fun sendPasswordResetOtp(to: String, otpCode: String, expiresInMinutes: Long) {
-        val context = Context().apply {
-            setVariable("otpCode", otpCode)
-            setVariable("expiresInMinutes", expiresInMinutes)
-        }
-
-        send(to = to, subject = "Reimposta la tua password - Let's Table", template = "emails/password-reset", context = context)
-    }
 
     private fun send(to: String, subject: String, template: String, context: Context) {
         logger.debug("\n\t[DEBUG] [mail_service][send] Sending email\n\tto={}\n\ttemplate={}", to, template)
@@ -64,10 +60,11 @@ class MailService(
                 .bodyValue(payload)
                 .retrieve()
                 .toBodilessEntity()
+                .timeout(SEND_TIMEOUT)
                 .block()
 
             logger.info("\n\t[INFO] [mail_service][send] Email sent\n\tto={}\n\ttemplate={}", to, template)
-        } catch (e: Exception) {
+        } catch(e: Exception) {
             logger.error("\n\t[ERROR] [mail_service][send] Failed to send email\n\tto={}\n\ttemplate={}\n\terror={}", to, template, e.message)
             throw e
         }

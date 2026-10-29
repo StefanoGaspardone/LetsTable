@@ -1,6 +1,10 @@
 package com.backend.services
 
-import com.backend.exceptions.*
+import com.backend.exceptions.CollectionItemNotFoundException
+import com.backend.exceptions.GameAlreadyInCollectionException
+import com.backend.exceptions.GameNotFoundException
+import com.backend.exceptions.InvalidSortException
+import com.backend.exceptions.NotCollectionItemOwnerException
 import com.backend.models.dtos.AddToCollectionRequest
 import com.backend.models.dtos.CollectionItemDTO
 import com.backend.models.dtos.CollectionStatusDTO
@@ -12,46 +16,59 @@ import com.backend.repositories.CollectionItemRepository
 import com.backend.repositories.GameRepository
 import com.backend.repositories.UserRepository
 import com.backend.utils.resolveSort
+import com.backend.utils.safePageRequest
 import org.slf4j.LoggerFactory
-import org.springframework.data.domain.PageRequest
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.util.*
+import java.util.UUID
 
 @Service
 class CollectionService(
     private val collectionItemRepository: CollectionItemRepository,
     private val gameRepository: GameRepository,
     private val userRepository: UserRepository,
-    private val userAchievementService: UserAchievementService
+    private val userAchievementService: UserAchievementService,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    companion object {
+        private val SORT_FIELDS = setOf("game.name", "createdAt")
+        private const val DEFAULT_SORT_FIELD = "createdAt"
+    }
+
     @Transactional
     fun addToCollection(userId: UUID, request: AddToCollectionRequest): CollectionItemDTO {
-        logger.debug("\n\t[DEBUG] [collection_service][add_to_collection] User {} adding game {} to collection", userId, request.gameId)
+        val gameId = request.gameId
+        logger.debug("\n\t[DEBUG] [collection_service][add_to_collection] User {} adding game {} to collection", userId, gameId)
 
         try {
-            if (collectionItemRepository.existsByUserIdAndGameId(userId, request.gameId)) {
-                throw GameAlreadyInCollectionException(request.gameId)
+            if(collectionItemRepository.existsByUserIdAndGameId(userId, gameId)) {
+                throw GameAlreadyInCollectionException(gameId)
             }
 
-            val user = userRepository.findById(userId).orElseThrow { UserNotFoundByIdentifierException(userId.toString()) }
-            val game = gameRepository.findById(request.gameId).orElseThrow { GameNotFoundException(request.gameId) }
+            val game = gameRepository.findById(gameId)
+                .orElseThrow { GameNotFoundException(gameId) }
 
-            val item = CollectionItem(user = user, game = game)
-            val saved = collectionItemRepository.save(item)
+            val saved = try {
+                collectionItemRepository.saveAndFlush(CollectionItem(user = userRepository.getReferenceById(userId), game = game))
+            } catch(_: DataIntegrityViolationException) {
+                throw GameAlreadyInCollectionException(gameId)
+            }
 
             userAchievementService.evaluateAfterCommit(setOf(userId))
 
-            logger.info("\n\t[INFO] [collection_service][add_to_collection] Game {} added to collection of user {}", request.gameId, userId)
+            logger.info("\n\t[INFO] [collection_service][add_to_collection] Game {} added to collection of user {}", gameId, userId)
             return CollectionItemDTO.from(saved)
         } catch(e: GameAlreadyInCollectionException) {
-            logger.warn("\n\t[WARN] [collection_service][add_to_collection] Game {} already in collection of user {}", request.gameId, userId)
+            logger.warn("\n\t[WARN] [collection_service][add_to_collection] Game {} already in collection of user {}", gameId, userId)
+            throw e
+        } catch(e: GameNotFoundException) {
+            logger.warn("\n\t[WARN] [collection_service][add_to_collection] Game {} not found", gameId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [collection_service][add_to_collection] Error adding game {} to collection of user {}: {}", request.gameId, userId, e.message)
+            logger.error("\n\t[ERROR] [collection_service][add_to_collection] Error adding game {} to collection of user {}: {}", gameId, userId, e.message)
             throw e
         }
     }
@@ -64,7 +81,7 @@ class CollectionService(
             val item = collectionItemRepository.findById(itemId)
                 .orElseThrow { CollectionItemNotFoundException(itemId) }
 
-            if (item.user.id != userId) {
+            if(item.user.id != userId) {
                 throw NotCollectionItemOwnerException()
             }
 
@@ -83,18 +100,13 @@ class CollectionService(
         }
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     fun listCollection(userId: UUID, page: Int, size: Int, gameName: String?, played: Boolean?, isExpansion: Boolean?, sort: String?): PageDTO<CollectionItemDTO> {
-        logger.debug("\n\t[DEBUG] [collection_service][list_collection] Listing collection\n\tuserId={}\n\tpage={}\n\tsize={}\n\tgameName={}\n\tplayed={}\n\tsort={}", userId, page, size, gameName, played, sort)
+        logger.debug("\n\t[DEBUG] [collection_service][list_collection] Listing collection\n\tuserId={}\n\tpage={}\n\tsize={}\n\tgameName={}\n\tplayed={}\n\tisExpansion={}\n\tsort={}", userId, page, size, gameName, played, isExpansion, sort)
 
         try {
-            val pageSafe = if(page < 0) 0 else page
-            val sizeSafe = size.coerceIn(1, 100)
-            val sortObj = resolveSort(sort, setOf("game.name", "createdAt"), "createdAt")
-            val pageable = PageRequest.of(pageSafe, sizeSafe, sortObj)
-
-            val spec = CollectionItemSpecification.withFilters(userId, gameName, played, isExpansion)
-            val result = collectionItemRepository.findAll(spec, pageable)
+            val pageable = safePageRequest(page, size, resolveSort(sort, SORT_FIELDS, DEFAULT_SORT_FIELD))
+            val result = collectionItemRepository.findAll(CollectionItemSpecification.withFilters(userId, gameName, played, isExpansion), pageable)
 
             logger.info("\n\t[INFO] [collection_service][list_collection] Retrieved collection\n\tresultSize={}\n\ttotalElements={}", result.numberOfElements, result.totalElements)
             return result.toPageDTO { CollectionItemDTO.from(it) }
@@ -107,13 +119,13 @@ class CollectionService(
         }
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     fun getStatus(userId: UUID, gameId: UUID): CollectionStatusDTO {
         logger.debug("\n\t[DEBUG] [collection_service][get_status] Checking status for user {} game {}", userId, gameId)
 
         try {
-            val item = collectionItemRepository.findByUserIdAndGameId(userId, gameId)
-            val response = CollectionStatusDTO(inCollection = item.isPresent, itemId = item.map { it.id }.orElse(null))
+            val itemId = collectionItemRepository.findIdByUserIdAndGameId(userId, gameId)
+            val response = CollectionStatusDTO(inCollection = itemId != null, itemId = itemId)
 
             logger.info("\n\t[INFO] [collection_service][get_status] Status for user {} game {}: {}", userId, gameId, response.inCollection)
             return response

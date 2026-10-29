@@ -10,6 +10,7 @@ import com.backend.repositories.WishlistItemRepository
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class AdminStatsService(
@@ -25,6 +26,7 @@ class AdminStatsService(
         private const val TOP_GAMES_LIMIT = 10
     }
 
+    @Transactional(readOnly = true)
     fun getStats(): AdminStatsDTO {
         logger.debug("\n\t[DEBUG] [admin_stats_service][get_stats] Computing aggregated statistics")
 

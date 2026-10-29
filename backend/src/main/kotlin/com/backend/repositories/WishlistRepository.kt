@@ -3,6 +3,7 @@ package com.backend.repositories
 import com.backend.models.entities.Wishlist
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
@@ -14,4 +15,10 @@ interface WishlistRepository: JpaRepository<Wishlist, UUID>, JpaSpecificationExe
 
     @Query("SELECT w FROM Wishlist w WHERE w.owner.id = :ownerId AND w.isDefault = true")
     fun findDefaultByOwnerId(@Param("ownerId") ownerId: UUID): Optional<Wishlist>
+
+    fun findFirstByOwnerIdAndName(ownerId: UUID, name: String): Optional<Wishlist>
+
+    @Modifying
+    @Query("DELETE FROM Wishlist w WHERE w.owner.id = :ownerId")
+    fun deleteAllByOwnerId(@Param("ownerId") ownerId: UUID)
 }

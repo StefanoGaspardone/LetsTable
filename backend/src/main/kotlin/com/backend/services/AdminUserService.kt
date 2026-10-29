@@ -1,7 +1,15 @@
 package com.backend.services
 
-import com.backend.exceptions.*
-import com.backend.models.dtos.*
+import com.backend.exceptions.CannotSuspendSelfException
+import com.backend.exceptions.EmailAlreadyTakenException
+import com.backend.exceptions.InvalidAccountStatusTransitionException
+import com.backend.exceptions.InvalidSortException
+import com.backend.exceptions.UserNotFoundException
+import com.backend.exceptions.UsernameAlreadyTakenException
+import com.backend.models.dtos.AdminUserDTO
+import com.backend.models.dtos.AdminUserDetailDTO
+import com.backend.models.dtos.CreateAdminRequest
+import com.backend.models.dtos.PageDTO
 import com.backend.models.entities.User
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.UserRole
@@ -9,10 +17,13 @@ import com.backend.models.mappers.toPageDTO
 import com.backend.models.specifications.UserSpecification
 import com.backend.repositories.CollectionItemRepository
 import com.backend.repositories.MatchRepository
+import com.backend.repositories.RefreshTokenRepository
 import com.backend.repositories.UserRepository
+import com.backend.utils.duplicateUserException
 import com.backend.utils.resolveSort
+import com.backend.utils.safePageRequest
 import org.slf4j.LoggerFactory
-import org.springframework.data.domain.PageRequest
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -23,50 +34,49 @@ class AdminUserService(
     private val userRepository: UserRepository,
     private val matchRepository: MatchRepository,
     private val collectionItemRepository: CollectionItemRepository,
+    private val refreshTokenRepository: RefreshTokenRepository,
     private val matchService: MatchService,
     private val passwordEncoder: PasswordEncoder,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    companion object {
+        private val SORT_FIELDS = setOf("username", "createdAt")
+        private const val DEFAULT_SORT_FIELD = "createdAt"
+        private const val RECENT_MATCHES_LIMIT = 10
+    }
+
+    @Transactional(readOnly = true)
     fun listUsers(role: UserRole?, status: AccountStatus?, search: String?, page: Int, size: Int, sort: String?): PageDTO<AdminUserDTO> {
-        logger.debug("\n\t[DEBUG] [admin_user_service][list_users] Listing users\n\trole={}\n\tstatus={}\n\tsearch={}", role, status, search)
+        logger.debug("\n\t[DEBUG] [admin_user_service][list_users] Listing users\n\trole={}\n\tstatus={}\n\tsearch={}\n\tpage={}\n\tsize={}\n\tsort={}", role, status, search, page, size, sort)
 
         try {
-            val pageSafe = if(page < 0) 0 else page
-            val sizeSafe = size.coerceIn(1, 100)
-            val sortObj = resolveSort(sort, setOf("username", "createdAt"), "createdAt")
-            val pageable = PageRequest.of(pageSafe, sizeSafe, sortObj)
-
-            val spec = UserSpecification.withFilters(role, status, search)
-            val result = userRepository.findAll(spec, pageable)
+            val pageable = safePageRequest(page, size, resolveSort(sort, SORT_FIELDS, DEFAULT_SORT_FIELD))
+            val result = userRepository.findAll(UserSpecification.withFilters(role, status, search), pageable)
 
             logger.info("\n\t[INFO] [admin_user_service][list_users] Retrieved {} users", result.numberOfElements)
             return result.toPageDTO { AdminUserDTO.from(it) }
+        } catch(e: InvalidSortException) {
+            logger.warn("\n\t[WARN] [admin_user_service][list_users] Invalid sort field: {}", sort)
+            throw e
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [admin_user_service][list_users] Error listing users: {}", e.message)
             throw e
         }
     }
 
+    @Transactional(readOnly = true)
     fun getUserDetail(userId: UUID): AdminUserDetailDTO {
         logger.debug("\n\t[DEBUG] [admin_user_service][get_user_detail] Retrieving detail for user {}", userId)
 
         try {
-            val user = userRepository.findById(userId)
-                .orElseThrow { UserNotFoundException(userId) }
-
-            val totalMatches = matchRepository.countCompletedMatchesForUser(userId)
-            val totalWins = matchRepository.countWonMatchesForUser(userId)
-            val collectionCount = collectionItemRepository.countByUserId(userId)
-            val recentMatches = matchService.getRecentMatchesForUser(userId, 10)
-
             val response = AdminUserDetailDTO(
-                user = AdminUserDTO.from(user),
-                totalMatches = totalMatches,
-                totalWins = totalWins,
-                collectionCount = collectionCount,
-                recentMatches = recentMatches,
+                user = AdminUserDTO.from(findUser(userId)),
+                totalMatches = matchRepository.countCompletedMatchesForUser(userId),
+                totalWins = matchRepository.countWonMatchesForUser(userId),
+                collectionCount = collectionItemRepository.countByUserId(userId),
+                recentMatches = matchService.getRecentMatchesForUser(userId, RECENT_MATCHES_LIMIT),
             )
 
             logger.info("\n\t[INFO] [admin_user_service][get_user_detail] Retrieved detail for user {}", userId)
@@ -89,18 +99,17 @@ class AdminUserService(
                 throw CannotSuspendSelfException()
             }
 
-            val user = userRepository.findById(userId)
-                .orElseThrow { UserNotFoundException(userId) }
+            val user = findUser(userId)
 
             if(user.accountStatus != AccountStatus.ACTIVE) {
                 throw InvalidAccountStatusTransitionException("Only active accounts can be suspended")
             }
 
             user.accountStatus = AccountStatus.SUSPENDED
-            val saved = userRepository.save(user)
+            refreshTokenRepository.revokeAllByUserId(userId)
 
-            logger.info("\n\t[INFO] [admin_user_service][suspend_user] User {} suspended by admin {}", userId, adminId)
-            return AdminUserDTO.from(saved)
+            logger.info("\n\t[INFO] [admin_user_service][suspend_user] User {} suspended by admin {}, sessions revoked", userId, adminId)
+            return AdminUserDTO.from(user)
         } catch(e: CannotSuspendSelfException) {
             logger.warn("\n\t[WARN] [admin_user_service][suspend_user] Admin {} attempted to suspend themselves", adminId)
             throw e
@@ -121,18 +130,16 @@ class AdminUserService(
         logger.debug("\n\t[DEBUG] [admin_user_service][reactivate_user] Reactivating user {}", userId)
 
         try {
-            val user = userRepository.findById(userId)
-                .orElseThrow { UserNotFoundException(userId) }
+            val user = findUser(userId)
 
             if(user.accountStatus != AccountStatus.SUSPENDED) {
                 throw InvalidAccountStatusTransitionException("Only suspended accounts can be reactivated")
             }
 
             user.accountStatus = AccountStatus.ACTIVE
-            val saved = userRepository.save(user)
 
             logger.info("\n\t[INFO] [admin_user_service][reactivate_user] User {} reactivated", userId)
-            return AdminUserDTO.from(saved)
+            return AdminUserDTO.from(user)
         } catch(e: UserNotFoundException) {
             logger.warn("\n\t[WARN] [admin_user_service][reactivate_user] User {} not found", userId)
             throw e
@@ -151,7 +158,8 @@ class AdminUserService(
 
         try {
             val normalizedEmail = request.email.trim().lowercase()
-            val normalizedUsername = request.username.trim().lowercase()
+            val trimmedUsername = request.username.trim()
+            val normalizedUsername = trimmedUsername.lowercase()
 
             if(userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
                 throw EmailAlreadyTakenException(normalizedEmail)
@@ -161,14 +169,19 @@ class AdminUserService(
                 throw UsernameAlreadyTakenException(normalizedUsername)
             }
 
-            val admin = User(
-                username = request.username.trim(),
-                email = normalizedEmail,
-                passwordHash = passwordEncoder.encode(request.password)!!,
-                role = UserRole.ADMIN,
-                accountStatus = AccountStatus.ACTIVE,
-            )
-            val saved = userRepository.saveAndFlush(admin)
+            val saved = try {
+                userRepository.saveAndFlush(
+                    User(
+                        username = trimmedUsername,
+                        email = normalizedEmail,
+                        passwordHash = passwordEncoder.encode(request.password.trim())!!,
+                        role = UserRole.ADMIN,
+                        accountStatus = AccountStatus.ACTIVE,
+                    )
+                )
+            } catch(e: DataIntegrityViolationException) {
+                throw duplicateUserException(e, normalizedEmail, normalizedUsername)
+            }
 
             logger.info("\n\t[INFO] [admin_user_service][create_admin] Admin {} created", saved.id)
             return AdminUserDTO.from(saved)
@@ -183,4 +196,8 @@ class AdminUserService(
             throw e
         }
     }
+
+    private fun findUser(userId: UUID): User =
+        userRepository.findById(userId)
+            .orElseThrow { UserNotFoundException(userId) }
 }

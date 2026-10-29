@@ -78,13 +78,10 @@ interface MatchRepository: JpaRepository<Match, UUID>, JpaSpecificationExecutor<
     @Query(
         """
         SELECT COUNT(DISTINCT m.id) FROM Match m
-        LEFT JOIN MatchPlayer mp ON mp.match = m AND mp.user.id = :userId
+        JOIN MatchPlayer mp ON mp.match = m AND mp.user.id = :userId
         LEFT JOIN MatchTeam mt ON mp.team = mt
         WHERE m.durationMinutes IS NOT NULL
-        AND (
-            mp.isWinner = true
-            OR mt.isWinner = true
-        )
+        AND (mp.isWinner = true OR mt.isWinner = true)
         """
     )
     fun countWonMatchesForUser(@Param("userId") userId: UUID): Long

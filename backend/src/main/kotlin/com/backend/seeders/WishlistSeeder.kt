@@ -1,16 +1,10 @@
 package com.backend.seeders
 
-import com.backend.models.entities.Game
-import com.backend.models.entities.User
-import com.backend.models.entities.Wishlist
-import com.backend.models.entities.WishlistItem
-import com.backend.models.entities.WishlistMember
-import com.backend.models.specifications.WishlistSpecification
+import com.backend.models.entities.*
 import com.backend.repositories.WishlistItemRepository
 import com.backend.repositories.WishlistMemberRepository
 import com.backend.repositories.WishlistRepository
 import org.slf4j.LoggerFactory
-import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 
 @Component
@@ -44,11 +38,8 @@ class WishlistSeeder(
             addItemIfMissing(defaultWishlists[elena]!!, seti, elena)
             addItemIfMissing(defaultWishlists[elena]!!, arkNova, elena)
 
-            val sharedWishlist = wishlistRepository.findAll(WishlistSpecification.withFilters(marco.id!!, null), Pageable.unpaged())
-                .firstOrNull { it.name == "Serata del giovedì" }
-                ?: wishlistRepository.save(
-                    Wishlist(name = "Serata del giovedì", owner = marco, isShared = true, isDefault = false)
-                )
+            val sharedWishlist = wishlistRepository.findFirstByOwnerIdAndName(marco.id!!, "Serata del giovedì")
+                .orElseGet { wishlistRepository.save(Wishlist(name = "Serata del giovedì", owner = marco, isShared = true, isDefault = false)) }
 
             listOf(anna, luca).forEach { member ->
                 if(!wishlistMemberRepository.existsByWishlistIdAndUserId(sharedWishlist.id!!, member.id!!))

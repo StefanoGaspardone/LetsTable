@@ -11,17 +11,21 @@ import com.backend.repositories.EmailVerificationRepository
 import com.backend.repositories.PasswordResetRepository
 import com.backend.repositories.RefreshTokenRepository
 import com.backend.repositories.UserRepository
+import com.backend.utils.duplicateUserException
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.*
+import java.util.Base64
 
 @Service
 class AuthService(
@@ -52,7 +56,8 @@ class AuthService(
 
         try {
             val normalizedEmail = request.email.trim().lowercase()
-            val normalizedUsername = request.username.trim().lowercase()
+            val trimmedUsername = request.username.trim()
+            val normalizedUsername = trimmedUsername.lowercase()
 
             if(userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
                 throw EmailAlreadyTakenException(normalizedEmail)
@@ -62,28 +67,35 @@ class AuthService(
                 throw UsernameAlreadyTakenException(normalizedUsername)
             }
 
-            val user = User(
-                username = request.username.trim(),
-                email = normalizedEmail,
-                passwordHash = passwordEncoder.encode(request.password.trim())!!,
-                accountStatus = AccountStatus.INACTIVE,
-            )
-            val saved = userRepository.saveAndFlush(user)
-            wishlistService.createDefaultWishlistForUser(user)
+            val saved = try {
+                userRepository.saveAndFlush(
+                    User(
+                        username = trimmedUsername,
+                        email = normalizedEmail,
+                        passwordHash = passwordEncoder.encode(request.password.trim())!!,
+                        accountStatus = AccountStatus.INACTIVE,
+                    )
+                )
+            } catch(e: DataIntegrityViolationException) {
+                throw duplicateUserException(e, normalizedEmail, normalizedUsername)
+            }
 
-            val rawOtp = generateOtp()
+            wishlistService.createDefaultWishlistForUser(saved)
+
             val now = Instant.now()
+            val rawOtp = generateOtp()
 
-            emailVerificationRepository.saveAndFlush(
+            emailVerificationRepository.save(
                 EmailVerification(
                     user = saved,
                     otpHash = hashValue(rawOtp),
-                    expiresAt = now.plus(otpTtlMinutes, ChronoUnit.MINUTES),
+                    expiresAt = otpExpiry(now),
                     attempts = 0,
                     lastSentAt = now,
                 )
             )
-            mailService.sendActivationOtp(saved.email, rawOtp, otpTtlMinutes)
+
+            sendMailAfterCommit("signup") { mailService.sendActivationOtp(saved.email, rawOtp, otpTtlMinutes) }
 
             logger.info("\n\t[INFO] [auth_service][signup] User {} signed up, OTP issued", saved.id)
             return SignupResponse(email = saved.email, message = "Please check your email for a verification code")
@@ -99,7 +111,7 @@ class AuthService(
         }
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = [InvalidOtpException::class])
     fun activateAccount(request: ActivateAccountRequest) {
         logger.debug("\n\t[DEBUG] [auth_service][activate_account] Activating account for identifier {}", request.identifier)
 
@@ -108,22 +120,14 @@ class AuthService(
             val verification = emailVerificationRepository.findByUserId(user.id!!)
                 .orElseThrow { EmailVerificationNotFoundException() }
 
-            if(verification.isExpired()) {
-                throw OtpExpiredException()
-            }
-
-            if(verification.hasExceededMaxAttempts(maxAttempts)) {
-                throw OtpMaxAttemptsExceededException()
-            }
-
-            if(verification.otpHash != hashValue(request.otpCode)) {
-                verification.attempts += 1
-                emailVerificationRepository.save(verification)
-                throw InvalidOtpException()
-            }
+            verifyOtp(
+                expired = verification.isExpired(),
+                attemptsExceeded = verification.hasExceededMaxAttempts(maxAttempts),
+                storedHash = verification.otpHash,
+                rawOtp = request.otpCode,
+            ) { verification.attempts += 1 }
 
             user.accountStatus = AccountStatus.ACTIVE
-            userRepository.save(user)
             emailVerificationRepository.delete(verification)
 
             logger.info("\n\t[INFO] [auth_service][activate_account] Account activated for user {}", user.id)
@@ -154,21 +158,16 @@ class AuthService(
             val verification = emailVerificationRepository.findByUserId(user.id!!)
                 .orElseThrow { EmailVerificationNotFoundException() }
 
-            val secondsSinceLastSent = Duration.between(verification.lastSentAt, Instant.now()).seconds
-            if(secondsSinceLastSent < resendCooldownSeconds) {
-                throw OtpResendCooldownException(resendCooldownSeconds - secondsSinceLastSent)
-            }
+            val now = Instant.now()
+            ensureCooldownElapsed(verification.lastSentAt, now)
 
             val rawOtp = generateOtp()
-            val now = Instant.now()
-
             verification.otpHash = hashValue(rawOtp)
-            verification.expiresAt = now.plus(otpTtlMinutes, ChronoUnit.MINUTES)
+            verification.expiresAt = otpExpiry(now)
             verification.attempts = 0
             verification.lastSentAt = now
-            emailVerificationRepository.saveAndFlush(verification)
 
-            mailService.sendActivationOtp(user.email, rawOtp, otpTtlMinutes)
+            sendMailAfterCommit("resend_activation_otp") { mailService.sendActivationOtp(user.email, rawOtp, otpTtlMinutes) }
 
             logger.info("\n\t[INFO] [auth_service][resend_activation_otp] Activation OTP resent for user {}", user.id)
         } catch(e: EmailVerificationNotFoundException) {
@@ -188,21 +187,14 @@ class AuthService(
         logger.debug("\n\t[DEBUG] [auth_service][login] Login attempt for identifier {}", request.identifier)
 
         try {
-            val normalized = request.identifier.trim().lowercase()
-            val userOpt = if(normalized.contains("@")) {
-                userRepository.findByEmailIgnoreCase(normalized)
-            } else {
-                userRepository.findByUsernameIgnoreCase(normalized)
-            }
+            val user = findByIdentifierOrNull(request.identifier)
 
-            if(userOpt.isEmpty) {
-                passwordEncoder.matches(request.password, DUMMY_PASSWORD_HASH)
+            if(user == null) {
+                passwordEncoder.matches(request.password.trim(), DUMMY_PASSWORD_HASH)
                 throw InvalidCredentialsException()
             }
 
-            val user = userOpt.get()
-
-            if(!passwordEncoder.matches(request.password, user.passwordHash)) {
+            if(!passwordEncoder.matches(request.password.trim(), user.passwordHash)) {
                 throw InvalidCredentialsException()
             }
 
@@ -210,10 +202,10 @@ class AuthService(
                 throw AccountNotActivatedException()
             }
 
-            val response = issueTokenPair(user)
+            val (accessToken, refreshToken) = issueTokens(user)
 
             logger.info("\n\t[INFO] [auth_service][login] User {} logged in successfully", user.id)
-            return response
+            return AuthResponse(accessToken = accessToken, refreshToken = refreshToken, user = UserDTO.from(user))
         } catch(e: InvalidCredentialsException) {
             logger.warn("\n\t[WARN] [auth_service][login] Invalid credentials for identifier {}", request.identifier)
             throw e
@@ -231,8 +223,7 @@ class AuthService(
         logger.debug("\n\t[DEBUG] [auth_service][refresh] Refresh attempt")
 
         try {
-            val oldHash = hashValue(rawRefreshToken)
-            val storedToken = refreshTokenRepository.findByTokenHash(oldHash)
+            val storedToken = refreshTokenRepository.findByTokenHash(hashValue(rawRefreshToken))
                 .orElseThrow { RefreshTokenNotFoundException() }
 
             if(storedToken.revoked || storedToken.expiresAt.isBefore(Instant.now())) {
@@ -240,17 +231,17 @@ class AuthService(
             }
 
             val user = storedToken.user
+
             if(user.accountStatus != AccountStatus.ACTIVE) {
                 throw AccountNotActivatedException()
             }
 
             storedToken.revoked = true
-            refreshTokenRepository.save(storedToken)
 
-            val response = issueTokenPair(user)
+            val (accessToken, refreshToken) = issueTokens(user)
 
             logger.info("\n\t[INFO] [auth_service][refresh] Access token refreshed for user {}", user.id)
-            return RefreshResponse(accessToken = response.accessToken, refreshToken = response.refreshToken)
+            return RefreshResponse(accessToken = accessToken, refreshToken = refreshToken)
         } catch(e: RefreshTokenNotFoundException) {
             logger.warn("\n\t[WARN] [auth_service][refresh] Refresh token not found")
             throw e
@@ -271,13 +262,10 @@ class AuthService(
         logger.debug("\n\t[DEBUG] [auth_service][logout] Logout attempt")
 
         try {
-            val hash = hashValue(rawRefreshToken)
-            refreshTokenRepository.findByTokenHash(hash).ifPresent {
-                it.revoked = true
-                refreshTokenRepository.save(it)
-            }
+            refreshTokenRepository.findByTokenHash(hashValue(rawRefreshToken)).ifPresent { it.revoked = true }
+
             logger.info("\n\t[INFO] [auth_service][logout] Refresh token revoked")
-        } catch (e: Exception) {
+        } catch(e: Exception) {
             logger.error("\n\t[ERROR] [auth_service][logout] Error logging out: {}", e.message)
             throw e
         }
@@ -296,37 +284,31 @@ class AuthService(
             }
 
             val now = Instant.now()
-            val existing = passwordResetRepository.findByUserId(user.id!!)
             val rawOtp = generateOtp()
+            val existing = passwordResetRepository.findByUserId(user.id!!).orElse(null)
 
-            if(existing.isPresent) {
-                val current = existing.get()
-                val secondsSinceLastSent = Duration.between(current.lastSentAt, now).seconds
+            if(existing != null) {
+                ensureCooldownElapsed(existing.lastSentAt, now)
 
-                if(secondsSinceLastSent < resendCooldownSeconds) {
-                    throw OtpResendCooldownException(resendCooldownSeconds - secondsSinceLastSent)
-                }
-
-                current.otpHash = hashValue(rawOtp)
-                current.expiresAt = now.plus(otpTtlMinutes, ChronoUnit.MINUTES)
-                current.attempts = 0
-                current.lastSentAt = now
-                passwordResetRepository.saveAndFlush(current)
+                existing.otpHash = hashValue(rawOtp)
+                existing.expiresAt = otpExpiry(now)
+                existing.attempts = 0
+                existing.lastSentAt = now
             } else {
-                passwordResetRepository.saveAndFlush(
+                passwordResetRepository.save(
                     PasswordReset(
                         user = user,
                         otpHash = hashValue(rawOtp),
-                        expiresAt = now.plus(otpTtlMinutes, ChronoUnit.MINUTES),
+                        expiresAt = otpExpiry(now),
                         attempts = 0,
                         lastSentAt = now,
                     )
                 )
             }
 
-            mailService.sendPasswordResetOtp(user.email, rawOtp, otpTtlMinutes)
+            sendMailAfterCommit("forgot_password") { mailService.sendPasswordResetOtp(user.email, rawOtp, otpTtlMinutes) }
 
-            logger.info("\n\t[INFO] [auth_service][forgot_password] Password reset OTP sent for user {}", user.id)
+            logger.info("\n\t[INFO] [auth_service][forgot_password] Password reset OTP issued for user {}", user.id)
         } catch(e: OtpResendCooldownException) {
             logger.warn("\n\t[WARN] [auth_service][forgot_password] Resend cooldown active for identifier {}", request.identifier)
             throw e
@@ -336,7 +318,7 @@ class AuthService(
         }
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = [InvalidOtpException::class])
     fun resetPassword(request: ResetPasswordRequest) {
         logger.debug("\n\t[DEBUG] [auth_service][reset_password] Completing password reset for identifier {}", request.identifier)
 
@@ -345,25 +327,18 @@ class AuthService(
             val reset = passwordResetRepository.findByUserId(user.id!!)
                 .orElseThrow { PasswordResetNotFoundException() }
 
-            if(reset.isExpired()) {
-                throw OtpExpiredException()
-            }
+            verifyOtp(
+                expired = reset.isExpired(),
+                attemptsExceeded = reset.hasExceededMaxAttempts(maxAttempts),
+                storedHash = reset.otpHash,
+                rawOtp = request.otpCode,
+            ) { reset.attempts += 1 }
 
-            if(reset.hasExceededMaxAttempts(maxAttempts)) {
-                throw OtpMaxAttemptsExceededException()
-            }
-
-            if(reset.otpHash != hashValue(request.otpCode)) {
-                reset.attempts += 1
-                passwordResetRepository.save(reset)
-                throw InvalidOtpException()
-            }
-
-            user.passwordHash = passwordEncoder.encode(request.newPassword)!!
-            userRepository.save(user)
+            user.passwordHash = passwordEncoder.encode(request.newPassword.trim())!!
             passwordResetRepository.delete(reset)
+            refreshTokenRepository.revokeAllByUserId(user.id!!)
 
-            logger.info("\n\t[INFO] [auth_service][reset_password] Password reset for user {}", user.id)
+            logger.info("\n\t[INFO] [auth_service][reset_password] Password reset for user {}, all sessions revoked", user.id)
         } catch(e: PasswordResetNotFoundException) {
             logger.warn("\n\t[WARN] [auth_service][reset_password] No pending reset for identifier {}", request.identifier)
             throw e
@@ -382,7 +357,7 @@ class AuthService(
         }
     }
 
-    private fun issueTokenPair(user: User): AuthResponse {
+    private fun issueTokens(user: User): Pair<String, String> {
         val accessToken = jwtService.generateAccessToken(user.id!!, user.role.name)
         val rawRefreshToken = generateOpaqueToken()
 
@@ -394,15 +369,12 @@ class AuthService(
             )
         )
 
-        return AuthResponse(
-            accessToken = accessToken,
-            refreshToken = rawRefreshToken,
-            user = UserDTO.from(user),
-        )
+        return accessToken to rawRefreshToken
     }
 
     private fun findByIdentifierOrNull(identifier: String): User? {
         val normalized = identifier.trim().lowercase()
+
         val result = if(normalized.contains("@")) {
             userRepository.findByEmailIgnoreCase(normalized)
         } else {
@@ -411,6 +383,44 @@ class AuthService(
 
         return result.orElse(null)
     }
+
+    private fun verifyOtp(expired: Boolean, attemptsExceeded: Boolean, storedHash: String, rawOtp: String, onMismatch: () -> Unit) {
+        if(expired) {
+            throw OtpExpiredException()
+        }
+
+        if(attemptsExceeded) {
+            throw OtpMaxAttemptsExceededException()
+        }
+
+        if(!hashMatches(storedHash, rawOtp)) {
+            onMismatch()
+            throw InvalidOtpException()
+        }
+    }
+
+    private fun ensureCooldownElapsed(lastSentAt: Instant, now: Instant) {
+        val elapsedSeconds = Duration.between(lastSentAt, now).seconds
+
+        if(elapsedSeconds < resendCooldownSeconds) {
+            throw OtpResendCooldownException(resendCooldownSeconds - elapsedSeconds)
+        }
+    }
+
+    private fun sendMailAfterCommit(action: String, send: () -> Unit) {
+        TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+            override fun afterCommit() {
+                try {
+                    send()
+                } catch(e: Exception) {
+                    logger.error("\n\t[ERROR] [auth_service][{}] Error sending email after commit: {}", action, e.message)
+                }
+            }
+        })
+    }
+
+    private fun otpExpiry(now: Instant): Instant =
+        now.plus(otpTtlMinutes, ChronoUnit.MINUTES)
 
     private fun generateOtp(): String =
         secureRandom.nextInt(100000, 1000000).toString()
@@ -422,7 +432,10 @@ class AuthService(
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
     }
 
+    private fun hashMatches(storedHash: String, raw: String): Boolean =
+        MessageDigest.isEqual(storedHash.toByteArray(Charsets.UTF_8), hashValue(raw).toByteArray(Charsets.UTF_8))
+
     private fun hashValue(raw: String): String =
-        MessageDigest.getInstance("SHA-256").digest(raw.toByteArray())
+        MessageDigest.getInstance("SHA-256").digest(raw.toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
 }
