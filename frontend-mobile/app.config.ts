@@ -47,7 +47,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 		[
 			"expo-image-picker",
 			{
-				photosPermission: "Let's Table usa le tue foto per scegliere l'immagine del profilo."
+				photosPermission: "Let's Table usa le tue foto per scegliere l'immagine del profilo.",
+				microphonePermission: false
 			}
 		]
 	],

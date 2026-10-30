@@ -3,7 +3,7 @@ import '@/lib/calendar';
 
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Stack, DefaultTheme, ThemeProvider, DarkTheme, router } from 'expo-router';
+import { Stack, DefaultTheme, ThemeProvider, DarkTheme } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { KeyboardAvoidingView, Platform, useColorScheme } from 'react-native';
 import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -18,10 +18,12 @@ import { ThemeProvider as AppThemeProvider, useTheme as useAppTheme } from '@/co
 import { NavigationStackProvider } from '@/contexts/navigation-stack-context';
 
 import AchievementCelebrationHost from '@/components/achievements/achievement-celebration-host';
+import ServerDownOverlay from '@/components/common/server-down-overlay';
 
 import { useHealthCheck } from '@/hooks/use-health-check';
+import { useNotificationNavigation } from '@/hooks/use-notification-navigation';
 
-import ServerDownOverlay from '@/components/common/server-down-overlay';
+import { configureNotifications } from '@/lib/push-notifications';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -34,7 +36,7 @@ const queryClient = new QueryClient({
 });
 
 const RootLayoutNav = () => {
-	const { isLoading } = useAuth();
+	const { isLoading, isAuthenticated } = useAuth();
 	const { themePreference } = useAppTheme();
 	const systemColorScheme = useColorScheme();
 	const [fontsLoaded] = useFonts({
@@ -46,6 +48,8 @@ const RootLayoutNav = () => {
 	});
 
 	const isReady = !isLoading && fontsLoaded;
+
+	useNotificationNavigation(isReady && isAuthenticated);
 
 	useEffect(() => {
 		if(isReady) SplashScreen.hideAsync();
@@ -75,21 +79,7 @@ const RootLayout = () => {
 	const { isHealthy, isChecking, retryNow } = useHealthCheck();
 
 	useEffect(() => {
-		let subscription: { remove: () => void } | undefined;
-
-		import('expo-notifications').then(Notifications => {
-			subscription = Notifications.addNotificationResponseReceivedListener(response => {
-				const data = response.notification.request.content.data;
-
-				if(data?.type === 'FRIEND_REQUEST' || data?.type === 'FRIEND_ACCEPTED') {
-					router.push('/(tabs)/friends');
-				}
-			});
-		}).catch(() => {
-			console.log('expo-notifications not available in this environment (Expo Go on Android)');
-		});
-
-		return () => subscription?.remove();
+		configureNotifications().catch(error => console.log('Failed to configure notifications:', error));
 	}, []);
 
 	return (
