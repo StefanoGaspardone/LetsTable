@@ -1,7 +1,7 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 import { View, Pressable } from 'react-native';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { Sun, Moon, Smartphone, Check } from 'lucide-react-native';
+import { Sun, Moon, Smartphone, Check, type LucideIcon } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import AppBottomSheet from '@/components/common/app-bottom-sheet';
@@ -15,7 +15,7 @@ export interface ThemePickerSheetRef {
 	dismiss: () => void;
 }
 
-const OPTIONS: { value: ThemePreference; label: string; icon: any }[] = [
+const OPTIONS: { value: ThemePreference; label: string; icon: LucideIcon }[] = [
 	{ value: 'light', label: 'Chiaro', icon: Sun },
 	{ value: 'dark', label: 'Scuro', icon: Moon },
 	{ value: 'system', label: 'Sistema', icon: Smartphone },

@@ -1,33 +1,48 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getGameByBggId, getHotGames, getOverallGames, searchGame } from '@/api/game';
 import { addToCollection, getGameStatusInCollection, removeFromCollection } from '@/api/collection';
 import { addItemToWishlist, getItemStatusInWishlist, removeItemFromWishlist } from '@/api/wishlist';
+import { getGameByBggId, getGameExpansions, getHotGames, getOverallGames, searchGame } from '@/api/game';
+import { listGameRules } from '@/api/game-rules';
 
-import { useDefaultWishlistId } from '@/hooks/use-wishlist';
+import { defaultWishlistQuery, useDefaultWishlistId } from '@/hooks/use-wishlist';
+
+const GAME_STALE_TIME_MS = 5 * 60 * 1000;
+const RANKING_STALE_TIME_MS = 30 * 60 * 1000;
+
+interface ToggleVariables {
+	gameId: string;
+	itemId: string | null;
+}
 
 export const useGameDetail = (bggId: number) => {
 	return useQuery({
 		queryKey: ['games', 'detail', bggId],
 		queryFn: () => getGameByBggId(bggId),
+		enabled: Number.isFinite(bggId) && bggId > 0,
+		staleTime: GAME_STALE_TIME_MS,
 	});
 }
 
-export const useHotGames = () => {
+export const useHotGames = (enabled = true) => {
 	return useInfiniteQuery({
 		queryKey: ['games', 'hot'],
 		queryFn: ({ pageParam }) => getHotGames(pageParam),
 		initialPageParam: 0,
 		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
+		staleTime: RANKING_STALE_TIME_MS,
+		enabled,
 	});
 }
 
-export const useOverallGames = () => {
+export const useOverallGames = (enabled = true) => {
 	return useInfiniteQuery({
 		queryKey: ['games', 'overall'],
 		queryFn: ({ pageParam }) => getOverallGames(pageParam),
 		initialPageParam: 0,
 		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
+		staleTime: RANKING_STALE_TIME_MS,
+		enabled,
 	});
 }
 
@@ -38,10 +53,12 @@ export const useGameSearch = (query: string) => {
 		initialPageParam: 0,
 		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
 		enabled: query.length > 0,
+		staleTime: GAME_STALE_TIME_MS,
+		placeholderData: keepPreviousData,
 	});
 }
 
-export function useCollectionStatus(gameId: string | undefined) {
+export const useCollectionStatus = (gameId: string | undefined) => {
 	return useQuery({
 		queryKey: ['collection', 'status', gameId],
 		queryFn: () => getGameStatusInCollection(gameId!),
@@ -63,15 +80,11 @@ export const useToggleCollection = () => {
 	const queryClient = useQueryClient();
 
 	return useMutation({
-		mutationFn: async ({ gameId, itemId }: { gameId: string; itemId: string | null }) => {
-			if (itemId) {
-				await removeFromCollection(itemId);
-			} else {
-				await addToCollection(gameId);
-			}
+		mutationFn: async ({ gameId, itemId }: ToggleVariables) => {
+			if(itemId) await removeFromCollection(itemId);
+			else await addToCollection(gameId);
 		},
-		onSuccess: (_, { gameId }) => {
-			queryClient.invalidateQueries({ queryKey: ['collection', 'status', gameId] });
+		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['collection'] });
 		},
 	});
@@ -79,20 +92,36 @@ export const useToggleCollection = () => {
 
 export const useToggleDefaultWishlist = () => {
 	const queryClient = useQueryClient();
-	const defaultWishlistId = useDefaultWishlistId();
 
 	return useMutation({
-		mutationFn: async ({ gameId, itemId }: { gameId: string; itemId: string | null }) => {
-			if (!defaultWishlistId) throw new Error('Default wishlist not found');
-			if (itemId) {
-				await removeItemFromWishlist(defaultWishlistId, itemId);
-			} else {
-				await addItemToWishlist(defaultWishlistId, gameId);
-			}
+		mutationFn: async ({ gameId, itemId }: ToggleVariables) => {
+			const { id: wishlistId } = await queryClient.fetchQuery(defaultWishlistQuery);
+
+			if(itemId) await removeItemFromWishlist(wishlistId, itemId);
+			else await addItemToWishlist(wishlistId, gameId);
 		},
-		onSuccess: (_, { gameId }) => {
-			queryClient.invalidateQueries({ queryKey: ['wishlists', 'item-status', defaultWishlistId, gameId] });
+		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['wishlists'] });
+			queryClient.invalidateQueries({ queryKey: ['users', 'wishlist'] });
 		},
+	});
+}
+
+export const useGameExpansions = (bggId: number | null, enabled = true) => {
+	return useInfiniteQuery({
+		queryKey: ['games', 'expansions', bggId],
+		queryFn: ({ pageParam }) => getGameExpansions(bggId!, pageParam),
+		initialPageParam: 0,
+		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
+		enabled: enabled && bggId != null && Number.isFinite(bggId),
+		staleTime: GAME_STALE_TIME_MS,
+	});
+}
+
+export const useGameRules = (gameId: string | undefined, enabled = true) => {
+	return useQuery({
+		queryKey: ['games', 'rules', gameId],
+		queryFn: () => listGameRules(gameId!),
+		enabled: enabled && !!gameId,
 	});
 }

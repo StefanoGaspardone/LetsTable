@@ -167,7 +167,7 @@ const ForgotPasswordForm = ({ Layout, initialIdentifier, autoSend = false, onSuc
 					render = { ({ field: { onChange, onBlur, value } }) => (
 						<View className = 'mb-2'>
 							<Text className = 'mb-1.5 text-sm font-medium text-foreground'>Nuova password</Text>
-							<PasswordInput placeholder = '••••••••' value = { value } onChangeText = { onChange } onBlur = { onBlur }/>
+							<PasswordInput placeholder = '••••••••' value = { value } onChangeText = { onChange } onBlur = { onBlur } autoComplete = 'new-password'/>
 							{errors.newPassword && (
 								<Text className = 'mt-1 text-xs text-destructive'>{errors.newPassword.message}</Text>
 							)}
@@ -178,7 +178,7 @@ const ForgotPasswordForm = ({ Layout, initialIdentifier, autoSend = false, onSuc
 					render = { ({ field: { onChange, onBlur, value } }) => (
 						<View className = 'mb-2'>
 							<Text className = 'mb-1.5 text-sm font-medium text-foreground'>Conferma password</Text>
-							<PasswordInput placeholder = '••••••••' value = { value } onChangeText = { onChange } onBlur = { onBlur }/>
+							<PasswordInput placeholder = '••••••••' value = { value } onChangeText = { onChange } onBlur = { onBlur } autoComplete = 'new-password'/>
 							{errors.confirmPassword && (
 								<Text className = 'mt-1 text-xs text-destructive'>{errors.confirmPassword.message}</Text>
 							)}

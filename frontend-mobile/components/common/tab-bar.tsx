@@ -10,28 +10,18 @@ import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 import { useThemeColors } from '@/hooks/use-theme-colors';
 
-const ICONS: Record<string, typeof Home> = {
-	home: Home,
-	collection: Dices,
-	matches: Trophy,
-	friends: Users,
-	'profile/index': User,
+interface TabConfig {
+	icon: typeof Home;
+	label: string;
+	path: string;
 }
 
-const LABELS: Record<string, string> = {
-	home: 'Home',
-	collection: 'Giochi',
-	matches: 'Partite',
-	friends: 'Amici',
-	'profile/index': 'Profilo',
-}
-
-const TAB_PATHS: Record<string, string> = {
-	home: '/(tabs)/home',
-	collection: '/(tabs)/collection',
-	matches: '/(tabs)/matches',
-	friends: '/(tabs)/friends',
-	'profile/index': '/(tabs)/profile',
+const TABS: Record<string, TabConfig> = {
+	home: { icon: Home, label: 'Home', path: '/(tabs)/home' },
+	collection: { icon: Dices, label: 'Giochi', path: '/(tabs)/collection' },
+	matches: { icon: Trophy, label: 'Partite', path: '/(tabs)/matches' },
+	friends: { icon: Users, label: 'Amici', path: '/(tabs)/friends' },
+	'profile/index': { icon: User, label: 'Profilo', path: '/(tabs)/profile' },
 }
 
 const PILL_WIDTH = 52;
@@ -44,20 +34,20 @@ interface TabBarProps {
 	};
 	navigation: {
 		emit: (event: { type: string; target: string; canPreventDefault: boolean }) => { defaultPrevented: boolean };
-		navigate: (name: string) => void;
 	};
 }
 
 const TabBar = ({ state, navigation }: TabBarProps) => {
 	const insets = useSafeAreaInsets();
-	
+
 	const [tabWidth, setTabWidth] = useState(0);
 
 	const router = useNavigationStack();
 	const { colors } = useThemeColors();
 
-	const visibleRoutes = state.routes.filter(route => ICONS[route.name]);
-	const focusedVisibleIndex = visibleRoutes.findIndex(route => route.key === state.routes[state.index].key);
+	const focusedKey = state.routes[state.index].key;
+	const visibleRoutes = state.routes.filter(route => TABS[route.name]);
+	const focusedVisibleIndex = visibleRoutes.findIndex(route => route.key === focusedKey);
 
 	const lastValidIndex = useSharedValue(0);
 
@@ -87,13 +77,12 @@ const TabBar = ({ state, navigation }: TabBarProps) => {
 		<View className = 'flex-row border-t border-border bg-card' style = {{ paddingBottom: insets.bottom || 12, paddingTop: 8 }} onLayout = { onLayout }>
 			{tabWidth > 0 && (
 				<Animated.View pointerEvents = 'none' style = { [{ position: 'absolute', top: 8, width: PILL_WIDTH, height: PILL_HEIGHT }, pillStyle] }>
-					<View className = 'h-full w-full rounded-full' style = {{ backgroundColor: 'rgba(196, 81, 53, 0.12)' }}/>
+					<View className = 'h-full w-full rounded-full bg-primary/10'/>
 				</Animated.View>
 			)}
 			{visibleRoutes.map(route => {
-				const Icon = ICONS[route.name];
-				const label = LABELS[route.name];
-				const isFocused = state.routes[state.index].key === route.key;
+				const { icon: Icon, label, path } = TABS[route.name];
+				const isFocused = focusedKey === route.key;
 
 				const onPress = () => {
 					const event = navigation.emit({
@@ -103,15 +92,12 @@ const TabBar = ({ state, navigation }: TabBarProps) => {
 					});
 
 					if(!isFocused && !event.defaultPrevented) {
-						navigation.navigate(route.name);
-
-						const path = TAB_PATHS[route.name];
-						if(path) router.replace(path);
+						router.replace(path);
 					}
 				}
 
 				return (
-					<Pressable key = { route.key } onPress= { onPress } className = 'flex-1 items-center gap-1 pb-1'>
+					<Pressable key = { route.key } onPress = { onPress } className = 'flex-1 items-center gap-1 pb-1'>
 						<View style = {{ height: PILL_HEIGHT }} className = 'items-center justify-center'>
 							<Icon size = { 22 } color = { isFocused ? colors.primary : colors.tabIconDefault }/>
 						</View>

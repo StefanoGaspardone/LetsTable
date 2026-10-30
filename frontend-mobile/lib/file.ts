@@ -8,7 +8,7 @@ export const getRuleFileDownloadUrl = (gameId: string, fileId: string): string =
 
 export const getAvatarUrl = (avatarId: string | null, username: string): string => {
 	if(avatarId) return `${API_URL}/avatars/${avatarId}`;
-	return `https://api.dicebear.com/9.x/initials/svg?seed=${username}`;
+	return `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(username)}`;
 }
 
 export const getFileIconName = (contentType: string): keyof typeof MaterialCommunityIcons.glyphMap => {

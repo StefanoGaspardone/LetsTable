@@ -7,7 +7,7 @@ import { Check } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import MeepleIllustration from '@/components/common/meeple-illustration';
 
-import { PALETTE } from '@/lib/colors';
+import { getContrastTextColor, PALETTE } from '@/lib/colors';
 
 interface ColorSwatchPickerProps {
 	value: string;
@@ -28,17 +28,6 @@ const ColorSwatchPicker = ({ value, onChange }: ColorSwatchPickerProps) => {
 		setIsOpen(false);
 	}
 
-    const getContrastColor = (hex: string): string => {
-        const clean = hex.replace('#', '');
-
-        const r = Number.parseInt(clean.substring(0, 2), 16) / 255;
-        const g = Number.parseInt(clean.substring(2, 4), 16) / 255;
-        const b = Number.parseInt(clean.substring(4, 6), 16) / 255;
-        const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-
-        return luminance > 0.6 ? '#1E1C1A' : '#FFFFFF';
-    }
-
 	return (
 		<>
 			<Pressable onPress = { () => setIsOpen(true) } className = 'h-9 w-9 items-center justify-center active:scale-95'>
@@ -50,21 +39,21 @@ const ColorSwatchPicker = ({ value, onChange }: ColorSwatchPickerProps) => {
                         <Pressable className = 'w-[85%] rounded-2xl bg-card p-4' onPress = { e => e.stopPropagation()}>
                             <Text className = 'mb-3 font-display text-base text-foreground'>Scegli un colore</Text>
                             <View className = 'flex-row flex-wrap gap-2.5'>
-                                {PALETTE.map(color => (
-                                    <Pressable key = { color } onPress = { () => { onChange(color); setIsOpen(false); } } style = {{ backgroundColor: color }} className = 'h-9 w-9 items-center justify-center rounded-full border border-black active:scale-95'>
-                                        {value === color && <Check size = { 16 } color = { getContrastColor(value) } strokeWidth = { 3 }/>}
-                                    </Pressable>
-                                ))}
-                                {isCustomColor && (
-                                    <View style = {{ backgroundColor: value }} className = 'h-9 w-9 items-center justify-center rounded-full border-2 border-foreground'>
-                                        <Check size = { 16 } color = '#FFFFFF' strokeWidth = { 3 }/>
-                                    </View>
-                                )}
+								{PALETTE.map(color => (
+									<Pressable key = { color } onPress = { () => { onChange(color); setIsOpen(false); } } style = {{ backgroundColor: color }} className = 'h-9 w-9 items-center justify-center rounded-full border border-foreground/25 active:scale-95'>
+										{value === color && <Check size = { 16 } color = { getContrastTextColor(color) } strokeWidth = { 3 }/>}
+									</Pressable>
+								))}
+								{isCustomColor && (
+									<View style = {{ backgroundColor: value }} className = 'h-9 w-9 items-center justify-center rounded-full border-2 border-foreground'>
+										<Check size = { 16 } color = { getContrastTextColor(value) } strokeWidth = { 3 }/>
+									</View>
+								)}
                             </View>
                             <View className = 'mt-4 border-t border-border pt-4'>
                                 <Text className = 'mb-2 text-xs text-muted-foreground'>Colore personalizzato</Text>
                                 <View className = 'flex-row items-center gap-3'>
-                                    <View style = {{ backgroundColor: hslToRgb(hue / 360, 0.55, 0.45) }} className = 'h-8 w-8 rounded-full border border-black'/>
+                                    <View style = {{ backgroundColor: hslToRgb(hue / 360, 0.55, 0.45) }} className = 'h-8 w-8 rounded-full border border-foreground/25'/>
                                     <View className = 'flex-1'>
                                         <HueSlider hue = { hue } onChange = { setHue }/>
                                     </View>

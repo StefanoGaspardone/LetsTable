@@ -1,25 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import axios from 'axios';
 
-const HEALTH_URL = `${process.env.EXPO_PUBLIC_API_URL ?? 'https://letstable-backend-1040192390713.europe-west1.run.app/api/v1'}/health`;
+import { API_URL, REQUEST_TIMEOUT_MS, setNetworkErrorHandler } from '@/api/client';
 
+const HEALTH_URL = `${API_URL}/health`;
 const POLL_INTERVAL_MS = 10000;
-const CHECK_TIMEOUT_MS = 8000;
 
-export function useHealthCheck() {
+export const useHealthCheck = () => {
 	const [isHealthy, setIsHealthy] = useState(true);
 	const [isChecking, setIsChecking] = useState(false);
-	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const inFlightRef = useRef(false);
 
 	const checkHealth = useCallback(async () => {
+		if(inFlightRef.current) return;
+
+		inFlightRef.current = true;
 		setIsChecking(true);
-		
-        try {
-			await axios.get(HEALTH_URL, { timeout: CHECK_TIMEOUT_MS });
+
+		try {
+			await axios.get(HEALTH_URL, { timeout: REQUEST_TIMEOUT_MS });
 			setIsHealthy(true);
 		} catch {
 			setIsHealthy(false);
 		} finally {
+			inFlightRef.current = false;
 			setIsChecking(false);
 		}
 	}, []);
@@ -27,12 +32,24 @@ export function useHealthCheck() {
 	useEffect(() => {
 		checkHealth();
 
-		intervalRef.current = setInterval(checkHealth, POLL_INTERVAL_MS);
+		const subscription = AppState.addEventListener('change', status => {
+			if(status === 'active') checkHealth();
+		});
+
+		setNetworkErrorHandler(checkHealth);
 
 		return () => {
-			if(intervalRef.current) clearInterval(intervalRef.current);
+			subscription.remove();
+			setNetworkErrorHandler(null);
 		}
 	}, [checkHealth]);
+
+	useEffect(() => {
+		if(isHealthy) return;
+
+		const interval = setInterval(checkHealth, POLL_INTERVAL_MS);
+		return () => clearInterval(interval);
+	}, [isHealthy, checkHealth]);
 
 	return { isHealthy, isChecking, retryNow: checkHealth };
 }

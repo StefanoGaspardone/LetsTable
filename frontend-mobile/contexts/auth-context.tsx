@@ -1,12 +1,37 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import axios from 'axios';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isAxiosError } from 'axios';
+import { useQueryClient } from '@tanstack/react-query';
 
-import { apiClient } from '@/api/client';
+import { setSessionExpiredHandler } from '@/api/client';
+import { logout as logoutRequest } from '@/api/auth';
+import { getMe } from '@/api/user';
 
 import { tokenStorage } from '@/lib/token-storage';
 import { requestAndRegisterPushToken, unregisterCurrentPushToken } from '@/lib/push-notifications';
 
 import { User } from '@/types/user';
+
+const USER_STORAGE_KEY = '@auth_user';
+
+const readCachedUser = async (): Promise<User | null> => {
+	try {
+		const stored = await AsyncStorage.getItem(USER_STORAGE_KEY);
+		return stored ? JSON.parse(stored) as User : null;
+	} catch {
+		return null;
+	}
+}
+
+const writeCachedUser = (user: User | null) => {
+	const operation = user ? AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user)) : AsyncStorage.removeItem(USER_STORAGE_KEY);
+	operation.catch(error => console.log('Failed to persist user:', error));
+}
+
+const isRejectedByServer = (error: unknown) => {
+	const status = isAxiosError(error) ? error.response?.status : undefined;
+	return !!status && status < 500;
+}
 
 interface AuthContextValue {
 	user: User | null;
@@ -20,71 +45,89 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+	const queryClient = useQueryClient();
+
 	const [user, setUser] = useState<User | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 
+	const applyUser = useCallback((nextUser: User | null) => {
+		setUser(nextUser);
+		writeCachedUser(nextUser);
+	}, []);
+
+	const clearSession = useCallback(() => {
+		applyUser(null);
+		queryClient.clear();
+	}, [applyUser, queryClient]);
+
 	useEffect(() => {
+		setSessionExpiredHandler(clearSession);
+		return () => setSessionExpiredHandler(null);
+	}, [clearSession]);
+
+	useEffect(() => {
+		const restoreSession = async () => {
+			try {
+				const accessToken = await tokenStorage.getAccessToken();
+				if(!accessToken) return;
+
+				const cachedUser = await readCachedUser();
+
+				if(cachedUser) {
+					setUser(cachedUser);
+					setIsLoading(false);
+				}
+
+				const freshUser = await getMe();
+				applyUser(freshUser);
+
+				requestAndRegisterPushToken();
+			} catch(error) {
+				console.log('Failed to restore session:', error);
+
+				if(isRejectedByServer(error)) {
+					await tokenStorage.clearTokens();
+					clearSession();
+				}
+			} finally {
+				setIsLoading(false);
+			}
+		}
+
 		restoreSession();
 	}, []);
 
-	const restoreSession = async () => {
-		try {
-			const accessToken = await tokenStorage.getAccessToken();
-			
-			if(!accessToken) {
-				setIsLoading(false);
-				return;
-			}
-
-			const { data } = await apiClient.get<User>('/users/me');
-			setUser(data);
-			
-			requestAndRegisterPushToken();
-		} catch(error) {
-			console.log('RESTORE SESSION FAILED:', error);
-			
-			if(axios.isAxiosError(error)) {
-				console.log('RESTORE SESSION ERROR STATUS:', error.response?.status);
-				console.log('RESTORE SESSION ERROR MESSAGE:', error.message);
-			}
-
-			await tokenStorage.clearTokens();
-			setUser(null);
-		} finally {
-			setIsLoading(false);
-		}
-	}
-
-	const login = async (accessToken: string, refreshToken: string, loggedInUser: User) => {
+	const login = useCallback(async (accessToken: string, refreshToken: string, loggedInUser: User) => {
 		await tokenStorage.setTokens(accessToken, refreshToken);
-		setUser(loggedInUser);
-		
-		requestAndRegisterPushToken();
-	}
+		applyUser(loggedInUser);
 
-	const logout = async () => {
+		requestAndRegisterPushToken();
+	}, [applyUser]);
+
+	const logout = useCallback(async () => {
 		const refreshToken = await tokenStorage.getRefreshToken();
 
-		await unregisterCurrentPushToken();
+		await unregisterCurrentPushToken().catch(error => console.log('Failed to unregister push token:', error));
 
-		try {
-			if(refreshToken) {
-				await apiClient.post('/auth/logout', { refreshToken });
-			}
-		} catch {
-			// swallow
-		} finally {
-			await tokenStorage.clearTokens();
-			setUser(null);
+		if(refreshToken) {
+			await logoutRequest(refreshToken).catch(error => console.log('Failed to revoke refresh token:', error));
 		}
-	}
 
-	const updateUser = (updatedUser: User) => {
-		setUser(updatedUser);
-	}
+		await tokenStorage.clearTokens();
+		clearSession();
+	}, [clearSession]);
+
+	const value = useMemo(() => ({
+		user,
+		isLoading,
+		isAuthenticated: !!user,
+		login,
+		logout,
+		updateUser: applyUser,
+	}), [user, isLoading, login, logout, applyUser]);
 
 	return (
-		<AuthContext.Provider value = {{ user, isLoading, isAuthenticated: !!user, login, logout, updateUser }}>
+		<AuthContext.Provider value = { value }>
 			{children}
 		</AuthContext.Provider>
 	)
@@ -92,10 +135,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
 	const context = useContext(AuthContext);
-	
-    if(!context) {
+
+	if(!context) {
 		throw new Error('useAuth must be used within an AuthProvider');
 	}
-	
-    return context;
+
+	return context;
 }

@@ -4,10 +4,11 @@ import { QueryKey, useQueryClient } from '@tanstack/react-query';
 
 export const useRefetchOnFocus = (queryKey: QueryKey) => {
 	const queryClient = useQueryClient();
+	const serializedKey = JSON.stringify(queryKey);
 
 	useFocusEffect(
 		useCallback(() => {
-			queryClient.invalidateQueries({ queryKey });
-		}, [JSON.stringify(queryKey)])
+			queryClient.refetchQueries({ queryKey, type: 'active', stale: true });
+		}, [queryClient, serializedKey])
 	);
 }

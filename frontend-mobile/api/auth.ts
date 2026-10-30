@@ -20,6 +20,10 @@ export const login = async (payload: LoginPayload): Promise<AuthResponse> => {
     return data;
 }
 
+export const logout = async (refreshToken: string): Promise<void> => {
+    await apiClient.post('/auth/logout', { refreshToken });
+}
+
 export const forgotPassword = async (payload: ForgotPasswordPayload): Promise<void> => {
     await apiClient.post('/auth/password/forgot', payload);
 }

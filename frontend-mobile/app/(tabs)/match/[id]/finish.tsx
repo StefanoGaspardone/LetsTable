@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, ScrollView, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Trophy, Users, Award } from 'lucide-react-native';
 import { Image } from 'expo-image';
 
@@ -11,15 +10,18 @@ import ScreenHeader from '@/components/common/screen-header';
 import BackButton from '@/components/common/back-button';
 import SegmentedControl from '@/components/common/segmented-control';
 
-import { getMatchById, updateMatch } from '@/api/match';
-
 import { useToast } from '@/contexts/toast-context';
 import { useAuth } from '@/contexts/auth-context';
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 import { getAvatarUrl } from '@/lib/file';
 
+import { useMatchDetail, useUpdateMatch } from '@/hooks/use-match';
 import { useThemeColors } from '@/hooks/use-theme-colors';
+
+import { Match, UpdateMatchPayload } from '@/types/match';
+
+type ResultMode = 'score' | 'outcome';
 
 interface ScoreEntry {
 	id: string;
@@ -33,33 +35,72 @@ interface ScoreEntry {
 	isStartingFirst: boolean;
 }
 
+const RESULT_MODE_OPTIONS = [
+	{ value: 'score', label: 'Punteggio' },
+	{ value: 'outcome', label: 'Vittoria/Sconfitta' },
+]
+
+const buildEntries = (match: Match, fallbackColor: string): ScoreEntry[] => {
+	if(match.isTeamBased) {
+		return (match.teams ?? []).map(team => ({
+			id: team.id,
+			displayName: team.name ?? 'Squadra senza nome',
+			color: team.color,
+			avatarId: null,
+			score: '',
+			isWinner: false,
+			userId: null,
+			guestName: null,
+			isStartingFirst: team.isStartingFirst,
+		}));
+	}
+
+	return (match.players ?? []).map(player => ({
+		id: player.id,
+		displayName: player.user?.username ?? player.guestName ?? 'Sconosciuto',
+		color: player.color ?? fallbackColor,
+		avatarId: player.user?.avatarId,
+		score: '',
+		isWinner: false,
+		userId: player.user?.id ?? null,
+		guestName: player.guestName,
+		isStartingFirst: player.isStartingFirst,
+	}));
+}
+
+const parseDuration = (value: string): number | null => {
+	const parsed = Number.parseInt(value.trim(), 10);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 const FinishMatchScreen = () => {
 	const { id } = useLocalSearchParams<{ id: string }>();
-	const queryClient = useQueryClient();
-	
+
 	const { user } = useAuth();
 	const { showToast } = useToast();
 	const router = useNavigationStack();
 	const { colors } = useThemeColors();
 
-	const { data: match, isLoading } = useQuery({
-		queryKey: ['matches', 'detail', id],
-		queryFn: () => getMatchById(id),
-	});
+	const { data: match, isLoading } = useMatchDetail(id);
+	const updateMatchMutation = useUpdateMatch();
 
 	const scrollRef = useRef<ScrollView>(null);
+	const initializedSessionRef = useRef<string | null>(null);
 
+	const [focusSession, setFocusSession] = useState(0);
 	const [entries, setEntries] = useState<ScoreEntry[]>([]);
 	const [notes, setNotes] = useState('');
-	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [durationMinutes, setDurationMinutes] = useState('');
-	const [resultMode, setResultMode] = useState<'score' | 'outcome'>('score');
+	const [resultMode, setResultMode] = useState<ResultMode>('score');
+
+	const isSubmitting = updateMatchMutation.isPending;
 
 	useFocusEffect(
 		useCallback(() => {
 			setNotes('');
 			setDurationMinutes('');
 			setResultMode('score');
+			setFocusSession(prev => prev + 1);
 
 			scrollRef.current?.scrollTo({ y: 0, animated: false });
 		}, [id])
@@ -68,106 +109,76 @@ const FinishMatchScreen = () => {
 	useEffect(() => {
 		if(!match) return;
 
-		if(match.isTeamBased) {
-			setEntries(
-				match.teams?.map(team => ({
-					id: team.id,
-					displayName: team.name ?? 'Squadra senza nome',
-					color: team.color,
-					avatarId: null,
-					score: '',
-					isWinner: false,
-					userId: null,
-					guestName: null,
-					isStartingFirst: team.isStartingFirst,
-				})) ?? []
-			);
-		} else {
-			setEntries(
-				match.players?.map(p => ({
-					id: p.id,
-					displayName: p.user?.username ?? p.guestName ?? 'Sconosciuto',
-					color: p.color ?? colors.primary,
-					avatarId: p.user?.avatarId,
-					score: '',
-					isWinner: false,
-					userId: p.user?.id ?? null,
-					guestName: p.guestName,
-					isStartingFirst: p.isStartingFirst,
-				})) ?? []
-			);
+		const sessionKey = `${match.id}:${focusSession}`;
+		if(initializedSessionRef.current === sessionKey) return;
+
+		initializedSessionRef.current = sessionKey;
+		setEntries(buildEntries(match, colors.primary));
+	}, [match, focusSession]);
+
+	const handleScoreChange = (entryId: string, score: string) => {
+		setEntries(prev => prev.map(entry => (entry.id === entryId ? { ...entry, score } : entry)));
+	}
+
+	const handleToggleWinner = (entryId: string) => {
+		setEntries(prev => prev.map(entry => (entry.id === entryId ? { ...entry, isWinner: !entry.isWinner } : entry)));
+	}
+
+	const buildPayload = (currentMatch: Match): UpdateMatchPayload => {
+		const base = {
+			gameId: currentMatch.game.id,
+			playedAt: currentMatch.playedAt,
+			place: currentMatch.place,
+			notes: notes.trim() || null,
+			durationMinutes: parseDuration(durationMinutes),
+			expansionIds: currentMatch.expansionsUsed.map(expansion => expansion.id),
 		}
-	}, [match]);
 
-	const handleScoreChange = (id: string, score: string) => {
-		setEntries(prev => prev.map(e => (e.id === id ? { ...e, score } : e)));
-	}
+		if(currentMatch.isTeamBased) {
+			return {
+				...base,
+				isTeamBased: true,
+				players: null,
+				teams: (currentMatch.teams ?? []).map(team => {
+					const entry = entries.find(candidate => candidate.id === team.id)!;
 
-	const handleToggleWinner = (id: string) => {
-		setEntries(prev => prev.map(e => (e.id === id ? { ...e, isWinner: !e.isWinner } : e)));
-	}
-
-	const handleSubmit = async () => {
-		if(!match) return;
-
-		setIsSubmitting(true);
-
-		try {
-			if(match.isTeamBased) {
-				await updateMatch(id, {
-					gameId: match.game.id!,
-					playedAt: match.playedAt,
-					place: match.place,
-					notes: notes.trim() || null,
-					durationMinutes: durationMinutes.trim() ? Number(durationMinutes) : null,
-					isTeamBased: true,
-					expansionIds: match.expansionsUsed.map(e => e.id!),
-					players: null,
-					teams: match.teams!.map(team => {
-						const entry = entries.find(e => e.id === team.id)!;
-						return {
-							name: team.name,
-							color: team.color,
-							score: resultMode === 'score' ? (Number(entry.score) || 0) : null,
-							isWinner: entry.isWinner,
-							isStartingFirst: entry.isStartingFirst,
-							players: team.players.map(p => ({
-								userId: p.user?.id ?? null,
-								guestName: p.guestName,
-							})),
-						};
-					}),
-				});
-			} else {
-				await updateMatch(id, {
-					gameId: match.game.id!,
-					playedAt: match.playedAt,
-					place: match.place,
-					notes: notes.trim() || null,
-					durationMinutes: durationMinutes.trim() ? Number(durationMinutes) : null,
-					isTeamBased: false,
-					expansionIds: match.expansionsUsed.map(e => e.id!),
-					teams: null,
-					players: entries.map(entry => ({
-						userId: entry.userId,
-						guestName: entry.guestName,
-						color: entry.color,
-						score: Number(entry.score) || 0,
+					return {
+						name: team.name,
+						color: team.color,
+						score: resultMode === 'score' ? (Number(entry.score) || 0) : null,
 						isWinner: entry.isWinner,
 						isStartingFirst: entry.isStartingFirst,
-					})),
-				});
+						players: team.players.map(player => ({
+							userId: player.user?.id ?? null,
+							guestName: player.guestName,
+						})),
+					};
+				}),
 			}
-
-			queryClient.invalidateQueries({ queryKey: ['matches'] });
-			queryClient.invalidateQueries({ queryKey: ['matches', 'detail', id] });
-			
-			router.replace(`/match/${id}`);
-		} catch(error: any) {
-			showToast(error?.response?.data?.message ?? 'Errore durante il salvataggio', 'error');
-		} finally {
-			setIsSubmitting(false);
 		}
+
+		return {
+			...base,
+			isTeamBased: false,
+			teams: null,
+			players: entries.map(entry => ({
+				userId: entry.userId,
+				guestName: entry.guestName,
+				color: entry.color,
+				score: Number(entry.score) || 0,
+				isWinner: entry.isWinner,
+				isStartingFirst: entry.isStartingFirst,
+			})),
+		}
+	}
+
+	const handleSubmit = () => {
+		if(!match) return;
+
+		updateMatchMutation.mutate({ matchId: id, payload: buildPayload(match) }, {
+			onSuccess: () => router.replace(`/match/${id}`),
+			onError: (error: any) => showToast(error?.response?.data?.message ?? 'Errore durante il salvataggio', 'error'),
+		});
 	}
 
 	const requiresScore = !match?.isTeamBased || resultMode === 'score';
@@ -188,7 +199,7 @@ const FinishMatchScreen = () => {
 	return (
 		<View className = 'flex-1 bg-background'>
 			<ScreenHeader title = 'Termina Partita' leftElement = { <BackButton/> }/>
-			<ScrollView ref = { scrollRef } className = 'flex-1' contentContainerStyle = {{ padding: 16, paddingBottom: 40 }}>
+			<ScrollView ref = { scrollRef } className = 'flex-1' contentContainerStyle = {{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps = 'handled'>
 				<View className = 'mb-3 flex-row items-center gap-2'>
 					{match.isTeamBased ? <Users size = { 18 } color = { colors.mutedForeground }/> : <Trophy size = { 18 } color = { colors.mutedForeground }/>}
 					<Text className = 'text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
@@ -197,14 +208,7 @@ const FinishMatchScreen = () => {
 				</View>
 				{match.isTeamBased && (
 					<View className = 'mb-4'>
-						<SegmentedControl
-							options = { [
-								{ value: 'score', label: 'Punteggio' },
-								{ value: 'outcome', label: 'Vittoria/Sconfitta' },
-							] }
-							selected = { resultMode }
-							onSelect = { value => setResultMode(value as 'score' | 'outcome') }
-						/>
+						<SegmentedControl options = { RESULT_MODE_OPTIONS } selected = { resultMode } onSelect = { value => setResultMode(value as ResultMode) }/>
 					</View>
 				)}
 				<View className = 'gap-3'>
@@ -230,7 +234,7 @@ const FinishMatchScreen = () => {
 							{requiresScore && (
 								<View className = 'flex-row items-center gap-3'>
 									<Text className = 'text-sm font-medium text-muted-foreground'>Punteggio:</Text>
-									<TextInput className = 'h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground' keyboardType = 'numeric' placeholder = '0' placeholderTextColor = { colors.card } value = { entry.score } onChangeText = { val => handleScoreChange(entry.id, val) }/>
+									<TextInput className = 'h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground' keyboardType = 'numeric' placeholder = '0' placeholderTextColor = { colors.mutedForeground } value = { entry.score } onChangeText = { value => handleScoreChange(entry.id, value) }/>
 								</View>
 							)}
 						</View>

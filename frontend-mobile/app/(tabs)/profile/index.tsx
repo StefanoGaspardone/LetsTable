@@ -1,8 +1,7 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { View, ScrollView, Pressable, Switch, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import Constants from 'expo-constants';
-import * as ImagePicker from 'expo-image-picker';
 import { Bell, Moon, Shield, LogOut, ChevronRight, Camera, Users, Trophy, Gamepad2, Edit3, Trash2, Award } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
@@ -20,10 +19,9 @@ import { useFriends } from '@/hooks/use-friend';
 import { useUpdateMe } from '@/hooks/use-user';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useMyAchievements } from '@/hooks/use-achievement';
+import { useAvatarActions } from '@/hooks/use-avatar';
 
 import { getAvatarUrl } from '@/lib/file';
-
-import { deleteAvatar, uploadAvatar } from '@/api/avatar';
 
 const ProfileScreen = () => {
 	const { user, logout, updateUser } = useAuth();
@@ -40,88 +38,23 @@ const ProfileScreen = () => {
 	const { data: achievements } = useMyAchievements();
 	const unlockedAchievements = achievements?.filter(a => a.unlocked).length ?? 0;
 
-	const updateMe = useUpdateMe(updateUser);
+		const updateMe = useUpdateMe(updateUser);
 	const notificationsEnabled = user?.notificationsEnabled ?? true;
 
-	const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-	const [isRemovingAvatar, setIsRemovingAvatar] = useState(false);
-
-	const handleRemoveAvatar = async () => {
-		if(!user?.avatarId) return;
-
-		const ok = await confirm({
-			title: 'Rimuovi avatar',
-			message: 'Vuoi rimuovere la tua immagine del profilo?',
-			confirmLabel: 'Rimuovi',
-			destructive: true,
-		});
-
-		if(!ok) return;
-
-		setIsRemovingAvatar(true);
-
-		try {
-			await deleteAvatar(user.avatarId);
-
-			updateMe.mutate(
-				{ removeAvatar: true },
-				{
-					onError: (error: any) => {
-						const message = error?.response?.data?.message ?? 'Errore durante l\'aggiornamento del profilo';
-						showToast(message, 'error');
-					},
-				}
-			);
-		} catch(error: any) {
-			const message = error?.response?.data?.message ?? 'Errore durante la rimozione dell\'avatar';
-			showToast(message, 'error');
-		} finally {
-			setIsRemovingAvatar(false);
-		}
-	}
-
-	const handleChangeAvatar = async () => {
-		const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-		if(!permissionResult.granted) {
-			showToast('Serve l\'accesso alla galleria per cambiare l\'avatar', 'error');
-			return;
-		}
-
-		const result = await ImagePicker.launchImageLibraryAsync({
-			mediaTypes: ['images'],
-			allowsEditing: true,
-			aspect: [1, 1],
-			quality: 0.8,
-		});
-
-		if(result.canceled) return;
-
-		const asset = result.assets[0];
-		setIsUploadingAvatar(true);
-
-		try {
-			const uploaded = await uploadAvatar(asset.uri, asset.fileName ?? 'avatar.jpg', asset.mimeType ?? 'image/jpeg');
-
-			updateMe.mutate(
-				{ avatarId: uploaded.id },
-				{
-					onError: (error: any) => {
-						const message = error?.response?.data?.message ?? 'Errore durante l\'aggiornamento dell\'avatar';
-						showToast(message, 'error');
-					},
-				}
-			);
-		} catch(error: any) {
-			const message = error?.response?.data?.message ?? 'Errore durante il caricamento dell\'immagine';
-			showToast(message, 'error');
-		} finally {
-			setIsUploadingAvatar(false);
-		}
-	}
+	const { changeAvatar, removeAvatar, isUploading: isUploadingAvatar, isRemoving: isRemovingAvatar } = useAvatarActions();
 
 	const handleToggleNotifications = (value: boolean) => {
-		updateMe.mutate({ notificationsEnabled: value });
+		if(!user) return;
+
+		const previousUser = user;
+		updateUser({ ...user, notificationsEnabled: value });
+
+		updateMe.mutate({ notificationsEnabled: value }, {
+			onError: (error: any) => {
+				updateUser(previousUser);
+				showToast(error?.response?.data?.message ?? 'Errore durante l\'aggiornamento delle notifiche', 'error');
+			},
+		});
 	}
 
 	const handleLogout = async () => {
@@ -149,7 +82,7 @@ const ProfileScreen = () => {
 						<View className = 'h-28 w-28 items-center justify-center overflow-hidden rounded-full border-2 border-border/50 bg-secondary shadow-sm'>
 							<Image source = {{ uri: getAvatarUrl(user?.avatarId ?? null, user?.username ?? '') }} style = {{ width: 112, height: 112 }} contentFit = 'cover'/>
 						</View>
-						<Pressable onPress = { handleChangeAvatar } disabled = { isUploadingAvatar } className = 'absolute bottom-0 left-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-primary shadow-md active:opacity-80'>
+						<Pressable onPress = { changeAvatar } disabled = { isUploadingAvatar } className = 'absolute bottom-0 left-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-primary shadow-md active:opacity-80'>
 							{isUploadingAvatar ? (
 								<ActivityIndicator size = 'small' color = '#FFFFFF'/>
 							) : (
@@ -157,7 +90,7 @@ const ProfileScreen = () => {
 							)}
 						</Pressable>
 						{user?.avatarId && (
-							<Pressable onPress = { handleRemoveAvatar } disabled = { isRemovingAvatar } className = 'absolute bottom-0 right-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-primary shadow-md active:opacity-80'>
+							<Pressable onPress = { removeAvatar  } disabled = { isRemovingAvatar } className = 'absolute bottom-0 right-0 h-9 w-9 items-center justify-center rounded-full border-2 border-background bg-primary shadow-md active:opacity-80'>
 								{isRemovingAvatar ? (
 									<ActivityIndicator size = 'small' color = '#FFFFFF'/>
 								) : (

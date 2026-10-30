@@ -1,54 +1,31 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, QueryClient, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { addItemToWishlist, addMemberToWishlist, deleteWishlist, getWishlistById, leaveWishlist, listMyWishlists, listWishlistItems, listWishlistMembers, ListWishlistsParams, removeItemFromWishlist, removeMemberFromWishlist, updateWishlist } from '@/api/wishlist';
+import { addItemToWishlist, addMemberToWishlist, deleteWishlist, getMyDefaultWishlist, getWishlistById, leaveWishlist, listMyWishlists, listWishlistItems, listWishlistMembers, ListWishlistsParams, removeItemFromWishlist, removeMemberFromWishlist, updateWishlist } from '@/api/wishlist';
 
-export const useAddToDefaultWishlist = () => {
-	const queryClient = useQueryClient();
+export const defaultWishlistQuery = {
+	queryKey: ['default-wishlist'],
+	queryFn: getMyDefaultWishlist,
+	staleTime: Infinity,
+};
 
-	return useMutation({
-		mutationFn: async (gameId: string) => {
-			const defaultWishlist = await findDefaultWishlist();
+const invalidateDefaultWishlistData = (queryClient: QueryClient) => {
+	queryClient.invalidateQueries({ queryKey: ['wishlists'] });
+	queryClient.invalidateQueries({ queryKey: ['users', 'wishlist'] });
+}
 
-			if(!defaultWishlist) {
-				throw new Error('Default wishlist not found');
-			}
-
-			return addItemToWishlist(defaultWishlist.id, gameId);
-		},
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['wishlists'] });
-		},
+const dropWishlist = (queryClient: QueryClient, wishlistId: string) => {
+	queryClient.invalidateQueries({
+		queryKey: ['wishlists'],
+		predicate: query => !query.queryKey.includes(wishlistId),
 	});
-}
-
-const findDefaultWishlist = async () => {
-	let page = 0;
-	
-	while(true) {
-		const result = await listMyWishlists({ page, size: 50 });
-		const found = result.content.find(w => w.isDefault);
-		
-		if(found) return found;
-		if(result.last) return null;
-		
-		page += 1;
-	}
-}
-
-export const useMyWishlists = (params?: ListWishlistsParams) => {
-	return useInfiniteQuery({
-		queryKey: ['wishlists', 'mine', params?.type ?? 'all'],
-		queryFn: ({ pageParam }) => listMyWishlists({ ...params, page: pageParam }),
-		initialPageParam: 0,
-		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
+	queryClient.removeQueries({
+		queryKey: ['wishlists'],
+		predicate: query => query.queryKey.includes(wishlistId),
 	});
 }
 
 export const useDefaultWishlist = () => {
-	return useQuery({
-		queryKey: ['wishlists', 'default'],
-		queryFn: findDefaultWishlist,
-	});
+	return useQuery(defaultWishlistQuery);
 }
 
 export const useDefaultWishlistId = () => {
@@ -56,10 +33,33 @@ export const useDefaultWishlistId = () => {
 	return data?.id ?? null;
 }
 
+export const useAddToDefaultWishlist = () => {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: async (gameId: string) => {
+			const defaultWishlist = await queryClient.fetchQuery(defaultWishlistQuery);
+			return addItemToWishlist(defaultWishlist.id, gameId);
+		},
+		onSuccess: () => invalidateDefaultWishlistData(queryClient),
+	});
+}
+
+export const useMyWishlists = (params?: ListWishlistsParams) => {
+	return useInfiniteQuery({
+		queryKey: ['wishlists', 'mine', params?.type ?? 'all', params?.sort ?? 'default'],
+		queryFn: ({ pageParam }) => listMyWishlists({ ...params, page: pageParam }),
+		initialPageParam: 0,
+		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
+		placeholderData: keepPreviousData,
+	});
+}
+
 export const useWishlist = (wishlistId: string) => {
 	return useQuery({
 		queryKey: ['wishlists', 'detail', wishlistId],
 		queryFn: () => getWishlistById(wishlistId),
+		enabled: !!wishlistId,
 	});
 }
 
@@ -69,6 +69,7 @@ export const useWishlistItems = (wishlistId: string) => {
 		queryFn: ({ pageParam }) => listWishlistItems(wishlistId, pageParam),
 		initialPageParam: 0,
 		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
+		enabled: !!wishlistId,
 	});
 }
 
@@ -76,7 +77,7 @@ export const useWishlistMembers = (wishlistId: string, enabled: boolean) => {
 	return useQuery({
 		queryKey: ['wishlists', 'members', wishlistId],
 		queryFn: () => listWishlistMembers(wishlistId),
-		enabled,
+		enabled: enabled && !!wishlistId,
 	});
 }
 
@@ -88,6 +89,7 @@ export const useAddItemToWishlist = (wishlistId: string) => {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['wishlists', 'items', wishlistId] });
 			queryClient.invalidateQueries({ queryKey: ['wishlists', 'preview-items', wishlistId] });
+			queryClient.invalidateQueries({ queryKey: ['wishlists', 'item-status', wishlistId] });
 		},
 	});
 }
@@ -100,6 +102,7 @@ export const useRemoveItemFromWishlist = (wishlistId: string) => {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['wishlists', 'items', wishlistId] });
 			queryClient.invalidateQueries({ queryKey: ['wishlists', 'preview-items', wishlistId] });
+			queryClient.invalidateQueries({ queryKey: ['wishlists', 'item-status', wishlistId] });
 		},
 	});
 }
@@ -131,9 +134,7 @@ export const useDeleteWishlist = () => {
 
 	return useMutation({
 		mutationFn: (wishlistId: string) => deleteWishlist(wishlistId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['wishlists'] });
-		},
+		onSuccess: (_, wishlistId) => dropWishlist(queryClient, wishlistId),
 	});
 }
 
@@ -142,9 +143,7 @@ export const useLeaveWishlist = () => {
 
 	return useMutation({
 		mutationFn: (wishlistId: string) => leaveWishlist(wishlistId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['wishlists'] });
-		},
+		onSuccess: (_, wishlistId) => dropWishlist(queryClient, wishlistId),
 	});
 }
 

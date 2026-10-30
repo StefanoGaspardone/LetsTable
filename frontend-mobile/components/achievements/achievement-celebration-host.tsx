@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AppState, Modal, Pressable, View } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
+import { Modal, Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import AchievementIcon from '@/components/achievements/achievement-icon';
@@ -13,8 +12,7 @@ import { Achievement } from '@/types/achievement';
 
 const AchievementCelebrationHost = () => {
 	const { isAuthenticated } = useAuth();
-
-	const queryClient = useQueryClient();
+	
 	const { data: unseen } = useUnseenAchievements(isAuthenticated);
 	const { mutate: markSeen } = useMarkAchievementsSeen();
 
@@ -36,18 +34,6 @@ const AchievementCelebrationHost = () => {
 		fresh.forEach(a => knownCodes.current.add(a.code));
 		setQueue(prev => [...prev, ...fresh]);
 	}, [unseen, isAuthenticated]);
-
-	useEffect(() => {
-		if(!isAuthenticated) return;
-
-		const subscription = AppState.addEventListener('change', state => {
-			if(state === 'active') {
-				queryClient.invalidateQueries({ queryKey: ['achievements', 'unseen'] });
-			}
-		});
-
-		return () => subscription.remove();
-	}, [isAuthenticated, queryClient]);
 
 	const current = queue[0];
 

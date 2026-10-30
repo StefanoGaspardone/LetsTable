@@ -11,28 +11,27 @@ interface PasswordInputProps {
 	onChangeText: (text: string) => void;
 	onBlur?: () => void;
 	placeholder?: string;
+	autoComplete?: 'current-password' | 'new-password';
 }
 
-const PasswordInput = forwardRef<RNTextInput, PasswordInputProps>(
-	({ value, onChangeText, onBlur, placeholder }, ref) => {
-		const [isVisible, setIsVisible] = useState(false);
+const PasswordInput = forwardRef<RNTextInput, PasswordInputProps>(	({ value, onChangeText, onBlur, placeholder, autoComplete = 'current-password' }, ref) => {
+	const [isVisible, setIsVisible] = useState(false);
 
-		const { colors } = useThemeColors();
+	const { colors } = useThemeColors();
 
-		return (
-			<View className = 'h-14 flex-row items-center rounded-2xl border border-border bg-input pr-2'>
-				<Input ref = { ref } value = { value } onChangeText = { onChangeText } onBlur = { onBlur } placeholder = { placeholder } secureTextEntry = { !isVisible } className = 'h-14 flex-1 border-0 bg-transparent'/>
-				<Pressable onPress = { () => setIsVisible(prev => !prev) } className = 'p-2' hitSlop = { 8 }>
-					{isVisible ? (
-						<EyeOff size = { 20 } color = { colors.mutedForeground }/>
-					) : (
-						<Eye size = { 20 } color = { colors.mutedForeground }/>
-					)}
-				</Pressable>
-			</View>
-		)
-	}
-);
+	return (
+		<View className = 'h-14 flex-row items-center rounded-2xl border border-border bg-input pr-2'>
+			<Input ref = { ref } value = { value } onChangeText = { onChangeText } onBlur = { onBlur } placeholder = { placeholder } secureTextEntry = { !isVisible } autoComplete = { autoComplete } autoCapitalize = 'none' className = 'h-14 flex-1 border-0 bg-transparent'/>
+			<Pressable onPress = { () => setIsVisible(prev => !prev) } className = 'p-2' hitSlop = { 8 }>
+				{isVisible ? (
+					<EyeOff size = { 20 } color = { colors.mutedForeground }/>
+				) : (
+					<Eye size = { 20 } color = { colors.mutedForeground }/>
+				)}
+			</Pressable>
+		</View>
+	)
+});
 
 PasswordInput.displayName = 'PasswordInput';
 

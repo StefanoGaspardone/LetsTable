@@ -3,10 +3,10 @@ import '@/lib/calendar';
 
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Stack, DefaultTheme, ThemeProvider, DarkTheme } from 'expo-router';
+import { Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { KeyboardAvoidingView, Platform, useColorScheme } from 'react-native';
-import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans';
@@ -24,20 +24,14 @@ import { useHealthCheck } from '@/hooks/use-health-check';
 import { useNotificationNavigation } from '@/hooks/use-notification-navigation';
 
 import { configureNotifications } from '@/lib/push-notifications';
+import { queryClient } from '@/lib/query-client';
+import { NAV_THEME } from '@/lib/theme';
 
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient({
-	mutationCache: new MutationCache({
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['achievements'] });
-		},
-	}),
-});
-
 const RootLayoutNav = () => {
 	const { isLoading, isAuthenticated } = useAuth();
-	const { themePreference } = useAppTheme();
+	const { themePreference, isLoading: isThemeLoading } = useAppTheme();
 	const systemColorScheme = useColorScheme();
 	const [fontsLoaded] = useFonts({
 		PlayfairDisplay_700Bold,
@@ -47,7 +41,7 @@ const RootLayoutNav = () => {
 		PlusJakartaSans_700Bold,
 	});
 
-	const isReady = !isLoading && fontsLoaded;
+	const isReady = !isLoading && !isThemeLoading && fontsLoaded;
 
 	useNotificationNavigation(isReady && isAuthenticated);
 
@@ -60,7 +54,7 @@ const RootLayoutNav = () => {
 	}
 
 	const resolvedScheme = themePreference === 'system' ? systemColorScheme : themePreference;
-	const navigationTheme = resolvedScheme === 'dark' ? DarkTheme : DefaultTheme;
+	const navigationTheme = NAV_THEME[resolvedScheme === 'dark' ? 'dark' : 'light'];
 
 	return (
 		<KeyboardAvoidingView style = {{ flex: 1 }} behavior = { Platform.OS === 'ios' ? 'padding' : 'height' }>

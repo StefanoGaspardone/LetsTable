@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Heart, Users, Lock, Dices, ChevronRight, Check } from 'lucide-react-native';
@@ -60,7 +61,7 @@ const WishlistMiniCard = ({ wishlist, onPress, selected }: WishlistMiniCardProps
 									<Image source = {{ uri: item.game.thumbnailUrl }} style = {{ width: '100%', height: '100%' }} contentFit = 'cover'/>
 								) : (
 									<View className = 'h-full w-full items-center justify-center'>
-										<Dices size = { 14 } className = 'text-muted-foreground'/>
+										<Dices size = { 14 } color = { colors.mutedForeground }/>
 									</View>
 								)}
 							</View>
@@ -81,11 +82,11 @@ const WishlistMiniCard = ({ wishlist, onPress, selected }: WishlistMiniCardProps
 						{selected && <Check size = { 16 } color = '#FFFFFF' strokeWidth = { 3 }/>}
 					</View>
 				) : (
-					<ChevronRight size = { 18 } color = '#736E65'/>
+					<ChevronRight size = { 18 } color = { colors.mutedForeground }/>
 				)}
 			</View>
 		</Pressable>
 	)
 }
 
-export default WishlistMiniCard;
+export default memo(WishlistMiniCard);

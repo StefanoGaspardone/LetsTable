@@ -22,6 +22,8 @@ export const useNotificationNavigation = (enabled: boolean) => {
 
 			switch(data?.type) {
 				case 'FRIEND_REQUEST':
+					routerRef.current.push('/(tabs)/friends?tab=requests');
+					break;
 				case 'FRIEND_ACCEPTED':
 					routerRef.current.push('/(tabs)/friends');
 					break;

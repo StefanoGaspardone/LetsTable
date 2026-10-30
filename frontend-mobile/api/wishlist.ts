@@ -87,3 +87,8 @@ export const removeMemberFromWishlist = async (wishlistId: string, memberUserId:
 export const leaveWishlist = async (wishlistId: string): Promise<void> => {
     await apiClient.post(`/wishlists/${wishlistId}/leave`);
 }
+
+export const getMyDefaultWishlist = async (): Promise<Wishlist> => {
+    const { data } = await apiClient.get<Wishlist>('/wishlists/default');
+    return data;
+}

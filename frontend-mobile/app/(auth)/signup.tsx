@@ -37,7 +37,7 @@ const SignupScreen = () => {
 	});
 
 	const openTerms = async () => {
-		const url = process.env.EXPO_PUBLIC_TERMS_URL ?? 'https://letstable.onrender.com/terms.html'
+		const url = process.env.EXPO_PUBLIC_TERMS_URL ?? 'https://letstable-backend-1040192390713.europe-west1.run.app/terms.html'
         await WebBrowser.openBrowserAsync(url);
     }
 
@@ -73,19 +73,19 @@ const SignupScreen = () => {
 		>
 			<Controller control = { control } name = 'username'
 				render = { ({ field: { onChange, onBlur, value } }) => (
-					<AuthField label = 'Username giocatore' placeholder = 'MeepleKing99' autoCapitalize = 'none' value = { value } onChangeText = { onChange } onBlur = { onBlur } error = { errors.username?.message }/>
+					<AuthField label = 'Username giocatore' placeholder = 'MeepleKing99' autoCapitalize = 'none' value = { value } onChangeText = { onChange } onBlur = { onBlur } error = { errors.username?.message } autoComplete = 'username'/>
 				)}
 			/>
 			<Controller control = { control } name = 'email'
 				render = { ({ field: { onChange, onBlur, value } }) => (
-					<AuthField label = 'Email' placeholder = 'nome@esempio.it' autoCapitalize = 'none' keyboardType = 'email-address' value = { value } onChangeText = { onChange } onBlur = { onBlur } error = { errors.email?.message }/>
+					<AuthField label = 'Email' placeholder = 'nome@esempio.it' autoCapitalize = 'none' keyboardType = 'email-address' value = { value } onChangeText = { onChange } onBlur = { onBlur } error = { errors.email?.message } autoComplete = 'email'/>
 				)}
 			/>
 			<View className = 'mb-4'>
 				<Text className = 'mb-1.5 text-sm font-medium text-foreground'>Password</Text>
 				<Controller control = { control } name = 'password'
 					render = { ({ field: { onChange, onBlur, value } }) => (
-						<PasswordInput placeholder = 'Almeno 8 caratteri' value = { value } onChangeText = { onChange } onBlur = { onBlur }/>
+						<PasswordInput placeholder = 'Almeno 8 caratteri' value = { value } onChangeText = { onChange } onBlur = { onBlur } autoComplete = 'new-password'/>
 					)}
 				/>
 				{errors.password && (
@@ -96,7 +96,7 @@ const SignupScreen = () => {
 				<Text className = 'mb-1.5 text-sm font-medium text-foreground'>Conferma password</Text>
 				<Controller control = { control } name = 'confirmPassword'
 					render = { ({ field: { onChange, onBlur, value } }) => (
-						<PasswordInput placeholder = 'Ripeti la password' value = { value } onChangeText = { onChange } onBlur = { onBlur }/>
+						<PasswordInput placeholder = 'Ripeti la password' value = { value } onChangeText = { onChange } onBlur = { onBlur } autoComplete = 'new-password'/>
 					)}
 				/>
 				{errors.confirmPassword && (
@@ -108,7 +108,7 @@ const SignupScreen = () => {
                     render = { ({ field: { onChange, value } }) => (
                         <View className  ='flex-row items-center space-x-2'>
                             <Pressable onPress = { () => onChange(!value) } className = { `h-5 w-5 rounded border items-center justify-center mr-2 ${value ? 'bg-primary border-primary' : 'border-input bg-background'}` }>
-                                {value && <Check size = { 14 } className = 'text-primary-foreground' color = '#ffffff'/>}
+                                {value && <Check size = { 14 } color = '#ffffff'/>}
                             </Pressable>
                             <Text className = 'text-xs text-muted-foreground flex-1'>
                                 Ho letto e accetto i{' '}

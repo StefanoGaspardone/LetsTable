@@ -682,4 +682,29 @@ class WishlistController(
         @Parameter(description = "Internal Let's Table id of the game") @RequestParam gameId: UUID,
     ): ResponseEntity<WishlistItemStatusDTO> =
         ResponseEntity.ok(wishlistService.getItemStatus(CurrentUser.id(), wishlistId, gameId))
+
+    @Operation(summary = "Get my default wishlist", description = "Returns the default wishlist of the current user.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Default wishlist",
+                content = [Content(schema = Schema(implementation = WishlistDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "404", description = "Not Found - Default wishlist does not exist",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "DefaultWishlistNotFoundExample",
+                        summary = "Default wishlist not found example",
+                        value = "{\"timestamp\":\"2026-10-30T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Default wishlist not found for user: 3fa85f64-5717-4562-b3fc-2c963f66afa6\"}"
+                    )]
+                )]
+            ),
+        ]
+    )
+    @GetMapping("/default")
+    fun getMyDefaultWishlist(): ResponseEntity<WishlistDTO> =
+        ResponseEntity.ok(wishlistService.getMyDefaultWishlist(CurrentUser.id()))
 }

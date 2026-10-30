@@ -107,3 +107,19 @@ export interface GameMatchStats {
 	winRate: number;
 	lastPlayedAt: string;
 }
+
+export interface CreateMatchTeamPayload {
+	name: string | null;
+	color: string;
+	score: number | null;
+	isWinner: boolean;
+	isStartingFirst: boolean;
+	players: MatchPlayerIdentityPayload[];
+}
+
+export interface MatchIndividualPlayerPayload extends MatchPlayerIdentityPayload {
+	color: string;
+	score: number;
+	isWinner: boolean;
+	isStartingFirst: boolean;
+}

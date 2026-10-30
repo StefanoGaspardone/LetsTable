@@ -25,7 +25,7 @@ import { useNavigationStack } from '@/contexts/navigation-stack-context';
 const HomeScreen = () => {
 	const { totalWins, totalMatches, totalGames } = useHomeStats();
 	const { data: friends } = useFriends();
-	const { data: matchesData } = useMatches({ sort: 'playedAt-desc', size: 5 } as any);
+	const { data: matchesData } = useMatches({ sort: 'playedAt-desc', size: 5 });
 	const { colors } = useThemeColors();
   	
 	const { data: wishlistsData } = useMyWishlists();
@@ -60,7 +60,7 @@ const HomeScreen = () => {
 				</View>
 				<View className = 'mt-4 mb-1 flex-row items-center justify-between'>
 					<Text className = 'font-display text-xl text-foreground'>Partite Recenti</Text>
-						{latestMatch && (
+					{latestMatch && (
 						<Pressable onPress = { () => router.push('/(tabs)/matches') } hitSlop = { 8 }>
 							<Text className = 'text-sm font-semibold text-primary'>Vedi tutte</Text>
 						</Pressable>
@@ -78,7 +78,7 @@ const HomeScreen = () => {
 				)}
 				<View className = 'mt-4 mb-1 flex-row items-center justify-between'>
 					<Text className = 'font-display text-xl text-foreground'>Le Mie Wishlist</Text>
-						{latestMatch && (
+					{wishlists.length > 0 && (
 						<Pressable onPress = { () => router.push('/(tabs)/my-wishlists') } hitSlop = { 8 }>
 							<Text className = 'text-sm font-semibold text-primary'>Vedi tutte</Text>
 						</Pressable>

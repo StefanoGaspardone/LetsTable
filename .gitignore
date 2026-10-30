@@ -83,6 +83,7 @@ coverage/
 *.tsbuildinfo
 .expo/
 expo-env.d.ts
+frontend-mobile/*.txt
 
 # JS package managers / tooling (workspace-wide)
 node_modules/

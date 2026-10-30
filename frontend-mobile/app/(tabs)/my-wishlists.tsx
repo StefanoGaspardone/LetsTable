@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { View, FlatList, ActivityIndicator } from 'react-native';
 import { RefreshControl } from 'react-native-gesture-handler';
 import { Heart, Lock, Users } from 'lucide-react-native';
@@ -17,7 +17,13 @@ import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 
+import { Wishlist } from '@/types/wishlist';
+
 import { WishlistFilterType } from '@/api/wishlist';
+
+const keyExtractor = (item: Wishlist) => item.id;
+const ListSeparator = () => <View className = 'h-2'/>;
+const renderWishlist = ({ item }: { item: Wishlist }) => <WishlistMiniCard wishlist = { item }/>;
 
 const FILTER_OPTIONS = [
 	{ value: 'all', label: 'Tutte' },
@@ -37,7 +43,7 @@ const MyWishlistsScreen = () => {
 	useRefetchOnFocus(['wishlists']);
 	const { refreshing, onRefresh } = usePullToRefresh([['wishlists']]);
 
-	const otherWishlists = (data?.pages.flatMap(page => page.content) ?? []).filter(w => !w.isDefault);
+	const otherWishlists = useMemo(() => (data?.pages.flatMap(page => page.content) ?? []).filter(wishlist => !wishlist.isDefault), [data]);
 	const showDefaultSection = filter === 'all' && !!defaultWishlist;
 
 	return (
@@ -51,7 +57,7 @@ const MyWishlistsScreen = () => {
 					<ActivityIndicator color = { colors.primary }/>
 				</View>
 			) : (otherWishlists.length > 0 || showDefaultSection) ? (
-				<FlatList className = 'mt-3' data = { otherWishlists } keyExtractor = { item => item.id } contentContainerStyle = {{ paddingHorizontal: 16, paddingBottom: 100 }} ItemSeparatorComponent = { () => <View className = 'h-2'/> } refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.card }/> }
+				<FlatList className = 'mt-3' data = { otherWishlists } keyExtractor = { keyExtractor } contentContainerStyle = {{ paddingHorizontal: 16, paddingBottom: 100 }} ItemSeparatorComponent = { ListSeparator } refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.card }/> }
 					ListHeaderComponent = {
 						showDefaultSection ? (
 							<View className = 'mb-4'>
@@ -63,7 +69,7 @@ const MyWishlistsScreen = () => {
 							</View>
 						) : null
 					}
-					renderItem = { ({ item }) => <WishlistMiniCard wishlist = { item }/> } onEndReached = { () => { if(hasNextPage && !isFetchingNextPage) fetchNextPage(); } } onEndReachedThreshold = { 0.4 }
+					renderItem = { renderWishlist } onEndReached = { () => { if(hasNextPage && !isFetchingNextPage) fetchNextPage(); } } onEndReachedThreshold = { 0.4 }
 					ListFooterComponent = {
 						isFetchingNextPage ? (
 							<View className = 'py-6'>

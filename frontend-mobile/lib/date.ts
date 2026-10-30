@@ -17,3 +17,7 @@ export const formatFullDate = (dateString: string): string => {
 export const formatShortDate = (dateString: string): string => {
 	return format(new Date(dateString), 'd MMM yyyy', { locale: it });
 }
+
+export const toLocalDateString = (date: Date): string => {
+	return format(date, 'yyyy-MM-dd');
+}

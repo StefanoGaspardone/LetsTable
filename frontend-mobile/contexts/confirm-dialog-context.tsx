@@ -1,8 +1,10 @@
-import { createContext, useCallback, useContext, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState, ReactNode } from 'react';
 import { View, Modal, Pressable } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
+
+import { cn } from '@/lib/utils';
 
 interface ConfirmOptions {
 	title: string;
@@ -21,27 +23,29 @@ const ConfirmDialogContext = createContext<ConfirmDialogContextValue | undefined
 
 export const ConfirmDialogProvider = ({ children }: { children: ReactNode }) => {
 	const [options, setOptions] = useState<ConfirmOptions | null>(null);
-	const [resolver, setResolver] = useState<((value: boolean) => void) | null>(null);
+	const resolverRef = useRef<((value: boolean) => void) | null>(null);
 
 	const confirm = useCallback((opts: ConfirmOptions) => {
 		return new Promise<boolean>((resolve) => {
+			resolverRef.current?.(false);
+			resolverRef.current = resolve;
 			setOptions(opts);
-			setResolver(() => resolve);
 		});
 	}, []);
 
-	const handleClose = (result: boolean) => {
-		resolver?.(result);
-		
-        setOptions(null);
-		setResolver(null);
-	}
+	const handleClose = useCallback((result: boolean) => {
+		resolverRef.current?.(result);
+		resolverRef.current = null;
+		setOptions(null);
+	}, []);
+
+	const value = useMemo(() => ({ confirm }), [confirm]);
 
 	return (
-		<ConfirmDialogContext.Provider value = {{ confirm }}>
+		<ConfirmDialogContext.Provider value = { value }>
 			{children}
 			<Modal visible = { !!options } transparent animationType = 'fade' onRequestClose = { () => handleClose(false) }>
-				<Pressable testID = 'confirm-dialog-backdrop' className = 'flex-1 items-center justify-center bg-black/50 px-6' onPress = { () => handleClose(false)}>
+				<Pressable testID = 'confirm-dialog-backdrop' className = 'flex-1 items-center justify-center bg-black/50 px-6' onPress = { () => handleClose(false) }>
 					<Pressable className = 'w-full max-w-sm rounded-2xl bg-background p-5' onPress = { e => e.stopPropagation() }>
 						{options && (
 							<>
@@ -55,7 +59,7 @@ export const ConfirmDialogProvider = ({ children }: { children: ReactNode }) => 
 											<Text>{options.cancelLabel ?? 'Annulla'}</Text>
 										</Button>
 									)}
-									<Button className = { `flex-1 ${options.destructive && 'bg-destructive'}`} onPress = { () => handleClose(true) }>
+									<Button className = { cn('flex-1', options.destructive && 'bg-destructive') } onPress = { () => handleClose(true) }>
 										<Text className = { options.destructive ? 'text-destructive-foreground' : '' }>
 											{options.confirmLabel ?? 'Conferma'}
 										</Text>
@@ -72,10 +76,10 @@ export const ConfirmDialogProvider = ({ children }: { children: ReactNode }) => 
 
 export const useConfirmDialog = () => {
 	const context = useContext(ConfirmDialogContext);
-	
-    if(!context) {
+
+	if(!context) {
 		throw new Error('useConfirmDialog must be used within a ConfirmDialogProvider');
 	}
 
-    return context;
+	return context;
 }

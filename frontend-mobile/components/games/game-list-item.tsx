@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Calendar, ChevronRight, Clock, Dices, Users, PuzzleIcon, Check } from 'lucide-react-native';
@@ -31,7 +32,7 @@ const GameListItem = ({ game, onPress, showRank, rankField = 'rank' }: GameListI
 			)}
 			<View style = {{ width: 56, height: 56 }} className = 'overflow-hidden rounded-xl bg-secondary'>
 				{game.thumbnailUrl ? (
-					<Image source = {{ uri: game.thumbnailUrl }} style = {{ width: 56, height: 56 }} contentFit = 'cover'/>
+					<Image source = {{ uri: game.thumbnailUrl }} recyclingKey = { game.id } style = {{ width: 56, height: 56 }} contentFit = 'cover'/>
 				) : (
 					<View className = 'h-full w-full items-center justify-center'>
 						<Dices size = { 22 } color = { colors.mutedForeground }/>
@@ -87,4 +88,4 @@ const GameListItem = ({ game, onPress, showRank, rankField = 'rank' }: GameListI
 	)
 }
 
-export default GameListItem;
+export default memo(GameListItem);

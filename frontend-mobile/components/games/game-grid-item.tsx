@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Pressable, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { Dices, Users, Clock, PuzzleIcon, Check } from 'lucide-react-native';
@@ -33,7 +34,7 @@ const GameGridItem = ({ game, onPress, showRank = false, rankField = 'rank' }: G
 		<Pressable onPress = { onPress } style = {{ width: CARD_WIDTH, padding: CARD_PADDING }} className = 'mb-4 rounded-2xl border border-border bg-card active:scale-[0.98] active:opacity-75'>
 			<View style = {{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }} className = 'relative overflow-hidden rounded-xl bg-secondary'>
 				{game.thumbnailUrl ? (
-					<Image source = {{ uri: game.thumbnailUrl }} style = {{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }} contentFit = 'cover'/>
+					<Image source = {{ uri: game.thumbnailUrl }} recyclingKey = { game.id } style = {{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }} contentFit = 'cover'/>
 				) : (
 					<View className = 'h-full w-full items-center justify-center'>
 						<Dices size = { 28 } color = { colors.mutedForeground }/>
@@ -87,4 +88,4 @@ const GameGridItem = ({ game, onPress, showRank = false, rankField = 'rank' }: G
 	)
 }
 
-export default GameGridItem;
+export default memo(GameGridItem);

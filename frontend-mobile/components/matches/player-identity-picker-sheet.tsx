@@ -33,6 +33,8 @@ interface PlayerIdentityPickerSheetProps {
     onBack: () => void;
 }
 
+const userKeyExtractor = (item: { id: string }) => item.id;
+
 const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, PlayerIdentityPickerSheetProps>(({ excludeUserIds, excludeGuestNames, onConfirm, onBack }, ref) => {
     const sheetRef = useRef<BottomSheetModal>(null);
 
@@ -115,14 +117,14 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
                     </View>
 					{search.length > 0 && (
 						<Pressable onPress = { () => setSearch('') } hitSlop = { 8 } className = 'absolute right-3 top-0 h-full justify-center'>
-							<X size = { 18 } className = 'text-muted-foreground'/>
+							<X size = { 18 } color = { colors.mutedForeground }/>
 						</Pressable>
 					)}
                 </View>
                 {selected.length > 0 && (
                     <View className = 'mb-3 flex-row flex-wrap'>
-                        {selected.map((identity) => (
-                            <View key = { identity.userId } style = {{ width: '25%', padding: 4 }}>
+                        {selected.map((identity, index) => (
+	                        <View key = { `${identity.userId ?? `guest:${identity.guestName}`}-${index}` } style = {{ width: '25%', padding: 4 }}>
                                 <Pressable onPress = { () => removeSelected(identity) } className = 'items-center gap-1.5 rounded-2xl border border-primary/40 bg-primary/5 py-3 active:scale-[0.98] active:opacity-75'>
                                     <View className = 'relative'>
                                         <Image source = {{ uri: getAvatarUrl(identity.avatarId ?? null, identity.displayName ?? '') }} style = {{ width: 56, height: 56, borderRadius: 100 }} contentFit = 'cover'/>
@@ -138,7 +140,7 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
                         ))}
                     </View>
                 )}
-                <BottomSheetFlatList data = { visibleUsers } keyExtractor = { item => item.id } numColumns = { 4 }
+                <BottomSheetFlatList data = { visibleUsers } keyExtractor = { userKeyExtractor } numColumns = { 4 }
                     renderItem  = { ({ item }) => {
                         const selectedState = isSelected(item.id);
 
@@ -157,7 +159,7 @@ const PlayerIdentityPickerSheet = forwardRef<PlayerIdentityPickerSheetRef, Playe
                 />
                 {isAddingGuest ? (
                     <View className = 'mb-3 flex-row items-center gap-2'>
-                        <TextInput value = { guestNameInput } onChangeText = { setGuestNameInput } placeholder = 'Nome ospite' autoFocus onSubmitEditing = { handleAddGuest } className = 'h-10 flex-1 rounded-xl border border-border bg-secondary px-3 text-sm text-foreground'/>
+                        <TextInput value = { guestNameInput } onChangeText = { setGuestNameInput } placeholder = 'Nome ospite' placeholderTextColor = { colors.mutedForeground } autoFocus onSubmitEditing = { handleAddGuest } className = 'h-10 flex-1 rounded-xl border border-border bg-secondary px-3 text-sm text-foreground'/>
                         <Button size = 'sm' onPress = { handleAddGuest }>
                             <Text className = 'text-primary-foreground'>Aggiungi</Text>
                         </Button>

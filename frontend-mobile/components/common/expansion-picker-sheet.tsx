@@ -1,7 +1,6 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { BottomSheetModal, BottomSheetFlatList, BottomSheetFooter, BottomSheetFooterProps } from '@gorhom/bottom-sheet';
-import { useInfiniteQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { Search, Dices, Check, ChevronLeft } from 'lucide-react-native';
 
@@ -10,9 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppBottomSheet from '@/components/common/app-bottom-sheet';
 
-import { getGameExpansions } from '@/api/game';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useThemeColors } from '@/hooks/use-theme-colors';
+import { useGameExpansions } from '@/hooks/use-game';
 
 export interface PickedExpansion {
 	id: string;
@@ -30,6 +29,9 @@ interface ExpansionPickerSheetProps {
 	onConfirm: (selected: PickedExpansion[]) => void;
 	onBack: () => void;
 }
+
+const keyExtractor = (item: { id: string }) => item.id;
+const ListSeparator = () => <View className = 'h-2'/>;
 
 const ExpansionPickerSheet = forwardRef<ExpansionPickerSheetRef, ExpansionPickerSheetProps>(({ onConfirm, onBack }, ref) => {
 	const sheetRef = useRef<BottomSheetModal>(null);
@@ -52,19 +54,16 @@ const ExpansionPickerSheet = forwardRef<ExpansionPickerSheetRef, ExpansionPicker
 		dismiss: () => sheetRef.current?.dismiss(),
 	}));
 
-	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
-		queryKey: ['games', 'expansions', baseGameBggId],
-		queryFn: ({ pageParam }) => getGameExpansions(baseGameBggId!, pageParam),
-		initialPageParam: 0,
-		getNextPageParam: lastPage => (lastPage.last ? undefined : lastPage.number + 1),
-		enabled: baseGameBggId !== null,
-	});
+	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useGameExpansions(baseGameBggId);
 
-	const expansions = data?.pages.flatMap(page => page.content) ?? [];
+	const expansions = useMemo(() => data?.pages.flatMap(page => page.content) ?? [], [data]);
 
-	const filteredExpansions = debouncedSearch
-		? expansions.filter(e => e.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
-		: expansions;
+	const filteredExpansions = useMemo(() => {
+		if(!debouncedSearch) return expansions;
+
+		const needle = debouncedSearch.toLowerCase();
+		return expansions.filter(expansion => expansion.name.toLowerCase().includes(needle));
+	}, [expansions, debouncedSearch]);
 
 	const toggleExpansion = (expansion: PickedExpansion) => {
 		setSelected(prev => {
@@ -109,9 +108,10 @@ const ExpansionPickerSheet = forwardRef<ExpansionPickerSheetRef, ExpansionPicker
 				</View>
 				<BottomSheetFlatList
 					data = { filteredExpansions }
-					keyExtractor = { item => item.id }
+					keyExtractor = { keyExtractor }
+					extraData = { selected }
 					contentContainerStyle = {{ paddingHorizontal: 16, paddingBottom: 120 }}
-					ItemSeparatorComponent = { () => <View className = 'h-2'/> }
+					ItemSeparatorComponent = { ListSeparator }
 					onEndReached = { () => { if(hasNextPage && !isFetchingNextPage) fetchNextPage(); } }
 					onEndReachedThreshold = { 0.4 }
 					ListEmptyComponent = {

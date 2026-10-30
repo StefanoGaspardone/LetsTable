@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View, ActivityIndicator, ScrollView, Pressable } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { RefreshControl } from 'react-native-gesture-handler';
 import { Trophy, Dices, Gamepad2, UserPlus, UserCheck, Clock, UserX, Users, Heart, Award } from 'lucide-react-native';
@@ -14,8 +14,7 @@ import EmptyState from '@/components/common/empty-state';
 import SegmentedControl from '@/components/common/segmented-control';
 import AchievementList from '@/components/achievements/achievement-list';
 
-import { getUserProfile } from '@/api/user';
-import { sendFriendRequest, removeFriend, listPendingSent, cancelFriendRequest, listPendingReceived, acceptFriendRequest } from '@/api/friend';
+import { listPendingReceived, listPendingSent } from '@/api/friend';
 
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 import { useToast } from '@/contexts/toast-context';
@@ -23,8 +22,10 @@ import { useConfirmDialog } from '@/contexts/confirm-dialog-context';
 import { useAuth } from '@/contexts/auth-context';
 
 import { getAvatarUrl } from '@/lib/file';
+import { cn } from '@/lib/utils';
 
-import { useUserMatches, useUserFriends, useUserDefaultWishlistItems } from '@/hooks/use-user';
+import { useUserMatches, useUserFriends, useUserDefaultWishlistItems, useUserProfile } from '@/hooks/use-user';
+import { useAcceptFriendRequest, useCancelFriendRequest, useRemoveFriend, useSendFriendRequest } from '@/hooks/use-friend';
 import { useUserAchievements } from '@/hooks/use-achievement';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
@@ -39,6 +40,13 @@ const TAB_OPTIONS = [
 	{ value: 'achievements', label: 'Traguardi' },
 ]
 
+const SELF_TAB_OPTIONS = TAB_OPTIONS.filter(option => option.value !== 'achievements');
+
+const getTabQueryKey = (tab: ProfileTab, userId: string) => {
+	if(tab === 'achievements') return ['achievements', 'user', userId];
+	return ['users', tab, userId];
+}
+
 const UserProfileScreen = () => {
 	const { id } = useLocalSearchParams<{ id: string }>();
 	const router = useNavigationStack();
@@ -49,116 +57,85 @@ const UserProfileScreen = () => {
 
 	const { colors } = useThemeColors();
 
-	const [isActionPending, setIsActionPending] = useState(false);
 	const [tab, setTab] = useState<ProfileTab>('matches');
+	const [isLookingUpRequest, setIsLookingUpRequest] = useState(false);
 
 	const isSelf = id === user?.id;
 
-	const { data: profile, isLoading } = useQuery({
-		queryKey: ['users', 'profile', id],
-		queryFn: () => getUserProfile(id),
-	});
+	const { data: profile, isLoading } = useUserProfile(id);
 
-	const { data: matchesData, isLoading: isLoadingMatches, fetchNextPage: fetchNextMatches, hasNextPage: hasNextMatches, isFetchingNextPage: isFetchingNextMatches, refetch: refetchMatches } = useUserMatches(id);
-	const { data: friends, isLoading: isLoadingFriends, refetch: refetchFriends } = useUserFriends(id);
-	const { data: wishlistData, isLoading: isLoadingWishlist, fetchNextPage: fetchNextWishlist, hasNextPage: hasNextWishlist, isFetchingNextPage: isFetchingNextWishlist, refetch: refetchWishlist } = useUserDefaultWishlistItems(id);
-	const { data: achievements, isLoading: isLoadingAchievements, refetch: refetchAchievements } = useUserAchievements(id, !isSelf);
+	const matchesQuery = useUserMatches(id, undefined, tab === 'matches');
+	const friendsQuery = useUserFriends(id, tab === 'friends');
+	const wishlistQuery = useUserDefaultWishlistItems(id, tab === 'wishlist');
+	const achievementsQuery = useUserAchievements(id, !isSelf && tab === 'achievements');
 
-	const matches = matchesData?.pages.flatMap(page => page.content) ?? [];
-	const wishlistItems = wishlistData?.pages.flatMap(page => page.content) ?? [];
+	const sendRequest = useSendFriendRequest();
+	const cancelRequest = useCancelFriendRequest();
+	const acceptRequest = useAcceptFriendRequest();
+	const removeFriend = useRemoveFriend();
+
+	const matches = matchesQuery.data?.pages.flatMap(page => page.content) ?? [];
+	const wishlistItems = wishlistQuery.data?.pages.flatMap(page => page.content) ?? [];
 
 	useRefetchOnFocus(['users', 'profile', id]);
-	useRefetchOnFocus(['users', 'matches', id]);
-	useRefetchOnFocus(['users', 'friends', id]);
-	useRefetchOnFocus(['users', 'wishlist', id]);
-	useRefetchOnFocus(['achievements', 'user', id]);
+	useRefetchOnFocus(getTabQueryKey(tab, id));
 
-	const { refreshing, onRefresh } = usePullToRefresh(
-		tab === 'matches' ? [['users', 'profile', id], ['users', 'matches', id]] :
-		tab === 'friends' ? [['users', 'profile', id], ['users', 'friends', id]] :
-		tab === 'wishlist' ? [['users', 'profile', id], ['users', 'wishlist', id]] :
-		[['users', 'profile', id], ['achievements', 'user', id]]
-	);
-
-	useEffect(() => {
-		if(tab === 'matches') {
-			refetchMatches();
-		} else if(tab === 'friends') {
-			refetchFriends();
-		} else if(tab === 'wishlist') {
-			refetchWishlist();
-		} else if(tab === 'achievements') {
-			refetchAchievements();
-		}
-	}, [tab]);
-
-	useEffect(() => {
-		setTab('matches');
-	}, [id]);
+	const { refreshing, onRefresh } = usePullToRefresh([['users', 'profile', id], getTabQueryKey(tab, id)]);
 
 	useFocusEffect(
 		useCallback(() => {
 			setTab('matches');
-		}, [])
+		}, [id])
 	);
 
-	const invalidateProfile = () => {
-		queryClient.invalidateQueries({ queryKey: ['users', 'profile', id] });
-		queryClient.invalidateQueries({ queryKey: ['friends'] });
-	}
+	const isActionPending = isLookingUpRequest || sendRequest.isPending || cancelRequest.isPending || acceptRequest.isPending || removeFriend.isPending;
 
-	const handleSendRequest = async () => {
-		setIsActionPending(true);
+	const showError = (fallback: string) => (error: any) => showToast(error?.response?.data?.message ?? fallback, 'error');
 
-		try {
-			await sendFriendRequest(id);
-
-			invalidateProfile();
-			showToast('Richiesta di amicizia inviata', 'success');
-		} catch(error: any) {
-			showToast(error?.response?.data?.message ?? 'Errore durante l\'invio della richiesta', 'error');
-		} finally {
-			setIsActionPending(false);
-		}
+	const handleSendRequest = () => {
+		sendRequest.mutate(id, {
+			onSuccess: () => showToast('Richiesta di amicizia inviata', 'success'),
+			onError: showError('Errore durante l\'invio della richiesta'),
+		});
 	}
 
 	const handleCancelRequest = async () => {
-		setIsActionPending(true);
+		setIsLookingUpRequest(true);
 
 		try {
-			const sent = await listPendingSent();
-			const request = sent.find(r => r.receiver.id === id);
+			const sent = await queryClient.fetchQuery({ queryKey: ['friends', 'requests', 'sent'], queryFn: listPendingSent });
+			const request = sent.find(candidate => candidate.receiver.id === id);
 
-			if(request) {
-				await cancelFriendRequest(request.id);
+			if(!request) return;
 
-				invalidateProfile();
-				showToast('Richiesta annullata', 'success');
-			}
+			cancelRequest.mutate(request.id, {
+				onSuccess: () => showToast('Richiesta annullata', 'success'),
+				onError: showError('Errore durante l\'annullamento'),
+			});
 		} catch(error: any) {
-			showToast(error?.response?.data?.message ?? 'Errore durante l\'annullamento', 'error');
+			showError('Errore durante l\'annullamento')(error);
 		} finally {
-			setIsActionPending(false);
+			setIsLookingUpRequest(false);
 		}
 	}
 
 	const handleAcceptRequest = async () => {
-		setIsActionPending(true);
+		setIsLookingUpRequest(true);
 
 		try {
-			const received = await listPendingReceived();
-			const request = received.find(r => r.sender.id === id);
+			const received = await queryClient.fetchQuery({ queryKey: ['friends', 'requests', 'received'], queryFn: listPendingReceived });
+			const request = received.find(candidate => candidate.sender.id === id);
 
-			if(request) {
-				await acceptFriendRequest(request.id);
+			if(!request) return;
 
-				invalidateProfile();
-				showToast('Richiesta accettata', 'success');
-			}
+			acceptRequest.mutate(request.id, {
+				onSuccess: () => showToast('Richiesta accettata', 'success'),
+				onError: showError('Errore durante l\'accettazione'),
+			});
 		} catch(error: any) {
-			showToast(error?.response?.data?.message ?? 'Errore durante l\'accettazione', 'error');
+			showError('Errore durante l\'accettazione')(error);
 		} finally {
-			setIsActionPending(false);
+			setIsLookingUpRequest(false);
 		}
 	}
 
@@ -172,18 +149,10 @@ const UserProfileScreen = () => {
 
 		if(!ok) return;
 
-		setIsActionPending(true);
-
-		try {
-			await removeFriend(id);
-
-			invalidateProfile();
-			showToast('Amico rimosso', 'success');
-		} catch(error: any) {
-			showToast(error?.response?.data?.message ?? 'Errore durante la rimozione', 'error');
-		} finally {
-			setIsActionPending(false);
-		}
+		removeFriend.mutate(id, {
+			onSuccess: () => showToast('Amico rimosso', 'success'),
+			onError: showError('Errore durante la rimozione'),
+		});
 	}
 
 	if(isLoading || !profile) {
@@ -193,6 +162,12 @@ const UserProfileScreen = () => {
 			</View>
 		)
 	}
+
+	const tabLoader = (
+		<View className = 'flex-1 items-center justify-center py-8'>
+			<ActivityIndicator color = { colors.primary }/>
+		</View>
+	)
 
 	const renderFriendshipAction = () => {
 		if(profile.friendshipStatus === 'SELF') return null;
@@ -205,47 +180,124 @@ const UserProfileScreen = () => {
 			)
 		}
 
-		if(profile.friendshipStatus === 'FRIENDS') {
+		if(profile.friendshipStatus === 'FRIENDS' || profile.friendshipStatus === 'REQUEST_SENT') {
+			const isFriend = profile.friendshipStatus === 'FRIENDS';
+			const Icon = isFriend ? UserX : Clock;
+
 			return (
-				<Pressable onPress = { handleRemoveFriend } className = 'mt-3 h-11 w-full flex-row items-center justify-center gap-2 rounded-full border border-border active:border-primary/90 active:bg-primary/90 active:scale-[0.98]'>
+				<Pressable onPress = { isFriend ? handleRemoveFriend : handleCancelRequest } className = 'mt-3 h-11 w-full flex-row items-center justify-center gap-2 rounded-full border border-border active:border-primary/90 active:bg-primary/90 active:scale-[0.98]'>
 					{({ pressed }) => (
-                        <>
-                            <UserX size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
-                            <Text className = { `text-sm font-semibold text-muted-foreground ${pressed && 'text-[#FFFFFF]'}` }>Rimuovi amico</Text>
-                        </>
-                    )}
+						<>
+							<Icon size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
+							<Text className = { cn('text-sm font-semibold', pressed ? 'text-white' : 'text-muted-foreground') }>
+								{isFriend ? 'Rimuovi amico' : 'Annulla richiesta'}
+							</Text>
+						</>
+					)}
 				</Pressable>
 			)
 		}
 
-		if(profile.friendshipStatus === 'REQUEST_SENT') {
-			return (
-				<Pressable onPress = { handleCancelRequest } className = 'mt-3 h-11 w-full flex-row items-center justify-center gap-2 rounded-full border border-border active:border-primary/90 active:bg-primary/90 active:scale-[0.98]'>
-                    {({ pressed }) => (
-                        <>
-                            <Clock size = { 16 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
-                            <Text className = { `text-sm font-semibold text-muted-foreground ${pressed && 'text-[#FFFFFF]'}` }>Annulla richiesta</Text>
-                        </>
-                    )}
-				</Pressable>
-			)
-		}
-
-		if(profile.friendshipStatus === 'REQUEST_RECEIVED') {
-			return (
-				<Pressable onPress = { handleAcceptRequest } className = 'mt-3 h-11 w-full flex-row items-center justify-center gap-2 rounded-full bg-primary active:bg-primary/90 active:scale-[0.98]'>
-					<UserCheck size = { 16 } color = '#FFFFFF'/>
-					<Text className = 'text-sm font-semibold text-primary-foreground'>Accetta richiesta</Text>
-				</Pressable>
-			)
-		}
+		const isReceived = profile.friendshipStatus === 'REQUEST_RECEIVED';
+		const Icon = isReceived ? UserCheck : UserPlus;
 
 		return (
-			<Pressable onPress = { handleSendRequest } className = 'mt-3 h-11 w-full flex-row items-center justify-center gap-2 rounded-full bg-primary active:bg-primary/90 active:scale-[0.98]'>
-				<UserPlus size = { 16 } color = '#FFFFFF'/>
-				<Text className = 'text-sm font-semibold text-primary-foreground'>Aggiungi amico</Text>
+			<Pressable onPress = { isReceived ? handleAcceptRequest : handleSendRequest } className = 'mt-3 h-11 w-full flex-row items-center justify-center gap-2 rounded-full bg-primary active:bg-primary/90 active:scale-[0.98]'>
+				<Icon size = { 16 } color = '#FFFFFF'/>
+				<Text className = 'text-sm font-semibold text-primary-foreground'>
+					{isReceived ? 'Accetta richiesta' : 'Aggiungi amico'}
+				</Text>
 			</Pressable>
 		)
+	}
+
+	const renderLoadMore = (hasNext: boolean, isFetchingNext: boolean, fetchNext: () => void, label: string) => hasNext && (
+		<Pressable onPress = { () => { if(!isFetchingNext) fetchNext(); } } className = 'items-center py-3'>
+			{isFetchingNext ? (
+				<ActivityIndicator color = { colors.primary }/>
+			) : (
+				<Text className = 'text-sm font-medium text-primary'>{label}</Text>
+			)}
+		</Pressable>
+	)
+
+	const renderTabContent = () => {
+		if(tab === 'matches') {
+			if(matchesQuery.isLoading) return tabLoader;
+
+			if(matches.length === 0) {
+				return <EmptyState icon = { <Dices size = { 32 } color = { colors.primary }/> } title = 'Nessuna partita' subtitle = 'Questo utente non ha ancora registrato partite.'/>;
+			}
+
+			return (
+				<View className = 'gap-2'>
+					{matches.map(match => (
+						<MatchListItem key = { match.id } match = { match }/>
+					))}
+					{renderLoadMore(!!matchesQuery.hasNextPage, matchesQuery.isFetchingNextPage, matchesQuery.fetchNextPage, 'Carica altre')}
+				</View>
+			)
+		}
+
+		if(tab === 'friends') {
+			const friends = friendsQuery.data ?? [];
+
+			if(friendsQuery.isLoading) return tabLoader;
+
+			if(friends.length === 0) {
+				return <EmptyState icon = { <Users size = { 32 } color = { colors.primary }/> } title = 'Nessun amico' subtitle = 'Questo utente non ha ancora amici.'/>;
+			}
+
+			return (
+				<View className = 'gap-2'>
+					{friends.map(friend => (
+						<Pressable key = { friend.id } onPress = { () => friend.id === user?.id ? router.push('/profile') : router.push(`/user/${friend.id}`) } className = 'flex-row items-center gap-3 rounded-xl border border-border bg-card p-2.5 active:scale-[0.98] active:opacity-75'>
+							<Image source = {{ uri: getAvatarUrl(friend.avatarId, friend.username) }} style = {{ width: 40, height: 40, borderRadius: 100 }} contentFit = 'cover'/>
+							<Text className = 'flex-1 text-sm font-medium text-foreground' numberOfLines = { 1 }>
+								{friend.username}
+								{friend.id === user?.id && <Text className = 'font-semibold text-sm text-muted-foreground'> (io)</Text>}
+							</Text>
+						</Pressable>
+					))}
+				</View>
+			)
+		}
+
+		if(tab === 'wishlist') {
+			if(wishlistQuery.isLoading) return tabLoader;
+
+			if(wishlistItems.length === 0) {
+				return <EmptyState icon = { <Heart size = { 32 } color = { colors.primary }/> } title = 'Wishlist vuota' subtitle = 'Questo utente non ha ancora giochi nella sua wishlist.'/>;
+			}
+
+			return (
+				<View className = 'gap-2'>
+					{wishlistItems.map(item => (
+						<Pressable key = { item.id } onPress = { () => router.push(`/game/${item.game.bggId}`) } className = 'flex-row items-center gap-3 rounded-xl border border-border bg-card p-2 active:scale-[0.98] active:opacity-75'>
+							<View style = {{ width: 44, height: 44 }} className = 'overflow-hidden rounded-xl bg-secondary'>
+								{item.game.thumbnailUrl ? (
+									<Image source = {{ uri: item.game.thumbnailUrl }} style = {{ width: 44, height: 44 }} contentFit = 'cover'/>
+								) : (
+									<View className = 'h-full w-full items-center justify-center'>
+										<Dices size = { 16 } color = { colors.mutedForeground }/>
+									</View>
+								)}
+							</View>
+							<Text className = 'flex-1 text-sm font-medium text-foreground' numberOfLines = { 1 }>{item.game.name}</Text>
+						</Pressable>
+					))}
+					{renderLoadMore(!!wishlistQuery.hasNextPage, wishlistQuery.isFetchingNextPage, wishlistQuery.fetchNextPage, 'Carica altri')}
+				</View>
+			)
+		}
+
+		if(achievementsQuery.isLoading) return tabLoader;
+
+		if(!achievementsQuery.data) {
+			return <EmptyState icon = { <Award size = { 32 } color = { colors.primary }/> } title = 'Traguardi non disponibili' subtitle = 'Impossibile caricare i traguardi di questo utente.'/>;
+		}
+
+		return <AchievementList achievements = { achievementsQuery.data }/>;
 	}
 
 	return (
@@ -260,7 +312,7 @@ const UserProfileScreen = () => {
 					<Text className = 'text-xs text-muted-foreground'>{profile.user.email}</Text>
 					{renderFriendshipAction()}
 				</View>
-                <View className = 'mb-6 rounded-2xl border border-border bg-card p-3 shadow-sm'>
+				<View className = 'mb-6 rounded-2xl border border-border bg-card p-3 shadow-sm'>
 					<View className = 'flex-row items-center justify-around'>
 						<View className = 'flex-1 items-center px-2'>
 							<View className = 'mb-1 flex-row items-center gap-1.5'>
@@ -284,93 +336,9 @@ const UserProfileScreen = () => {
 					</View>
 				</View>
 				<View className = 'mb-3'>
-					<SegmentedControl options = { isSelf ? TAB_OPTIONS.filter(option => option.value !== 'achievements') : TAB_OPTIONS } selected = { tab } onSelect = { value => setTab(value as ProfileTab) }/>
+					<SegmentedControl options = { isSelf ? SELF_TAB_OPTIONS : TAB_OPTIONS } selected = { tab } onSelect = { value => setTab(value as ProfileTab) }/>
 				</View>
-				{tab === 'matches' ? (
-					isLoadingMatches ? (
-						<View className = 'flex-1 items-center justify-center py-8'>
-							<ActivityIndicator color = { colors.primary }/>
-						</View>
-					) : matches.length > 0 ? (
-						<View className = 'gap-2'>
-							{matches.map(match => (
-								<MatchListItem key = { match.id } match = { match }/>
-							))}
-							{hasNextMatches && (
-								<Pressable onPress = { () => { if(!isFetchingNextMatches) fetchNextMatches(); } } className = 'items-center py-3'>
-									{isFetchingNextMatches ? (
-										<ActivityIndicator color = { colors.primary }/>
-									) : (
-										<Text className = 'text-sm font-medium text-primary'>Carica altre</Text>
-									)}
-								</Pressable>
-							)}
-						</View>
-					) : (
-						<EmptyState icon = { <Dices size = { 32 } color = { colors.primary }/> } title = 'Nessuna partita' subtitle = 'Questo utente non ha ancora registrato partite.'/>
-					)
-				) : tab === 'friends' ? (
-					isLoadingFriends ? (
-						<View className = 'flex-1 items-center justify-center py-8'>
-							<ActivityIndicator color = { colors.primary }/>
-						</View>
-					) : friends && friends.length > 0 ? (
-						<View className = 'gap-2'>
-							{friends.map(friend => (
-								<Pressable key = { friend.id } onPress = { () => friend.id === user?.id ? router.push('/profile') : router.push(`/user/${friend.id}`) } className = 'flex-row items-center gap-3 rounded-xl border border-border bg-card p-2.5 active:scale-[0.98] active:opacity-75'>
-									<Image source = {{ uri: getAvatarUrl(friend.avatarId, friend.username) }} style = {{ width: 40, height: 40, borderRadius: 100 }} contentFit = 'cover'/>
-									<Text className = 'flex-1 text-sm font-medium text-foreground' numberOfLines = { 1 }>{friend.username}{ friend.id === user?.id && <Text className = 'font-semibold text-sm text-muted-foreground'> (io)</Text>}</Text>
-								</Pressable>
-							))}
-						</View>
-					) : (
-						<EmptyState icon = { <Users size = { 32 } color = { colors.primary }/> } title = 'Nessun amico' subtitle = 'Questo utente non ha ancora amici.'/>
-					)
-				) : tab === 'wishlist' ? (
-					isLoadingWishlist ? (
-						<View className = 'flex-1 items-center justify-center py-8'>
-							<ActivityIndicator color = { colors.primary }/>
-						</View>
-					) : wishlistItems.length > 0 ? (
-						<View className = 'gap-2'>
-							{wishlistItems.map(item => (
-								<Pressable key = { item.id } onPress = { () => router.push(`/game/${item.game.bggId}`) } className = 'flex-row items-center gap-3 rounded-xl border border-border bg-card p-2 active:scale-[0.98] active:opacity-75'>
-									<View style = {{ width: 44, height: 44 }} className = 'overflow-hidden rounded-xl bg-secondary'>
-										{item.game.thumbnailUrl ? (
-											<Image source = {{ uri: item.game.thumbnailUrl }} style = {{ width: 44, height: 44 }} contentFit = 'cover'/>
-										) : (
-											<View className = 'h-full w-full items-center justify-center'>
-												<Dices size = { 16 } color = { colors.mutedForeground }/>
-											</View>
-										)}
-									</View>
-									<Text className = 'flex-1 text-sm font-medium text-foreground' numberOfLines = { 1 }>{item.game.name}</Text>
-								</Pressable>
-							))}
-							{hasNextWishlist && (
-								<Pressable onPress = { () => { if(!isFetchingNextWishlist) fetchNextWishlist(); } } className = 'items-center py-3'>
-									{isFetchingNextWishlist ? (
-										<ActivityIndicator color = { colors.primary }/>
-									) : (
-										<Text className = 'text-sm font-medium text-primary'>Carica altri</Text>
-									)}
-								</Pressable>
-							)}
-						</View>
-					) : (
-						<EmptyState icon = { <Heart size = { 32 } color = { colors.primary }/> } title = 'Wishlist vuota' subtitle = 'Questo utente non ha ancora giochi nella sua wishlist.'/>
-					)
-				) : (
-					isLoadingAchievements ? (
-						<View className = 'flex-1 items-center justify-center py-8'>
-							<ActivityIndicator color = { colors.primary }/>
-						</View>
-					) : achievements ? (
-						<AchievementList achievements = { achievements }/>
-					) : (
-						<EmptyState icon = { <Award size = { 32 } color = { colors.primary }/> } title = 'Traguardi non disponibili' subtitle = 'Impossibile caricare i traguardi di questo utente.'/>
-					)
-				)}
+				{renderTabContent()}
 			</ScrollView>
 		</View>
 	)

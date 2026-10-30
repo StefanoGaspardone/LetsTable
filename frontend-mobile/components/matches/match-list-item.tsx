@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Dices } from 'lucide-react-native';
@@ -10,6 +11,8 @@ import { formatRelativeDays } from '@/lib/date';
 import { getAvatarUrl } from '@/lib/file';
 
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
+
+import { useThemeColors } from '@/hooks/use-theme-colors';
 
 interface MatchCardProps {
 	match: Match;
@@ -27,11 +30,15 @@ interface FlatTeam {
 	isWinner: boolean;
 }
 
+const MAX_VISIBLE_AVATARS = 4;
+const AVATAR_SIZE = 26;
+const AVATAR_OVERLAP = 8;
+
 const flattenPlayers = (match: Match): FlatPlayer[] => {
-	return (match.players ?? []).map(p => ({
-		name: p.user?.username ?? p.guestName ?? 'Sconosciuto',
-		avatarId: p.user?.avatarId,
-		isWinner: p.isWinner,
+	return (match.players ?? []).map(player => ({
+		name: player.user?.username ?? player.guestName ?? 'Sconosciuto',
+		avatarId: player.user?.avatarId,
+		isWinner: player.isWinner,
 	}))
 }
 
@@ -43,44 +50,20 @@ const flattenTeams = (match: Match): FlatTeam[] => {
 	}))
 }
 
-const MAX_VISIBLE_AVATARS = 4;
-const AVATAR_SIZE = 26;
-const AVATAR_OVERLAP = 8;
-
-const PlayerAvatarStack = ({ players }: { players: FlatPlayer[] }) => {
-	const visiblePlayers = players.slice(0, MAX_VISIBLE_AVATARS);
-	const remainingCount = players.length - visiblePlayers.length;
+const AvatarStack = ({ avatars, ringColor, remainingClassName, remainingTextClassName }: { avatars: { key: string; uri: string }[]; ringColor: string; remainingClassName: string; remainingTextClassName: string }) => {
+	const visible = avatars.slice(0, MAX_VISIBLE_AVATARS);
+	const remainingCount = avatars.length - visible.length;
 
 	return (
 		<View className = 'flex-row items-center'>
-			{visiblePlayers.map((player, index) => (
-				<View key = { `${player.name}-${player.avatarId}` } style = {{ marginLeft: index === 0 ? 0 : -AVATAR_OVERLAP, zIndex: visiblePlayers.length - index }}>
-					<Image source = {{ uri: getAvatarUrl(player?.avatarId ?? null, player?.name ?? '') }} style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 1, borderColor: '#F2EFE9' }} contentFit = 'cover'/>
+			{visible.map((avatar, index) => (
+				<View key = { avatar.key } style = {{ marginLeft: index === 0 ? 0 : -AVATAR_OVERLAP, zIndex: visible.length - index }}>
+					<Image source = {{ uri: avatar.uri }} style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 1, borderColor: ringColor }} contentFit = 'cover'/>
 				</View>
 			))}
 			{remainingCount > 0 && (
-				<View style = {{ marginLeft: -AVATAR_OVERLAP }} className = 'h-[26px] items-center justify-center rounded-full bg-secondary px-2'>
-					<Text className = 'text-xs font-semibold text-muted-foreground'>+{remainingCount}</Text>
-				</View>
-			)}
-		</View>
-	)
-}
-
-const TeamDotStack = ({ teams }: { teams: FlatTeam[] }) => {
-	const visibleTeams = teams.slice(0, MAX_VISIBLE_AVATARS);
-	const remainingCount = teams.length - visibleTeams.length;
-
-	return (
-		<View className = 'flex-row items-center'>
-			{visibleTeams.map((team, index) => (
-				<View key = { `${team.name}-${team.color}` } style = {{ marginLeft: index === 0 ? 0 : -AVATAR_OVERLAP, zIndex: visibleTeams.length - index }}>
-					<Image source = {{ uri: getAvatarUrl(null, team.name ?? '') }} style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 1, borderColor: '#F2EFE9' }} contentFit = 'cover'/>
-				</View>
-			))}
-			{remainingCount > 0 && (
-				<View style = {{ marginLeft: -AVATAR_OVERLAP }} className = 'h-[26px] items-center justify-center px-3'>
-					<Text className = 'text-sm font-medium text-muted-foreground'>+{remainingCount}</Text>
+				<View style = {{ marginLeft: -AVATAR_OVERLAP }} className = { remainingClassName }>
+					<Text className = { remainingTextClassName }>+{remainingCount}</Text>
 				</View>
 			)}
 		</View>
@@ -89,22 +72,27 @@ const TeamDotStack = ({ teams }: { teams: FlatTeam[] }) => {
 
 const MatchListItem = ({ match }: MatchCardProps) => {
 	const router = useNavigationStack();
+	const { colors } = useThemeColors();
 
 	const isInProgress = match.durationMinutes == null;
 
 	const teams = match.isTeamBased ? flattenTeams(match) : [];
 	const players = !match.isTeamBased ? flattenPlayers(match) : [];
-	const winningTeam = teams.find(t => t.isWinner);
-	const winner = players.find(p => p.isWinner);
+	const winningTeam = teams.find(team => team.isWinner);
+	const winner = players.find(player => player.isWinner);
+
+	const avatars = match.isTeamBased
+		? teams.map((team, index) => ({ key: `${team.name}-${team.color}-${index}`, uri: getAvatarUrl(null, team.name) }))
+		: players.map((player, index) => ({ key: `${player.name}-${player.avatarId}-${index}`, uri: getAvatarUrl(player.avatarId ?? null, player.name) }));
 
 	return (
 		<Pressable onPress = { () => router.push(`/match/${match.id}`) } className = 'flex-row items-stretch gap-3 rounded-2xl border border-border bg-card p-2 active:scale-[0.98] active:opacity-75'>
 			<View className = 'aspect-square overflow-hidden rounded-xl bg-secondary'>
 				{match.game.thumbnailUrl ? (
-					<Image source = {{ uri: match.game.thumbnailUrl }} style = {{ width: '100%', height: '100%' }} contentFit = 'cover'/>
+					<Image source = {{ uri: match.game.thumbnailUrl }} recyclingKey = { match.id } style = {{ width: '100%', height: '100%' }} contentFit = 'cover'/>
 				) : (
 					<View className = 'h-full w-full items-center justify-center'>
-						<Dices size = { 22 } className = 'text-muted-foreground'/>
+						<Dices size = { 22 } color = { colors.mutedForeground }/>
 					</View>
 				)}
 			</View>
@@ -115,7 +103,11 @@ const MatchListItem = ({ match }: MatchCardProps) => {
 				<Text className = 'text-xs text-muted-foreground'>
 					{formatRelativeDays(match.playedAt)}
 				</Text>
-				{match.isTeamBased ? <TeamDotStack teams = { teams }/> : <PlayerAvatarStack players = { players }/>}
+				{match.isTeamBased ? (
+					<AvatarStack avatars = { avatars } ringColor = { colors.background } remainingClassName = 'h-[26px] items-center justify-center px-3' remainingTextClassName = 'text-sm font-medium text-muted-foreground'/>
+				) : (
+					<AvatarStack avatars = { avatars } ringColor = { colors.background } remainingClassName = 'h-[26px] items-center justify-center rounded-full bg-secondary px-2' remainingTextClassName = 'text-xs font-semibold text-muted-foreground'/>
+				)}
 			</View>
 			{isInProgress ? (
 				<View className = 'items-center justify-center'>
@@ -127,7 +119,7 @@ const MatchListItem = ({ match }: MatchCardProps) => {
 			) : match.isTeamBased ? (
 				winningTeam && (
 					<View className = 'items-center justify-center gap-1'>
-						<Image source = {{ uri: getAvatarUrl(null, winningTeam?.name ?? '') }} style = {{ width: 39, height: 39, borderRadius: 100 }} contentFit = 'cover'/>
+						<Image source = {{ uri: getAvatarUrl(null, winningTeam.name) }} style = {{ width: 39, height: 39, borderRadius: 100 }} contentFit = 'cover'/>
 						<Text className = 'text-sm font-semibold text-foreground' numberOfLines = { 1 } style = {{ maxWidth: 60 }}>
 							{winningTeam.name}
 						</Text>
@@ -136,7 +128,7 @@ const MatchListItem = ({ match }: MatchCardProps) => {
 			) : (
 				winner && (
 					<View className = 'items-center justify-center gap-1'>
-						<Image source = {{ uri: getAvatarUrl(winner?.avatarId ?? null, winner?.name ?? '') }} style = {{ width: 39, height: 39, borderRadius: 100 }} contentFit = 'cover'/>
+						<Image source = {{ uri: getAvatarUrl(winner.avatarId ?? null, winner.name) }} style = {{ width: 39, height: 39, borderRadius: 100 }} contentFit = 'cover'/>
 						<Text className = 'text-sm font-semibold text-foreground' numberOfLines = { 1 } style = {{ maxWidth: 60 }}>
 							{winner.name}
 						</Text>
@@ -147,4 +139,4 @@ const MatchListItem = ({ match }: MatchCardProps) => {
 	)
 }
 
-export default MatchListItem;
+export default memo(MatchListItem);

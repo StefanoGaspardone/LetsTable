@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useRef, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useRef, useState, ReactNode, useMemo } from 'react';
 import { View, Animated } from 'react-native';
 import { CheckCircle2, XCircle, Info } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,9 +58,10 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
 	}, [translateY]);
 
 	const Icon = toast ? ICONS[toast.variant] : null;
+	const value = useMemo(() => ({ showToast }), [showToast]);
 
 	return (
-		<ToastContext.Provider value = {{ showToast }}>
+		<ToastContext.Provider value = { value }>
 			{children}
 			{toast && Icon && (
 				<Animated.View pointerEvents = 'none' style = {{ transform: [{ translateY }], position: 'absolute', top: insets.top + 8, left: 16, right: 16 }}>

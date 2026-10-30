@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { RefreshControl } from 'react-native-gesture-handler';
 import { useLocalSearchParams } from 'expo-router';
@@ -45,25 +45,16 @@ const WishlistDetailScreen = () => {
 	const gamePickerRef = useRef<WishlistGamePickerSheetRef>(null);
 	const memberPickerRef = useRef<WishlistMemberPickerSheetRef>(null);
 	const renameSheetRef = useRef<RenameWishlistSheetRef>(null);
-
-	const [isDeleting, setIsDeleting] = useState(false);
+	
 	const [tab, setTab] = useState<'games' | 'members'>('games');
 
 	const { data: wishlist, isLoading: isLoadingWishlist } = useWishlist(id);
-	const { data: itemsData, isLoading: isLoadingItems, fetchNextPage, hasNextPage, isFetchingNextPage, refetch: refetchItems } = useWishlistItems(id);
-	const { data: members, refetch: refetchMembers } = useWishlistMembers(id, !!wishlist?.isShared);
+	const { data: itemsData, isLoading: isLoadingItems, fetchNextPage, hasNextPage, isFetchingNextPage } = useWishlistItems(id);
+	const { data: members } = useWishlistMembers(id, !!wishlist?.isShared);
 
 	useRefetchOnFocus(['wishlists', 'detail', id]);
-	useRefetchOnFocus(['wishlists', 'items', id]);
-	const { refreshing, onRefresh } = usePullToRefresh([['wishlists', 'detail', id], ['wishlists', 'items', id]]);
-
-	useEffect(() => {
-		if(tab === 'games') {
-			refetchItems();
-		} else if(tab === 'members') {
-			refetchMembers();
-		}
-	}, [tab]);
+	useRefetchOnFocus(tab === 'members' ? ['wishlists', 'members', id] : ['wishlists', 'items', id]);
+	const { refreshing, onRefresh } = usePullToRefresh([['wishlists', 'detail', id], ['wishlists', 'items', id], ['wishlists', 'members', id]]);
 
 	const addItem = useAddItemToWishlist(id);
 	const removeItem = useRemoveItemFromWishlist(id);
@@ -96,15 +87,12 @@ const WishlistDetailScreen = () => {
 		});
 	}
 
-	const handleInviteMembers = (userIds: string[]) => {
-		userIds.forEach(userId => {
-			addMember.mutate(userId, {
-				onError: (error: any) => {
-					const message = error?.response?.data?.message ?? 'Errore durante l\'invito';
-					showToast(message, 'error');
-				},
-			});
-		});
+	const handleInviteMembers = async (userIds: string[]) => {
+		const results = await Promise.allSettled(userIds.map(userId => addMember.mutateAsync(userId)));
+		const failed = results.filter(result => result.status === 'rejected').length;
+
+		if(failed === 0) showToast(userIds.length === 1 ? 'Membro invitato' : 'Membri invitati', 'success');
+		else showToast(`${failed} inviti non riusciti`, 'error');
 	}
 
 	const handleRemoveMember = async (memberUserId: string, memberName: string) => {
@@ -143,18 +131,10 @@ const WishlistDetailScreen = () => {
 
 		if(!ok) return;
 
-		setIsDeleting(true);
-
-		try {
-			await deleteWishlist.mutateAsync(id);
-
-			router.push('/(tabs)/my-wishlists');
-		} catch(error: any) {
-			const message = error?.response?.data?.message ?? 'Errore durante l\'eliminazione';
-
-			showToast(message, 'error');
-			setIsDeleting(false);
-		}
+		deleteWishlist.mutate(id, {
+			onSuccess: () => router.back(),
+			onError: (error: any) => showToast(error?.response?.data?.message ?? 'Errore durante l\'eliminazione', 'error'),
+		});
 	}
 
 	const handleLeave = async () => {
@@ -167,14 +147,10 @@ const WishlistDetailScreen = () => {
 
 		if(!ok) return;
 
-		try {
-			await leaveWishlist.mutateAsync(id);
-
-			router.push('/(tabs)/my-wishlists');
-		} catch(error: any) {
-			const message = error?.response?.data?.message ?? 'Errore durante l\'operazione';
-			showToast(message, 'error');
-		}
+		leaveWishlist.mutate(id, {
+			onSuccess: () => router.back(),
+			onError: (error: any) => showToast(error?.response?.data?.message ?? 'Errore durante l\'operazione', 'error'),
+		});
 	}
 
 	if(isLoadingWishlist || !wishlist) {

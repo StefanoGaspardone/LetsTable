@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { View, FlatList, ActivityIndicator, Pressable } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { View, FlatList, ActivityIndicator, Pressable, ListRenderItemInfo } from 'react-native';
 import { RefreshControl } from 'react-native-gesture-handler';
 import { useFocusEffect } from 'expo-router';
 import { Search, List, LayoutGrid, X } from 'lucide-react-native';
@@ -16,20 +16,30 @@ import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 import { useDebounce } from '@/hooks/use-debounce';
 import { useGameSearch, useHotGames, useOverallGames } from '@/hooks/use-game';
-import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useThemeColors } from '@/hooks/use-theme-colors';
+
+import { Game } from '@/types/game';
+
+type RankingMode = 'overall' | 'hotness';
 
 const RANKING_OPTIONS = [
 	{ value: 'overall', label: 'Classifica' },
 	{ value: 'hotness', label: 'In Tendenza' },
 ];
 
+const GRID_COLUMN_STYLE = { paddingHorizontal: 16, gap: 12 };
+const GRID_CONTENT_STYLE = { paddingBottom: 40, flexGrow: 1 };
+const LIST_CONTENT_STYLE = { paddingHorizontal: 16, paddingBottom: 40, flexGrow: 1 };
+
+const keyExtractor = (item: Game) => `${item.bggId}`;
+const ListSeparator = () => <View className = 'h-2'/>;
+
 const BrowseScreen = () => {
 	const [search, setSearch] = useState('');
 	const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
-	const [rankingMode, setRankingMode] = useState<'overall' | 'hotness'>('overall');
-	
+	const [rankingMode, setRankingMode] = useState<RankingMode>('overall');
+
 	const router = useNavigationStack();
 	const { colors } = useThemeColors();
 
@@ -41,55 +51,58 @@ const BrowseScreen = () => {
 
 	const debouncedSearch = useDebounce(search);
 	const isSearching = debouncedSearch.length > 0;
+	const isGrid = viewMode === 'grid';
+	const rankField = rankingMode === 'overall' ? 'bggRank' : 'rank';
 
 	const searchQuery = useGameSearch(debouncedSearch);
-	const hotQuery = useHotGames();
-	const overallQuery = useOverallGames();
-
-	useRefetchOnFocus(['games', 'hot']);
-	useRefetchOnFocus(['games', 'overall']);
+	const overallQuery = useOverallGames(rankingMode === 'overall');
+	const hotQuery = useHotGames(rankingMode === 'hotness');
 
 	const { refreshing, onRefresh } = usePullToRefresh([['games', 'hot'], ['games', 'overall']]);
 
 	const rankingQuery = rankingMode === 'overall' ? overallQuery : hotQuery;
 	const activeQuery = isSearching ? searchQuery : rankingQuery;
-	const items = isSearching
-		? (searchQuery.data?.pages.flatMap(page => page.content) ?? [])
-		: (rankingQuery.data?.pages.flatMap(page => page.content) ?? []);
+	const { hasNextPage, isFetchingNextPage, fetchNextPage } = activeQuery;
 
-	const renderFooter = () => {
-		if(activeQuery.isFetchingNextPage) {
-			return (
-				<View className = 'py-6'>
-					<ActivityIndicator/>
-				</View>
-			)
-		}
+	const items = useMemo(() => activeQuery.data?.pages.flatMap(page => page.content) ?? [], [activeQuery.data]);
 
-		if(!activeQuery.hasNextPage && items.length > 0) {
-			return (
-				<View className = 'pt-6'>
-					<Text className = 'text-center text-sm text-muted-foreground'>
-						{isSearching ? 'Fine dei risultati' : 'Fine della classifica'}
-					</Text>
-				</View>
-			)
-		}
+	const openGame = useCallback((bggId: number) => {
+		router.push(`/game/${bggId}`);
+	}, [router]);
 
-		return null;
-	}
+	const renderItem = useCallback(({ item }: ListRenderItemInfo<Game>) => (
+		isGrid
+			? <GameGridItem game = { item } onPress = { () => openGame(item.bggId) } showRank = { !isSearching } rankField = { rankField }/>
+			: <GameListItem game = { item } onPress = { () => openGame(item.bggId) } showRank = { !isSearching } rankField = { rankField }/>
+	), [isGrid, isSearching, rankField, openGame]);
 
-	const renderEmpty = () => {
-		if(activeQuery.isLoading) return null;
-		
-		return (
-			<View className = 'items-center py-20'>
-				<Text className = 'text-center text-muted-foreground'>
-					{isSearching ? 'Nessun gioco trovato su BGG' : 'Nessun gioco in classifica'}
-				</Text>
-			</View>
-		)
-	}
+	const handleEndReached = useCallback(() => {
+		if(hasNextPage && !isFetchingNextPage) fetchNextPage();
+	}, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+	const toggleViewMode = useCallback(() => {
+		setViewMode(prev => (prev === 'list' ? 'grid' : 'list'));
+	}, []);
+
+	const footer = isFetchingNextPage ? (
+		<View className = 'py-6'>
+			<ActivityIndicator/>
+		</View>
+	) : !hasNextPage && items.length > 0 ? (
+		<View className = 'pt-6'>
+			<Text className = 'text-center text-sm text-muted-foreground'>
+				{isSearching ? 'Fine dei risultati' : 'Fine della classifica'}
+			</Text>
+		</View>
+	) : null;
+
+	const empty = activeQuery.isLoading ? null : (
+		<View className = 'items-center py-20'>
+			<Text className = 'text-center text-muted-foreground'>
+				{isSearching ? 'Nessun gioco trovato su BGG' : 'Nessun gioco in classifica'}
+			</Text>
+		</View>
+	);
 
 	return (
 		<View className = 'flex-1 bg-background'>
@@ -97,7 +110,7 @@ const BrowseScreen = () => {
 			<View className = 'gap-3 px-4 pt-4'>
 				<View className = 'flex-row items-center gap-2'>
 					<View className = 'relative flex-1'>
-						<Input  placeholder = 'Cerca...' value = { search } onChangeText = { setSearch } className = 'rounded-2xl bg-secondary/80 pl-11 pr-10 border-0 text-sm h-11'/>
+						<Input placeholder = 'Cerca...' value = { search } onChangeText = { setSearch } className = 'rounded-2xl bg-secondary/80 pl-11 pr-10 border-0 text-sm h-11'/>
 						<View className = 'pointer-events-none absolute left-3.5 top-0 bottom-0 justify-center'>
 							<Search size = { 18 } color = { colors.mutedForeground }/>
 						</View>
@@ -107,18 +120,18 @@ const BrowseScreen = () => {
 							</Pressable>
 						)}
 					</View>
-					<Pressable onPress = { () => setViewMode(prev => (prev === 'list' ? 'grid' : 'list')) } className = 'h-11 w-11 items-center justify-center rounded-2xl border-0 bg-secondary/80 active:bg-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: colors.primary, borderColor: colors.primary }] }>
+					<Pressable onPress = { toggleViewMode } className = 'h-11 w-11 items-center justify-center rounded-2xl border-0 bg-secondary/80 active:bg-primary/90' style = { ({ pressed }) => [pressed && { backgroundColor: colors.primary, borderColor: colors.primary }] }>
 						{({ pressed }) =>
-							viewMode === 'list' ? (
-								<LayoutGrid size = { 20 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
-							) : (
+							isGrid ? (
 								<List size = { 20 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
+							) : (
+								<LayoutGrid size = { 20 } color = { pressed ? '#FFFFFF' : colors.mutedForeground }/>
 							)
 						}
 					</Pressable>
 				</View>
 				{!isSearching && (
-					<SegmentedControl options = { RANKING_OPTIONS } selected = { rankingMode } onSelect = { value => setRankingMode(value as 'overall' | 'hotness') }/>
+					<SegmentedControl options = { RANKING_OPTIONS } selected = { rankingMode } onSelect = { value => setRankingMode(value as RankingMode) }/>
 				)}
 			</View>
 			{activeQuery.isLoading ? (
@@ -126,15 +139,22 @@ const BrowseScreen = () => {
 					<ActivityIndicator/>
 				</View>
 			) : (
-				<FlatList className = 'mt-3' key = { viewMode } data = { items } keyExtractor = { item => `${item.bggId}` } numColumns = { viewMode === 'grid' ? 2 : 1 } columnWrapperStyle = { viewMode === 'grid' ? { paddingHorizontal: 16, gap: 12 } : undefined } contentContainerStyle = { viewMode === 'grid' ? { paddingBottom: 40, flexGrow: 1 } : { paddingHorizontal: 16, paddingBottom: 40, flexGrow: 1 } } ItemSeparatorComponent = { viewMode === 'list' ? () => <View className = 'h-2'/> : undefined } refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.card }/> }
-					renderItem = {({ item }) =>
-						viewMode === 'list' ? (
-							<GameListItem game = { item } onPress = { () => router.push(`/game/${item.bggId}`) } showRank = { !isSearching } rankField = { rankingMode === 'overall' ? 'bggRank' : 'rank' }/>
-						) : (
-							<GameGridItem game = { item } onPress = { () => router.push(`/game/${item.bggId}`) } showRank = { !isSearching } rankField = { rankingMode === 'overall' ? 'bggRank' : 'rank' }/>
-						)
-					}
-					onEndReached = { () => { if(activeQuery.hasNextPage && !activeQuery.isFetchingNextPage) activeQuery.fetchNextPage() } } onEndReachedThreshold = { 0.4 } ListFooterComponent = { renderFooter } ListEmptyComponent = { renderEmpty }
+				<FlatList
+					className = 'mt-3'
+					key = { viewMode }
+					data = { items }
+					keyExtractor = { keyExtractor }
+					renderItem = { renderItem }
+					numColumns = { isGrid ? 2 : 1 }
+					columnWrapperStyle = { isGrid ? GRID_COLUMN_STYLE : undefined }
+					contentContainerStyle = { isGrid ? GRID_CONTENT_STYLE : LIST_CONTENT_STYLE }
+					ItemSeparatorComponent = { isGrid ? undefined : ListSeparator }
+					ListFooterComponent = { footer }
+					ListEmptyComponent = { empty }
+					onEndReached = { handleEndReached }
+					onEndReachedThreshold = { 0.4 }
+					windowSize = { 7 }
+					refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.card }/> }
 				/>
 			)}
 		</View>

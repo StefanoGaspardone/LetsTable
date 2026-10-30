@@ -15,7 +15,7 @@ import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 import { LoginFormValues, loginSchema } from '@/schemas/auth-schema';
 
-import { login as log_in } from '@/api/auth';
+import { login as loginRequest } from '@/api/auth';
 
 const LoginScreen = () => {
 	const { login } = useAuth();
@@ -34,7 +34,7 @@ const LoginScreen = () => {
 		setIsSubmitting(true);
 		
 		try {
-			const response = await log_in(values);
+			const response = await loginRequest(values);
 			await login(response.accessToken, response.refreshToken, response.user);
 			
 			router.dismissAll();
@@ -63,7 +63,7 @@ const LoginScreen = () => {
 		>
 			<Controller control = { control } name = 'identifier'
 				render = { ({ field: { onChange, onBlur, value } }) => (
-					<AuthField label = 'Email o username' placeholder = 'boardgamer@example.com' autoCapitalize = 'none' value = { value } onChangeText = { onChange } onBlur = { onBlur } error = { errors.identifier?.message }/>
+					<AuthField label = 'Email o username' placeholder = 'boardgamer@example.com' autoCapitalize = 'none' value = { value } onChangeText = { onChange } onBlur = { onBlur } error = { errors.identifier?.message } autoComplete = 'username'/>
 				)}
 			/>
 			<Controller control = { control } name = 'password'

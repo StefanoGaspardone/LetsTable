@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { getMyAchievements, getUnseenAchievements, getUserAchievements, markAchievementsSeen } from '@/api/achievement';
 
@@ -26,12 +26,7 @@ export const useUnseenAchievements = (enabled: boolean) => {
 }
 
 export const useMarkAchievementsSeen = () => {
-	const queryClient = useQueryClient();
-
 	return useMutation({
 		mutationFn: (codes: string[]) => markAchievementsSeen(codes),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['achievements', 'me'] });
-		},
 	});
 }

@@ -2,16 +2,14 @@ import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { Image } from 'expo-image';
-import { useQuery } from '@tanstack/react-query';
 import { Dices, Check } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
 import AppBottomSheet from '@/components/common/app-bottom-sheet';
 
-import { getRecentGames } from '@/api/match';
-
 import { useThemeColors } from '@/hooks/use-theme-colors';
+import { useRecentGames } from '@/hooks/use-match';
 
 interface FilterGame {
 	id: string;
@@ -44,10 +42,7 @@ const GameFilterSheet = forwardRef<GameFilterSheetRef, GameFilterSheetProps>(({ 
 		dismiss: () => sheetRef.current?.dismiss(),
 	}));
 
-	const { data: games, isLoading } = useQuery({
-		queryKey: ['matches', 'recent-games'],
-		queryFn: getRecentGames,
-	});
+	const { data: games, isLoading } = useRecentGames();
 
 	const filteredGames = (games ?? []).filter(g => g.name.toLowerCase().includes(search.toLowerCase()));
 

@@ -442,6 +442,25 @@ class WishlistService(
         }
     }
 
+    @Transactional(readOnly = true)
+    fun getMyDefaultWishlist(userId: UUID): WishlistDTO {
+        logger.debug("\n\t[DEBUG] [wishlist_service][get_my_default_wishlist] Retrieving default wishlist for user {}", userId)
+
+        try {
+            val wishlist = wishlistRepository.findDefaultByOwnerId(userId)
+                .orElseThrow { DefaultWishlistNotFoundException(userId) }
+
+            logger.info("\n\t[INFO] [wishlist_service][get_my_default_wishlist] Default wishlist {} retrieved for user {}", wishlist.id, userId)
+            return WishlistDTO.from(wishlist)
+        } catch(e: DefaultWishlistNotFoundException) {
+            logger.warn("\n\t[WARN] [wishlist_service][get_my_default_wishlist] Default wishlist not found for user {}", userId)
+            throw e
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [wishlist_service][get_my_default_wishlist] Error retrieving default wishlist for user {}: {}", userId, e.message)
+            throw e
+        }
+    }
+
     private fun findItems(wishlistId: UUID, gameName: String?, pageable: Pageable): Page<WishlistItem> =
         wishlistItemRepository.findAll(WishlistItemSpecification.withFilters(wishlistId, gameName), pageable)
 

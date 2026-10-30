@@ -1,6 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { listFriends, listPendingReceived, listPendingSent, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, cancelFriendRequest, removeFriend } from '@/api/friend';
+
+const invalidateFriendData = (queryClient: QueryClient) => {
+	queryClient.invalidateQueries({ queryKey: ['friends'] });
+	queryClient.invalidateQueries({ queryKey: ['users'] });
+}
 
 export const useFriends = () => {
 	return useQuery({
@@ -28,10 +33,7 @@ export const useSendFriendRequest = () => {
 
 	return useMutation({
 		mutationFn: (receiverId: string) => sendFriendRequest(receiverId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['friends'] });
-			queryClient.invalidateQueries({ queryKey: ['users', 'search'] });
-		},
+		onSuccess: () => invalidateFriendData(queryClient),
 	});
 }
 
@@ -40,9 +42,7 @@ export const useAcceptFriendRequest = () => {
 
 	return useMutation({
 		mutationFn: (requestId: string) => acceptFriendRequest(requestId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['friends'] });
-		},
+		onSuccess: () => invalidateFriendData(queryClient),
 	});
 }
 
@@ -51,9 +51,7 @@ export const useRejectFriendRequest = () => {
 
 	return useMutation({
 		mutationFn: (requestId: string) => rejectFriendRequest(requestId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['friends'] });
-		},
+		onSuccess: () => invalidateFriendData(queryClient),
 	});
 }
 
@@ -62,9 +60,7 @@ export const useCancelFriendRequest = () => {
 
 	return useMutation({
 		mutationFn: (requestId: string) => cancelFriendRequest(requestId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['friends'] });
-		},
+		onSuccess: () => invalidateFriendData(queryClient),
 	});
 }
 
@@ -73,8 +69,6 @@ export const useRemoveFriend = () => {
 
 	return useMutation({
 		mutationFn: (friendUserId: string) => removeFriend(friendUserId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['friends'] });
-		},
+		onSuccess: () => invalidateFriendData(queryClient),
 	});
 }

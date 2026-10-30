@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { View, Pressable, ActivityIndicator } from 'react-native';
 import { BottomSheetModal, BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { Plus } from 'lucide-react-native';
@@ -17,12 +17,16 @@ import { useToast } from '@/contexts/toast-context';
 import { useMyWishlists } from '@/hooks/use-wishlist';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 
+import { Wishlist } from '@/types/wishlist';
+
 export interface AddToWishlistSheetRef {
 	present: (game: { id: string; name: string }) => void;
 	dismiss: () => void;
 }
 
 const SHEET_SWITCH_DELAY = 300;
+
+const keyExtractor = (item: Wishlist) => item.id;
 
 const AddToWishlistSheet = forwardRef<AddToWishlistSheetRef>((_, ref) => {
 	const sheetRef = useRef<BottomSheetModal>(null);
@@ -36,16 +40,20 @@ const AddToWishlistSheet = forwardRef<AddToWishlistSheetRef>((_, ref) => {
 	const [game, setGame] = useState<{ id: string; name: string } | null>(null);
 	const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isOpen, setIsOpen] = useState(false);
 
 	const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useMyWishlists();
 
-	const wishlists = (data?.pages.flatMap(page => page.content) ?? []).sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
+	const wishlists = useMemo(
+		() => (data?.pages.flatMap(page => page.content) ?? []).sort((a, b) => Number(b.isDefault) - Number(a.isDefault)),
+		[data]
+	);
 
 	const statusQueries = useQueries({
 		queries: wishlists.map(wishlist => ({
 			queryKey: ['wishlists', 'item-status', wishlist.id, game?.id],
 			queryFn: () => getItemStatusInWishlist(wishlist.id, game!.id),
-			enabled: !!game,
+			enabled: isOpen && !!game,
 		})),
 	});
 
@@ -63,6 +71,7 @@ const AddToWishlistSheet = forwardRef<AddToWishlistSheetRef>((_, ref) => {
 		present: (gameToAdd) => {
 			setGame(gameToAdd);
 			setOverrides({});
+			setIsOpen(true);
 			queryClient.invalidateQueries({ queryKey: ['wishlists', 'item-status'] });
 			sheetRef.current?.present();
 		},
@@ -87,11 +96,6 @@ const AddToWishlistSheet = forwardRef<AddToWishlistSheetRef>((_, ref) => {
 		reopen();
 	}
 
-	const handleCreated = () => {
-		queryClient.invalidateQueries({ queryKey: ['wishlists'] });
-		reopen();
-	}
-
 	const handleConfirm = async () => {
 		if(!game || changes.length === 0) return;
 
@@ -110,7 +114,7 @@ const AddToWishlistSheet = forwardRef<AddToWishlistSheetRef>((_, ref) => {
 		const failed = results.filter(result => result.status === 'rejected').length;
 
 		queryClient.invalidateQueries({ queryKey: ['wishlists'] });
-        queryClient.invalidateQueries({ queryKey: ['wishlists', 'preview-items'] });
+		queryClient.invalidateQueries({ queryKey: ['users', 'wishlist'] });
 
 		setIsSubmitting(false);
 
@@ -124,7 +128,7 @@ const AddToWishlistSheet = forwardRef<AddToWishlistSheetRef>((_, ref) => {
 
 	return (
 		<>
-			<AppBottomSheet ref = { sheetRef }>
+			<AppBottomSheet ref = { sheetRef } onClose = { () => setIsOpen(false) }>
 				<View className = 'px-4 pt-2'>
 					<Text className = 'font-display text-xl text-foreground'>Aggiungi a una wishlist</Text>
 					{game && (
@@ -134,7 +138,7 @@ const AddToWishlistSheet = forwardRef<AddToWishlistSheetRef>((_, ref) => {
 						<Plus size = { 18 } color = { colors.primary }/>
 						<Text className = 'text-sm font-medium text-primary'>Crea nuova wishlist</Text>
 					</Pressable>
-					<BottomSheetFlatList data = { wishlists } keyExtractor = { item => item.id } style = {{ maxHeight: 360 }} contentContainerStyle = {{ paddingBottom: 12, gap: 8 }} extraData = { overrides }
+					<BottomSheetFlatList data = { wishlists } keyExtractor = { keyExtractor } style = {{ maxHeight: 360 }} contentContainerStyle = {{ paddingBottom: 12, gap: 8 }} extraData = { [overrides, statusQueries] }
 						renderItem = { ({ item }) => (
 							<WishlistMiniCard wishlist = { item } selected = { isChecked(item.id) } onPress = { () => toggle(item.id) }/>
 						)}
@@ -149,7 +153,7 @@ const AddToWishlistSheet = forwardRef<AddToWishlistSheetRef>((_, ref) => {
 					</Button>
 				</View>
 			</AppBottomSheet>
-			<CreateWishlistSheet ref = { createSheetRef } onCreated = { handleCreated } onBack = { handleCreateBack }/>
+			<CreateWishlistSheet ref = { createSheetRef } onCreated = { reopen } onBack = { handleCreateBack }/>
 		</>
 	)
 });

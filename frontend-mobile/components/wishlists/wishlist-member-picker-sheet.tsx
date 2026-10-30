@@ -25,6 +25,8 @@ interface WishlistMemberPickerSheetProps {
 	onBack: () => void;
 }
 
+const userKeyExtractor = (item: { id: string }) => item.id;
+
 const WishlistMemberPickerSheet = forwardRef<WishlistMemberPickerSheetRef, WishlistMemberPickerSheetProps>(({ excludeUserIds, onConfirm, onBack }, ref) => {
 	const sheetRef = useRef<BottomSheetModal>(null);
 
@@ -67,17 +69,17 @@ const WishlistMemberPickerSheet = forwardRef<WishlistMemberPickerSheetRef, Wishl
 					<Text className = 'font-display text-lg text-foreground'>Invita membri</Text>
 				</View>
 				<View className = 'relative mb-3'>
-					<TextInput value = { search } onChangeText = { setSearch } placeholder = 'Cerca per nome utente...' autoCapitalize = 'none' className = 'h-11 rounded-2xl bg-secondary pl-10 pr-3 text-sm text-foreground'/>
+					<TextInput value = { search } onChangeText = { setSearch } placeholder = 'Cerca per nome utente...' placeholderTextColor = { colors.mutedForeground } autoCapitalize = 'none' className = 'h-11 rounded-2xl bg-secondary pl-10 pr-3 text-sm text-foreground'/>
 					<View className = 'pointer-events-none absolute left-3 top-0 h-full justify-center'>
 						<Search size = { 16 } color = { colors.mutedForeground }/>
 					</View>
 					{search.length > 0 && (
 						<Pressable onPress = { () => setSearch('') } hitSlop = { 8 } className = 'absolute right-3 top-0 h-full justify-center'>
-							<X size = { 18 } className = 'text-muted-foreground'/>
+							<X size = { 18 } color = { colors.mutedForeground }/>
 						</Pressable>
 					)}
 				</View>
-				<BottomSheetFlatList data = { visibleUsers } keyExtractor = { item => item.id } numColumns = { 4 }
+				<BottomSheetFlatList data = { visibleUsers } keyExtractor = { userKeyExtractor } numColumns = { 4 }
 					renderItem = { ({ item }) => {
 						const isSelected = selectedIds.includes(item.id);
 

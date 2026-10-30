@@ -27,7 +27,7 @@ const ServerDownOverlay = ({ isChecking, onRetry }: ServerDownOverlayProps) => {
 			</Text>
 			<Button onPress = { onRetry } disabled = { isChecking } className = 'mt-6 h-12 rounded-full px-8'>
 				{isChecking ? (
-					<ActivityIndicator color = '#FFFFFF'/>
+					<ActivityIndicator color = { colors.primaryForeground }/>
 				) : (
 					<Text className = 'text-sm font-semibold text-primary-foreground'>Riprova</Text>
 				)}

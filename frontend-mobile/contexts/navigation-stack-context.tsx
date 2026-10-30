@@ -1,6 +1,8 @@
-import { createContext, useCallback, useContext, useRef, ReactNode, useEffect } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { BackHandler } from 'react-native';
 import { router as expoRouter } from 'expo-router';
+
+import { useAuth } from '@/contexts/auth-context';
 
 type NavigationHref = string | { pathname: string; params?: Record<string, any> };
 
@@ -14,9 +16,16 @@ interface NavigationStackContextValue {
 const NavigationStackContext = createContext<NavigationStackContextValue | undefined>(undefined);
 
 const HOME_ROUTE = '/(tabs)/home';
+const WELCOME_ROUTE = '/(auth)/welcome';
+
+const isRootRoute = (href: NavigationHref) => href === HOME_ROUTE || href === WELCOME_ROUTE;
 
 export const NavigationStackProvider = ({ children }: { children: ReactNode }) => {
+	const { isAuthenticated } = useAuth();
+
 	const stackRef = useRef<NavigationHref[]>([]);
+	const isAuthenticatedRef = useRef(isAuthenticated);
+	isAuthenticatedRef.current = isAuthenticated;
 
 	const push = useCallback((href: NavigationHref) => {
 		stackRef.current.push(href);
@@ -24,36 +33,38 @@ export const NavigationStackProvider = ({ children }: { children: ReactNode }) =
 	}, []);
 
 	const replace = useCallback((href: NavigationHref) => {
-		stackRef.current = [href];
+		stackRef.current = isRootRoute(href) ? [] : [href];
 		expoRouter.replace(href as any);
 	}, []);
 
 	const back = useCallback(() => {
 		stackRef.current.pop();
-		const previous = stackRef.current.at(-1);
 
-		if(previous) {
-			expoRouter.replace(previous as any);
-		} else {
-			expoRouter.replace(HOME_ROUTE as any);
-		}
+		const previous = stackRef.current.at(-1);
+		const fallback = isAuthenticatedRef.current ? HOME_ROUTE : WELCOME_ROUTE;
+
+		expoRouter.replace((previous ?? fallback) as any);
 	}, []);
 
 	const dismissAll = useCallback(() => {
 		stackRef.current = [];
 	}, []);
 
-    useEffect(() => {
-        const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-            back();
-            return true;
-        });
+	useEffect(() => {
+		const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+			if(stackRef.current.length === 0) return false;
 
-        return () => subscription.remove();
-    }, [back]);
+			back();
+			return true;
+		});
+
+		return () => subscription.remove();
+	}, [back]);
+
+	const value = useMemo(() => ({ push, replace, back, dismissAll }), [push, replace, back, dismissAll]);
 
 	return (
-		<NavigationStackContext.Provider value = {{ push, replace, back, dismissAll }}>
+		<NavigationStackContext.Provider value = { value }>
 			{children}
 		</NavigationStackContext.Provider>
 	)

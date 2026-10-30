@@ -13,11 +13,11 @@ const CATEGORIES: { key: AchievementCategory; label: string }[] = [
 	{ key: 'SOCIAL', label: 'Amici' },
 ];
 
-const AchievementCard = ({ achievement }: { achievement: Achievement }) => {
-	const percentage = Math.min(100, Math.round((achievement.progress / achievement.target) * 100));
+const AchievementCard = ({ achievement, isLast }: { achievement: Achievement; isLast: boolean }) => {
+	const percentage = achievement.target > 0 ? Math.min(100, Math.round((achievement.progress / achievement.target) * 100)) : 0;
 
 	return (
-		<View className = 'flex-row items-center gap-3 border-b border-border/40 p-3.5 last:border-b-0'>
+		<View className = { `flex-row items-center gap-3 p-3.5 ${isLast ? '' : 'border-b border-border/40'}` }>
 			<AchievementIcon icon = { achievement.icon } tier = { achievement.tier } unlocked = { achievement.unlocked }/>
 			<View className = 'flex-1'>
 				<Text className = { `text-sm font-semibold ${achievement.unlocked ? 'text-foreground' : 'text-muted-foreground'}` }>{ achievement.title }</Text>
@@ -56,7 +56,7 @@ const AchievementList = ({ achievements }: { achievements: Achievement[] }) => {
 					<View key = { key }>
 						<Text className = 'mb-2 pl-2 text-xs font-bold uppercase tracking-wider text-muted-foreground'>{ label }</Text>
 						<View className = 'mb-6 overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm'>
-							{items.map(a => <AchievementCard key = { a.code } achievement = { a }/>)}
+							{items.map((achievement, index) => <AchievementCard key = { achievement.code } achievement = { achievement } isLast = { index === items.length - 1 }/>)}
 						</View>
 					</View>
 				)
