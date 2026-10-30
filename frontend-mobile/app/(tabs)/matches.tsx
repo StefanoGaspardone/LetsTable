@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { View, ActivityIndicator, FlatList, Pressable, ListRenderItemInfo } from 'react-native';
+import { View, ActivityIndicator, Pressable } from 'react-native';
+import { FlashList, ListRenderItemInfo } from '@shopify/flash-list';
 import { Calendar, DateData } from 'react-native-calendars';
 import { RefreshControl, ScrollView } from 'react-native-gesture-handler';
 import { ArrowUpDown, SlidersHorizontal, Trophy, X } from 'lucide-react-native';
@@ -61,6 +62,7 @@ const DEFAULT_MATCH_SORT = 'playedAt-desc';
 const DEFAULT_STATS_SORT = 'matchCount-desc';
 
 const LIST_CONTENT_STYLE = { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 100, flexGrow: 1 };
+const VISIBLE_POSITION = { disabled: true };
 
 const matchKeyExtractor = (item: Match) => item.id;
 const statsKeyExtractor = (item: GameMatchStats) => item.gameId;
@@ -215,7 +217,7 @@ const MatchesScreen = () => {
 			)}
 			{isMatchesList && (
 				matchesQuery.isLoading ? fullScreenLoader : (
-					<FlatList
+					<FlashList
 						data = { matches }
 						keyExtractor = { matchKeyExtractor }
 						renderItem = { renderMatch }
@@ -225,6 +227,7 @@ const MatchesScreen = () => {
 						onEndReachedThreshold = { 0.4 }
 						refreshControl = { refreshControl }
 						ListFooterComponent = { loadingFooter(matchesQuery.isFetchingNextPage) }
+						maintainVisibleContentPosition = { VISIBLE_POSITION }
 						ListEmptyComponent = {
 							<View className = 'items-center py-20'>
 								<Text className = 'text-center text-muted-foreground'>Nessuna partita registrata</Text>
@@ -235,7 +238,7 @@ const MatchesScreen = () => {
 			)}
 			{isStatsList && (
 				statsQuery.isLoading ? fullScreenLoader : (
-					<FlatList
+					<FlashList
 						data = { gameStats }
 						keyExtractor = { statsKeyExtractor }
 						renderItem = { renderStats }
@@ -245,6 +248,7 @@ const MatchesScreen = () => {
 						onEndReachedThreshold = { 0.4 }
 						refreshControl = { refreshControl }
 						ListFooterComponent = { loadingFooter(statsQuery.isFetchingNextPage) }
+						maintainVisibleContentPosition = { VISIBLE_POSITION }
 						ListEmptyComponent = {
 							<View className = 'items-center px-6 py-20'>
 								<Text className = 'text-center text-muted-foreground'>Nessuna statistica disponibile. Compaiono dopo aver concluso almeno una partita.</Text>

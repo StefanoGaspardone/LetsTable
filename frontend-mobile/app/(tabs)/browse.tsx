@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, FlatList, ActivityIndicator, Pressable, ListRenderItemInfo } from 'react-native';
+import { View, ActivityIndicator, Pressable } from 'react-native';
+import { FlashList, ListRenderItemInfo } from '@shopify/flash-list';
 import { RefreshControl } from 'react-native-gesture-handler';
 import { useFocusEffect } from 'expo-router';
 import { Search, List, LayoutGrid, X } from 'lucide-react-native';
@@ -7,7 +8,7 @@ import { Search, List, LayoutGrid, X } from 'lucide-react-native';
 import ScreenHeader from '@/components/common/screen-header';
 import BackButton from '@/components/common/back-button';
 import GameListItem from '@/components/games/game-list-item';
-import GameGridItem from '@/components/games/game-grid-item';
+import GameGridItem, { GRID_CELL_PADDING, GRID_HORIZONTAL_PADDING } from '@/components/games/game-grid-item';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import SegmentedControl from '@/components/common/segmented-control';
@@ -28,9 +29,10 @@ const RANKING_OPTIONS = [
 	{ value: 'hotness', label: 'In Tendenza' },
 ];
 
-const GRID_COLUMN_STYLE = { paddingHorizontal: 16, gap: 12 };
-const GRID_CONTENT_STYLE = { paddingBottom: 40, flexGrow: 1 };
-const LIST_CONTENT_STYLE = { paddingHorizontal: 16, paddingBottom: 40, flexGrow: 1 };
+const GRID_CONTENT_STYLE = { paddingHorizontal: GRID_HORIZONTAL_PADDING, paddingTop: 12, paddingBottom: 40, flexGrow: 1 };
+const LIST_CONTENT_STYLE = { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40, flexGrow: 1 };
+const GRID_CELL_STYLE = { paddingHorizontal: GRID_CELL_PADDING, alignItems: 'center' as const };
+const VISIBLE_POSITION = { disabled: true };
 
 const keyExtractor = (item: Game) => `${item.bggId}`;
 const ListSeparator = () => <View className = 'h-2'/>;
@@ -70,11 +72,19 @@ const BrowseScreen = () => {
 		router.push(`/game/${bggId}`);
 	}, [router]);
 
-	const renderItem = useCallback(({ item }: ListRenderItemInfo<Game>) => (
-		isGrid
-			? <GameGridItem game = { item } onPress = { () => openGame(item.bggId) } showRank = { !isSearching } rankField = { rankField }/>
-			: <GameListItem game = { item } onPress = { () => openGame(item.bggId) } showRank = { !isSearching } rankField = { rankField }/>
-	), [isGrid, isSearching, rankField, openGame]);
+	const renderItem = useCallback(({ item, index }: ListRenderItemInfo<Game>) => {
+		if(!isGrid) {
+			return <GameListItem game = { item } onPress = { () => openGame(item.bggId) } showRank = { !isSearching } rankField = { rankField }/>;
+		}
+
+		const partner = items[index % 2 === 0 ? index + 1 : index - 1];
+
+		return (
+			<View style = { GRID_CELL_STYLE }>
+				<GameGridItem game = { item } partner = { partner } onPress = { () => openGame(item.bggId) } showRank = { !isSearching } rankField = { rankField }/>
+			</View>
+		)
+	}, [isGrid, isSearching, rankField, openGame, items]);
 
 	const handleEndReached = useCallback(() => {
 		if(hasNextPage && !isFetchingNextPage) fetchNextPage();
@@ -139,21 +149,19 @@ const BrowseScreen = () => {
 					<ActivityIndicator/>
 				</View>
 			) : (
-				<FlatList
-					className = 'mt-3'
+				<FlashList
 					key = { viewMode }
 					data = { items }
 					keyExtractor = { keyExtractor }
 					renderItem = { renderItem }
 					numColumns = { isGrid ? 2 : 1 }
-					columnWrapperStyle = { isGrid ? GRID_COLUMN_STYLE : undefined }
 					contentContainerStyle = { isGrid ? GRID_CONTENT_STYLE : LIST_CONTENT_STYLE }
 					ItemSeparatorComponent = { isGrid ? undefined : ListSeparator }
 					ListFooterComponent = { footer }
 					ListEmptyComponent = { empty }
 					onEndReached = { handleEndReached }
 					onEndReachedThreshold = { 0.4 }
-					windowSize = { 7 }
+					maintainVisibleContentPosition = { VISIBLE_POSITION }
 					refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.card }/> }
 				/>
 			)}

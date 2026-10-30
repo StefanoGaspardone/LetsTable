@@ -1,7 +1,7 @@
 {
 	"name": "frontend-mobile",
 	"main": "expo-router/entry",
-	"version": "2.0.0",
+	"version": "2.1.0",
 	"scripts": {
 		"dev": "expo start -c",
 		"android": "expo start -c --android",
@@ -49,6 +49,7 @@
 		"@rn-primitives/toggle": "^1.5.2",
 		"@rn-primitives/toggle-group": "^1.5.2",
 		"@rn-primitives/tooltip": "^1.5.2",
+		"@shopify/flash-list": "2.0.2",
 		"@tanstack/react-query": "^5.101.4",
 		"axios": "^1.19.0",
 		"base64-js": "^1.5.1",

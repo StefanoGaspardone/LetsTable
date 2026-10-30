@@ -1,5 +1,5 @@
-import { memo } from 'react';
-import { View, Pressable, Dimensions } from 'react-native';
+import { memo, useSyncExternalStore } from 'react';
+import { View, Pressable, Dimensions, useWindowDimensions, NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
 import { Image } from 'expo-image';
 import { Dices, Users, Clock, PuzzleIcon, Check } from 'lucide-react-native';
 
@@ -18,23 +18,58 @@ const BORDER_WIDTH = 1;
 const IMAGE_WIDTH = CARD_WIDTH - CARD_PADDING * 2 - BORDER_WIDTH * 2;
 const IMAGE_HEIGHT = Math.round(IMAGE_WIDTH * 0.95);
 
+const NAME_LINE_HEIGHT = 24;
+const MAX_NAME_LINES = 2;
+const META_LINE_HEIGHT = 20;
+
+export const GRID_CELL_PADDING = GRID_GAP / 2;
+export const GRID_HORIZONTAL_PADDING = GRID_PADDING - GRID_CELL_PADDING;
+
+const nameLineCounts = new Map<number, number>();
+const nameLineListeners = new Set<() => void>();
+
+const subscribeNameLines = (listener: () => void) => {
+	nameLineListeners.add(listener);
+	return () => {
+		nameLineListeners.delete(listener);
+	}
+}
+
+const setNameLines = (bggId: number, lines: number) => {
+	if(nameLineCounts.get(bggId) === lines) return;
+
+	nameLineCounts.set(bggId, lines);
+	nameLineListeners.forEach(listener => listener());
+}
+
+export const hasGridMeta = (game: Game) => (game.minPlayers != null && game.maxPlayers != null) || game.playingTimeMinutes != null;
+
 interface GameGridItemProps {
 	game: Game;
+	partner?: Game;
 	onPress?: () => void;
 	showRank?: boolean;
 	rankField?: 'rank' | 'bggRank';
 }
 
-const GameGridItem = ({ game, onPress, showRank = false, rankField = 'rank' }: GameGridItemProps) => {
+const GameGridItem = ({ game, partner, onPress, showRank = false, rankField = 'rank' }: GameGridItemProps) => {
 	const { colors } = useThemeColors();
+	const { fontScale } = useWindowDimensions();
+
+	const partnerNameLines = useSyncExternalStore(subscribeNameLines, () => (partner ? nameLineCounts.get(partner.bggId) ?? 1 : 1));
+	const partnerHasMeta = !!partner && hasGridMeta(partner);
 
 	const displayedRank = rankField === 'bggRank' ? game.bggRank : game.rank;
+
+	const handleNameLayout = (event: NativeSyntheticEvent<TextLayoutEventData>) => {
+		setNameLines(game.bggId, Math.min(event.nativeEvent.lines.length, MAX_NAME_LINES));
+	}
 
 	return (
 		<Pressable onPress = { onPress } style = {{ width: CARD_WIDTH, padding: CARD_PADDING }} className = 'mb-4 rounded-2xl border border-border bg-card active:scale-[0.98] active:opacity-75'>
 			<View style = {{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }} className = 'relative overflow-hidden rounded-xl bg-secondary'>
 				{game.thumbnailUrl ? (
-					<Image source = {{ uri: game.thumbnailUrl }} recyclingKey = { game.id } style = {{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }} contentFit = 'cover'/>
+					<Image source = {{ uri: game.thumbnailUrl }} recyclingKey = { `${game.bggId}` } style = {{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT }} contentFit = 'cover'/>
 				) : (
 					<View className = 'h-full w-full items-center justify-center'>
 						<Dices size = { 28 } color = { colors.mutedForeground }/>
@@ -44,7 +79,7 @@ const GameGridItem = ({ game, onPress, showRank = false, rankField = 'rank' }: G
 					<View className = 'flex-row items-center gap-1'>
 						{displayedRank != null && showRank && (
 							<View className = 'h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1.5 shadow-sm'>
-							<Text className = 'text-xs font-bold text-white'>#{displayedRank}</Text>
+								<Text className = 'text-xs font-bold text-white'>#{displayedRank}</Text>
 							</View>
 						)}
 					</View>
@@ -63,11 +98,11 @@ const GameGridItem = ({ game, onPress, showRank = false, rankField = 'rank' }: G
 					</View>
 				)}
 			</View>
-			<View className = 'mt-1 flex justify-between'>
-				<Text className = 'text-base font-semibold text-foreground' numberOfLines = { 2 }>
+			<View className = 'mt-1'>
+				<Text className = 'text-base font-semibold text-foreground' numberOfLines = { MAX_NAME_LINES } onTextLayout = { handleNameLayout } style = {{ lineHeight: NAME_LINE_HEIGHT, minHeight: NAME_LINE_HEIGHT * partnerNameLines * fontScale }}>
 					{game.name}
 				</Text>
-				<View className = 'mt-1.5 flex-row items-center justify-between gap-3'>
+				<View className = 'mt-1.5 flex-row items-center justify-between gap-3' style = {{ minHeight: partnerHasMeta ? META_LINE_HEIGHT * fontScale : 0 }}>
 					{game.minPlayers != null && game.maxPlayers != null && (
 						<View className = 'flex-row items-center gap-1'>
 							<Users size = { 14 } color = { colors.mutedForeground } strokeWidth = { 2.5 }/>

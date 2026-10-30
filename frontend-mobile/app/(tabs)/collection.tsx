@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Pressable, FlatList, ActivityIndicator, ListRenderItemInfo } from 'react-native';
+import { View, Pressable, ActivityIndicator } from 'react-native';
+import { FlashList, ListRenderItemInfo } from '@shopify/flash-list';
 import { useFocusEffect } from 'expo-router';
 import { Search, List, LayoutGrid, Plus, X } from 'lucide-react-native';
 import { Gesture, GestureDetector, RefreshControl } from 'react-native-gesture-handler';
@@ -8,7 +9,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import ScreenHeader from '@/components/common/screen-header';
 import SegmentedControl from '@/components/common/segmented-control';
 import GameListItem from '@/components/games/game-list-item';
-import GameGridItem from '@/components/games/game-grid-item';
+import GameGridItem, { GRID_CELL_PADDING, GRID_HORIZONTAL_PADDING } from '@/components/games/game-grid-item';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 
@@ -37,9 +38,10 @@ const PLAYED_FILTER: Record<string, boolean | undefined> = {
 const SWIPE_DISTANCE_THRESHOLD = 40;
 const SWIPE_VELOCITY_THRESHOLD = 500;
 
-const GRID_COLUMN_STYLE = { paddingHorizontal: 16, gap: 12 };
-const GRID_CONTENT_STYLE = { paddingBottom: 100, flexGrow: 1 };
-const LIST_CONTENT_STYLE = { paddingHorizontal: 16, paddingBottom: 100, flexGrow: 1 };
+const GRID_CONTENT_STYLE = { paddingHorizontal: GRID_HORIZONTAL_PADDING, paddingTop: 12, paddingBottom: 100, flexGrow: 1 };
+const LIST_CONTENT_STYLE = { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 100, flexGrow: 1 };
+const GRID_CELL_STYLE = { paddingHorizontal: GRID_CELL_PADDING, alignItems: 'center' as const };
+const VISIBLE_POSITION = { disabled: true };
 
 const keyExtractor = (item: CollectionItem) => item.id;
 const ListSeparator = () => <View className = 'h-2'/>;
@@ -93,11 +95,19 @@ const CollectionScreen = () => {
 		router.push(`/game/${bggId}`);
 	}, [router]);
 
-	const renderItem = useCallback(({ item }: ListRenderItemInfo<CollectionItem>) => (
-		isGrid
-			? <GameGridItem game = { item.game } onPress = { () => openGame(item.game.bggId) }/>
-			: <GameListItem game = { item.game } onPress = { () => openGame(item.game.bggId) }/>
-	), [isGrid, openGame]);
+	const renderItem = useCallback(({ item, index }: ListRenderItemInfo<CollectionItem>) => {
+		if(!isGrid) {
+			return <GameListItem game = { item.game } onPress = { () => openGame(item.game.bggId) }/>;
+		}
+
+		const partner = items[index % 2 === 0 ? index + 1 : index - 1]?.game;
+
+		return (
+			<View style = { GRID_CELL_STYLE }>
+				<GameGridItem game = { item.game } partner = { partner } onPress = { () => openGame(item.game.bggId) }/>
+			</View>
+		)
+	}, [isGrid, openGame, items]);
 
 	const handleEndReached = useCallback(() => {
 		if(hasNextPage && !isFetchingNextPage) fetchNextPage();
@@ -162,21 +172,19 @@ const CollectionScreen = () => {
 							<ActivityIndicator/>
 						</View>
 					) : (
-						<FlatList
-							className = 'mt-3'
+						<FlashList
 							key = { viewMode }
 							data = { items }
 							keyExtractor = { keyExtractor }
 							renderItem = { renderItem }
 							numColumns = { isGrid ? 2 : 1 }
-							columnWrapperStyle = { isGrid ? GRID_COLUMN_STYLE : undefined }
 							contentContainerStyle = { isGrid ? GRID_CONTENT_STYLE : LIST_CONTENT_STYLE }
 							ItemSeparatorComponent = { isGrid ? undefined : ListSeparator }
 							ListFooterComponent = { footer }
 							ListEmptyComponent = { empty }
 							onEndReached = { handleEndReached }
 							onEndReachedThreshold = { 0.4 }
-							windowSize = { 7 }
+							maintainVisibleContentPosition = { VISIBLE_POSITION }
 							refreshControl = { <RefreshControl refreshing = { refreshing } onRefresh = { onRefresh } tintColor = { colors.primary } colors = { [colors.primary] } progressBackgroundColor = { colors.card }/> }
 						/>
 					)}
