@@ -19,6 +19,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 	},
 	android: {
 		package: "com.letstable.app",
+		googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
 		adaptiveIcon: {
 			foregroundImage: "./assets/images/adaptive-icon.png",
 			backgroundColor: "#ffffff"
