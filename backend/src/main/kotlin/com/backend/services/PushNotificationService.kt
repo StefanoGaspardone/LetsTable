@@ -16,6 +16,8 @@ data class ExpoPushMessage(
     val body: String,
     val data: Map<String, Any> = emptyMap(),
     val sound: String = "default",
+    val priority: String = "high",
+    val channelId: String = "default",
 )
 
 @Service

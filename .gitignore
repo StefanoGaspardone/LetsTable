@@ -43,6 +43,7 @@ env.*.yaml
 *.p12
 *.jks
 *.keystore
+google-services.json
 
 # Local config overrides
 application-local.yml
