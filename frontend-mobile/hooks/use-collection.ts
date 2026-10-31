@@ -2,6 +2,8 @@ import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient } from 
 
 import { addToCollection, listCollection } from '@/api/collection';
 
+import { MY_STATS_KEY } from '@/hooks/use-stat';
+
 export const useCollection = (gameName: string, played?: boolean, isExpansion?: boolean, enabled = true) => {
 	return useInfiniteQuery({
 		queryKey: ['collection', 'list', { gameName, played, isExpansion }],
@@ -20,6 +22,7 @@ export const useAddToCollection = () => {
 		mutationFn: (gameId: string) => addToCollection(gameId),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['collection'] });
+			queryClient.invalidateQueries({ queryKey: MY_STATS_KEY })
 		},
 	});
 }

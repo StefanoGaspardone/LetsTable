@@ -2,9 +2,12 @@ import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/re
 
 import { listFriends, listPendingReceived, listPendingSent, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, cancelFriendRequest, removeFriend } from '@/api/friend';
 
+import { MY_STATS_KEY } from '@/hooks/use-stat';
+
 const invalidateFriendData = (queryClient: QueryClient) => {
 	queryClient.invalidateQueries({ queryKey: ['friends'] });
 	queryClient.invalidateQueries({ queryKey: ['users'] });
+	queryClient.invalidateQueries({ queryKey: MY_STATS_KEY })
 }
 
 export const useFriends = () => {

@@ -7,6 +7,7 @@ import com.backend.models.dtos.DeleteAccountDTO
 import com.backend.models.dtos.UpdateUserRequest
 import com.backend.models.dtos.UserDTO
 import com.backend.models.dtos.UserProfileDTO
+import com.backend.models.dtos.UserStatsDTO
 import com.backend.models.entities.User
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.FileOwnerType
@@ -223,6 +224,26 @@ class UserService(
             throw e
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [user_service][delete_account] Error deleting account {}: {}", userId, e.message)
+            throw e
+        }
+    }
+
+    @Transactional(readOnly = true)
+    fun getMyStats(userId: UUID): UserStatsDTO {
+        logger.debug("\n\t[DEBUG] [user_service][get_my_stats] Retrieving stats for user {}", userId)
+
+        try {
+            val response = UserStatsDTO(
+                totalMatches = matchRepository.countCompletedMatchesForUser(userId),
+                totalWins = matchRepository.countWonMatchesForUser(userId),
+                totalGames = collectionItemRepository.countByUserId(userId),
+                totalFriends = friendRequestRepository.countFriendshipsForUser(userId),
+            )
+
+            logger.info("\n\t[INFO] [user_service][get_my_stats] Retrieved stats for user {}", userId)
+            return response
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [user_service][get_my_stats] Error retrieving stats for user {}: {}", userId, e.message)
             throw e
         }
     }

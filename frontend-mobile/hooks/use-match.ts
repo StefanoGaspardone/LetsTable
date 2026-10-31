@@ -4,6 +4,8 @@ import { createMatch, deleteMatch, getCalendarMatch, getMatchById, getRecentGame
 
 import { CreateMatchPayload, UpdateMatchPayload } from '@/types/match';
 
+import { MY_STATS_KEY } from '@/hooks/use-stat';
+
 const invalidateMatchData = (queryClient: QueryClient, excludedMatchId?: string) => {
 	queryClient.invalidateQueries({
 		queryKey: ['matches'],
@@ -11,6 +13,7 @@ const invalidateMatchData = (queryClient: QueryClient, excludedMatchId?: string)
 	});
 	queryClient.invalidateQueries({ queryKey: ['users', 'matches'] });
 	queryClient.invalidateQueries({ queryKey: ['collection', 'list'] });
+	queryClient.invalidateQueries({ queryKey: MY_STATS_KEY })
 }
 
 export const useMatches = (filters: Omit<ListMatchesParams, 'page'>, enabled = true) => {

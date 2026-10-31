@@ -14,6 +14,8 @@ import { User } from '@/types/user';
 
 const USER_STORAGE_KEY = '@auth_user';
 
+import { syncWidgets } from '@/widgets/widget-registry';
+
 const readCachedUser = async (): Promise<User | null> => {
 	try {
 		const stored = await AsyncStorage.getItem(USER_STORAGE_KEY);
@@ -58,6 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const clearSession = useCallback(() => {
 		applyUser(null);
 		queryClient.clear();
+		syncWidgets(null).catch(error => console.log('Failed to reset widgets:', error));
 	}, [applyUser, queryClient]);
 
 	useEffect(() => {

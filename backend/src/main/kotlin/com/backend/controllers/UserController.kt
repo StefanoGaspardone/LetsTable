@@ -9,6 +9,7 @@ import com.backend.models.dtos.UpdateUserRequest
 import com.backend.models.dtos.UserAchievementDTO
 import com.backend.models.dtos.UserDTO
 import com.backend.models.dtos.UserProfileDTO
+import com.backend.models.dtos.UserStatsDTO
 import com.backend.models.dtos.WishlistItemDTO
 import com.backend.security.CurrentUser
 import com.backend.services.FriendService
@@ -340,6 +341,19 @@ class UserController(
         requireOtherUser(userId)
         return ResponseEntity.ok(userAchievementService.getUserAchievements(userId))
     }
+
+    @Operation(summary = "Get my stats", description = "Get the current user's completed matches, wins, games in collection and number of friends in a single request.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Your stats",
+                content = [Content(schema = Schema(implementation = UserStatsDTO::class))]
+            ),
+        ]
+    )
+    @GetMapping("/me/stats")
+    fun getMyStats(): ResponseEntity<UserStatsDTO> =
+        ResponseEntity.ok(userService.getMyStats(CurrentUser.id()))
 
     private fun requireOtherUser(userId: UUID) {
         if(userId == CurrentUser.id()) {

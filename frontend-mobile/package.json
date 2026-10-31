@@ -1,6 +1,6 @@
 {
 	"name": "frontend-mobile",
-	"main": "expo-router/entry",
+	"main": "index.ts",
 	"version": "2.1.0",
 	"scripts": {
 		"dev": "expo start -c",
@@ -10,6 +10,8 @@
 		"clean": "rm -rf .expo node_modules",
 		"build": "eas build -p all --profile production",
 		"build:android": "eas build -p android --profile production --non-interactive",
+		"build:android:dev": "eas build -p android --profile development --non-interactive",
+		"build:android:preview": "eas build -p android --profile preview --non-interactive",
 		"build:ios": "eas build -p ios --profile production",
 		"submit:ios": "eas submit -p ios --latest",
 		"test": "jest --watch",
@@ -82,6 +84,7 @@
 		"react-dom": "19.2.3",
 		"react-hook-form": "^7.85.0",
 		"react-native": "0.86.3",
+		"react-native-android-widget": "^0.25.0",
 		"react-native-calendars": "^1.1314.0",
 		"react-native-css-interop": "^0.2.6",
 		"react-native-gesture-handler": "~2.32.0",

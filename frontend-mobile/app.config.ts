@@ -1,29 +1,50 @@
 import { ConfigContext, ExpoConfig } from 'expo/config';
 
+type AppVariant = 'development' | 'preview' | 'production';
+
+const APP_VARIANT = (process.env.APP_VARIANT ?? 'production') as AppVariant;
+
+const BASE_PACKAGE = 'com.letstable';
+const BASE_NAME = "Let's Table";
+const BASE_SCHEME = 'letstable';
+
+const VARIANTS: Record<AppVariant, { suffix: string; nameSuffix: string }> = {
+	development: { suffix: '.dev', nameSuffix: ' (Dev)' },
+	preview: { suffix: '.preview', nameSuffix: ' (Preview)' },
+	production: { suffix: '', nameSuffix: '' },
+}
+
+const variant = VARIANTS[APP_VARIANT];
+
+const APP_NAME = `${BASE_NAME}${variant.nameSuffix}`;
+const PACKAGE_NAME = `${BASE_PACKAGE}${variant.suffix}`;
+const SCHEME = `${BASE_SCHEME}${variant.suffix.replace('.', '-')}`;
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
 	...config,
-	name: "Let's Table",
+	name: APP_NAME,
 	slug: "lets-table",
 	owner: "stegaspadev2002",
 	version: "2.1.0",
 	orientation: "portrait",
 	icon: "./assets/images/icon.png",
-	scheme: "letstable",
+	scheme: SCHEME,
 	userInterfaceStyle: "automatic",
 	ios: {
-		bundleIdentifier: "com.letstable.app",
+		bundleIdentifier: PACKAGE_NAME,
 		supportsTablet: false,
 		infoPlist: {
 			ITSAppUsesNonExemptEncryption: false
 		}
 	},
 	android: {
-		package: "com.letstable.app",
+		package: PACKAGE_NAME,
 		googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
 		adaptiveIcon: {
-			foregroundImage: "./assets/images/adaptive-icon.png",
-			backgroundColor: "#ffffff"
-		}
+			foregroundImage: './assets/images/adaptive-icon.png',
+			monochromeImage: './assets/images/adaptive-icon-monochrome.png',
+			backgroundColor: '#F2EFE9',
+		},
 	},
 	plugins: [
 		"expo-router",
@@ -33,17 +54,22 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 		[
 			"expo-splash-screen",
 			{
-				image: "./assets/images/adaptive-icon.png",
+				image: "./assets/images/splash-icon.png",
 				imageWidth: 200,
 				resizeMode: "contain",
-				backgroundColor: "#f1efe9"
-			}
+				backgroundColor: "#F2EFE9",
+				dark: {
+					image: "./assets/images/splash-icon-dark.png",
+					backgroundColor: "#17212B",
+				},
+			},
 		],
 		[
 			"expo-notifications",
 			{
-				"color": "#C45135"
-			}
+				icon: './assets/images/notification-icon.png',
+				color: '#C45135',
+			},
 		],
 		[
 			"expo-image-picker",
@@ -51,7 +77,59 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 				photosPermission: "Let's Table usa le tue foto per scegliere l'immagine del profilo.",
 				microphonePermission: false
 			}
-		]
+		],
+		[
+			'react-native-android-widget',
+			{
+				fonts: [
+					'./node_modules/@expo-google-fonts/playfair-display/700Bold/PlayfairDisplay_700Bold.ttf',
+					'./node_modules/@expo-google-fonts/plus-jakarta-sans/500Medium/PlusJakartaSans_500Medium.ttf',
+					'./node_modules/@expo-google-fonts/plus-jakarta-sans/700Bold/PlusJakartaSans_700Bold.ttf',
+				],
+				widgets: [
+					{
+						name: 'StatsOverview',
+						label: 'Statistiche',
+						description: 'Vittorie, collezione e amici',
+						minWidth: '250dp',
+						minHeight: '40dp',
+						targetCellWidth: 4,
+						targetCellHeight: 1,
+						updatePeriodMillis: 1800000,
+					},
+					{
+						name: 'WinRate',
+						label: 'Vittorie',
+						description: 'Percentuale di partite vinte',
+						minWidth: '110dp',
+						minHeight: '40dp',
+						targetCellWidth: 2,
+						targetCellHeight: 1,
+						updatePeriodMillis: 1800000,
+					},
+					{
+						name: 'Collection',
+						label: 'Collezione',
+						description: 'Giochi posseduti',
+						minWidth: '110dp',
+						minHeight: '40dp',
+						targetCellWidth: 2,
+						targetCellHeight: 1,
+						updatePeriodMillis: 1800000,
+					},
+					{
+						name: 'Friends',
+						label: 'Amici',
+						description: 'Numero di amici',
+						minWidth: '110dp',
+						minHeight: '40dp',
+						targetCellWidth: 2,
+						targetCellHeight: 1,
+						updatePeriodMillis: 1800000,
+					},
+				],
+			},
+		],
 	],
 	experiments: {
 		typedRoutes: true

@@ -13,18 +13,16 @@ import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/matches/
 import WinRateCard from '@/components/home/win-rate-card';
 import MatchListItem from '@/components/matches/match-list-item';
 
-import { useHomeStats } from '@/hooks/use-stat';
+import { useMyStats } from '@/hooks/use-stat';
 import { useMatches } from '@/hooks/use-match';
 import { useMyWishlists } from '@/hooks/use-wishlist';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
-import { useFriends } from '@/hooks/use-friend';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 const HomeScreen = () => {
-	const { totalWins, totalMatches, totalGames } = useHomeStats();
-	const { data: friends } = useFriends();
+	const { totalWins, totalMatches, totalGames, totalFriends } = useMyStats();
 	const { data: matchesData } = useMatches({ sort: 'playedAt-desc', size: 5 });
 	const { colors } = useThemeColors();
   	
@@ -34,9 +32,8 @@ const HomeScreen = () => {
 	const router = useNavigationStack();
 
 	useRefetchOnFocus(['matches']);
-	useRefetchOnFocus(['collection']);
 	useRefetchOnFocus(['wishlists']);
-	useRefetchOnFocus(['friends']);
+	useRefetchOnFocus(['me', 'stats']);
 
 	const registerMatchSheetRef = useRef<RegisterMatchSheetRef>(null);
 
@@ -55,7 +52,7 @@ const HomeScreen = () => {
 					)}
 					<View className = 'flex-row gap-3'>
 						<QuickStatCard icon = { <Library size = { 48 } color = { colors.primary }/> } label = 'Collezione' value = { totalGames }/>
-						<QuickStatCard icon = { <Users size = { 48 } color = { colors.primary }/> } label = 'Amici' value = { friends?.length ?? 0 }/>
+						<QuickStatCard icon = { <Users size = { 48 } color = { colors.primary }/> } label = 'Amici' value = { totalFriends }/>
 					</View>
 				</View>
 				<View className = 'mt-4 mb-1 flex-row items-center justify-between'>

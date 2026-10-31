@@ -70,4 +70,13 @@ interface FriendRequestRepository: JpaRepository<FriendRequest, UUID> {
     @Modifying
     @Query("DELETE FROM FriendRequest fr WHERE fr.sender.id = :userId OR fr.receiver.id = :userId")
     fun deleteAllInvolvingUser(@Param("userId") userId: UUID)
+
+    @Query(
+        """
+        SELECT COUNT(fr) FROM FriendRequest fr
+        WHERE fr.status = 'ACCEPTED'
+        AND (fr.sender.id = :userId OR fr.receiver.id = :userId)
+        """
+    )
+    fun countFriendshipsForUser(@Param("userId") userId: UUID): Long
 }

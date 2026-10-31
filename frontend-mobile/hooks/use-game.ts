@@ -6,6 +6,7 @@ import { getGameByBggId, getGameExpansions, getHotGames, getOverallGames, search
 import { listGameRules } from '@/api/game-rules';
 
 import { defaultWishlistQuery, useDefaultWishlistId } from '@/hooks/use-wishlist';
+import { MY_STATS_KEY } from '@/hooks/use-stat';
 
 const GAME_STALE_TIME_MS = 5 * 60 * 1000;
 const RANKING_STALE_TIME_MS = 30 * 60 * 1000;
@@ -86,6 +87,7 @@ export const useToggleCollection = () => {
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['collection'] });
+			queryClient.invalidateQueries({ queryKey: MY_STATS_KEY })
 		},
 	});
 }

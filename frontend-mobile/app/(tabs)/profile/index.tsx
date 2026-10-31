@@ -14,8 +14,7 @@ import { useTheme } from '@/contexts/theme-context';
 import { useToast } from '@/contexts/toast-context';
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
-import { useHomeStats } from '@/hooks/use-stat';
-import { useFriends } from '@/hooks/use-friend';
+import { useMyStats } from '@/hooks/use-stat';
 import { useUpdateMe } from '@/hooks/use-user';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useMyAchievements } from '@/hooks/use-achievement';
@@ -32,8 +31,7 @@ const ProfileScreen = () => {
 
 	const themeSheetRef = useRef<ThemePickerSheetRef>(null);
 
-	const { totalMatches, totalWins } = useHomeStats();
-	const { data: friends } = useFriends();
+	const { totalMatches, totalWins, totalFriends } = useMyStats();
 	const { colors } = useThemeColors();
 	const { data: achievements } = useMyAchievements();
 	const unlockedAchievements = achievements?.filter(a => a.unlocked).length ?? 0;
@@ -111,7 +109,7 @@ const ProfileScreen = () => {
 									Amici
 								</Text>
 							</View>
-							<Text className = 'font-display text-lg'>{friends?.length ?? 0}</Text>
+							<Text className = 'font-display text-lg'>{totalFriends}</Text>
 						</View>
 						<View className = 'h-8 w-[1px] bg-border'/>
 						<View className = 'flex-1 items-center px-2'>

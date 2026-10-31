@@ -1,23 +1,27 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { listCollection } from '@/api/collection';
-import { getWinStats } from '@/api/match';
+import { getMyStats } from '@/api/stats';
 
-export const useHomeStats = () => {
-	const winStatsQuery = useQuery({
-		queryKey: ['matches', 'win-stats'],
-		queryFn: () => getWinStats(),
+import { syncWidgets } from '@/widgets/widget-registry';
+
+export const MY_STATS_KEY = ['me', 'stats'];
+
+export const useMyStats = () => {
+	const { data, isLoading } = useQuery({
+		queryKey: MY_STATS_KEY,
+		queryFn: getMyStats,
 	});
 
-	const collectionQuery = useQuery({
-		queryKey: ['collection', 'home-summary'],
-		queryFn: () => listCollection({ page: 0, size: 1 }),
-	});
+	useEffect(() => {
+		if(data) syncWidgets(data).catch(error => console.log('Failed to sync widgets:', error));
+	}, [data]);
 
 	return {
-		totalMatches: winStatsQuery.data?.totalMatches ?? 0,
-		totalWins: winStatsQuery.data?.totalWins ?? 0,
-		totalGames: collectionQuery.data?.totalElements ?? 0,
-		isLoading: winStatsQuery.isLoading || collectionQuery.isLoading,
+		totalMatches: data?.totalMatches ?? 0,
+		totalWins: data?.totalWins ?? 0,
+		totalGames: data?.totalGames ?? 0,
+		totalFriends: data?.totalFriends ?? 0,
+		isLoading,
 	}
 }
