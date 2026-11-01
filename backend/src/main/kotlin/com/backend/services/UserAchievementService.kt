@@ -6,8 +6,10 @@ import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.AchievementMetric
 import com.backend.models.enums.AchievementType
 import com.backend.models.enums.FriendRequestStatus
+import com.backend.models.enums.NotificationType
 import com.backend.repositories.UserAchievementRepository
 import com.backend.repositories.UserRepository
+import com.backend.security.CurrentUser
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
@@ -28,6 +30,7 @@ import java.util.UUID
 class UserAchievementService(
     private val userAchievementRepository: UserAchievementRepository,
     private val userRepository: UserRepository,
+    private val pushNotificationService: PushNotificationService,
     transactionManager: PlatformTransactionManager,
 ) {
 
@@ -126,14 +129,52 @@ class UserAchievementService(
 
         logger.debug("\n\t[DEBUG] [achievement_service][evaluate_after_commit] Scheduling evaluation\n\tuserIds={}", userIds)
 
+        val actorId = runCatching { CurrentUser.id() }.getOrNull()
+
         if(!TransactionSynchronizationManager.isSynchronizationActive()) {
-            evaluateInNewTransaction(userIds)
+            evaluateInNewTransaction(userIds, notify = true, actorId = actorId)
             return
         }
 
         TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
-            override fun afterCommit() = evaluateInNewTransaction(userIds)
+            override fun afterCommit() {
+                evaluateInNewTransaction(userIds, notify = true, actorId = actorId)
+            }
         })
+    }
+
+    private fun evaluateInNewTransaction(userIds: Collection<UUID>, notify: Boolean, actorId: UUID? = null) {
+        userIds.forEach { userId ->
+            try {
+                newTransaction.execute {
+                    val unlocked = evaluateWithMetrics(userId, computeMetrics(userId))
+
+                    if(notify && userId != actorId && unlocked.isNotEmpty()) {
+                        notifyUnlocked(userId, unlocked)
+                    }
+                }
+            } catch(e: Exception) {
+                logger.error("\n\t[ERROR] [achievement_service][evaluate_after_commit] Error evaluating achievements, will be retried on next app launch\n\tuserId={}\n\treason={}", userId, e.message, e)
+            }
+        }
+    }
+
+    private fun notifyUnlocked(userId: UUID, unlocked: List<AchievementType>) {
+        val titles = unlocked.map { "«${it.title}»" }
+
+        val body = when(titles.size) {
+            1 -> "Hai sbloccato ${titles.first()}"
+            2 -> "Hai sbloccato ${titles[0]} e ${titles[1]}"
+            else -> "Hai sbloccato ${titles.first()} e altri ${titles.size - 1} obiettivi"
+        }
+
+        pushNotificationService.sendToUser(
+            userId = userId,
+            type = NotificationType.ACHIEVEMENT_UNLOCKED,
+            title = if(unlocked.size == 1) "Obiettivo sbloccato" else "Obiettivi sbloccati",
+            body = body,
+            data = mapOf("codes" to unlocked.map { it.name }),
+        )
     }
 
     @EventListener(ApplicationReadyEvent::class)
@@ -143,21 +184,11 @@ class UserAchievementService(
         try {
             val userIds = userRepository.findIdsByAccountStatus(AccountStatus.ACTIVE)
 
-            evaluateInNewTransaction(userIds)
+            evaluateInNewTransaction(userIds, notify = false)
 
             logger.info("\n\t[INFO] [achievement_service][backfill_on_startup] Backfill completed\n\tusers={}", userIds.size)
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [achievement_service][backfill_on_startup] Backfill failed\n\treason={}", e.message, e)
-        }
-    }
-
-    private fun evaluateInNewTransaction(userIds: Collection<UUID>) {
-        userIds.forEach { userId ->
-            try {
-                newTransaction.execute { evaluateWithMetrics(userId, computeMetrics(userId)) }
-            } catch(e: Exception) {
-                logger.error("\n\t[ERROR] [achievement_service][evaluate_in_new_transaction] Error evaluating achievements, will be retried on next app launch\n\tuserId={}\n\treason={}", userId, e.message, e)
-            }
         }
     }
 

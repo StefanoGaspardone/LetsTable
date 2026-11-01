@@ -51,6 +51,7 @@ export const useNotificationNavigation = (enabled: boolean) => {
 				router.push('/(tabs)/friends');
 				break;
 			case 'WISHLIST_MEMBER_ADDED':
+			case 'WISHLIST_UPDATED':
 				if(data.wishlistId) router.push(`/wishlist/${data.wishlistId}`);
 				break;
 		}

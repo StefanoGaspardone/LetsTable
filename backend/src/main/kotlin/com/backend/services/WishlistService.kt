@@ -2,18 +2,22 @@ package com.backend.services
 
 import com.backend.exceptions.*
 import com.backend.models.dtos.*
+import com.backend.models.entities.Game
 import com.backend.models.entities.User
 import com.backend.models.entities.Wishlist
+import com.backend.models.entities.WishlistActivity
 import com.backend.models.entities.WishlistItem
 import com.backend.models.entities.WishlistMember
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.NotificationType
+import com.backend.models.enums.WishlistActivityAction
 import com.backend.models.mappers.toPageDTO
 import com.backend.models.specifications.WishlistFilterType
 import com.backend.models.specifications.WishlistItemSpecification
 import com.backend.models.specifications.WishlistSpecification
 import com.backend.repositories.GameRepository
 import com.backend.repositories.UserRepository
+import com.backend.repositories.WishlistActivityRepository
 import com.backend.repositories.WishlistItemRepository
 import com.backend.repositories.WishlistMemberRepository
 import com.backend.repositories.WishlistRepository
@@ -35,6 +39,7 @@ class WishlistService(
     private val userRepository: UserRepository,
     private val gameRepository: GameRepository,
     private val pushNotificationService: PushNotificationService,
+    private val wishlistActivityRepository: WishlistActivityRepository,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -311,6 +316,8 @@ class WishlistService(
                 throw GameAlreadyInWishlistException(gameId)
             }
 
+            recordActivity(wishlist, userId, game, WishlistActivityAction.ADDED)
+
             logger.info("\n\t[INFO] [wishlist_service][add_item] Game {} added to wishlist {} by user {}", gameId, wishlistId, userId)
             return WishlistItemDTO.from(saved)
         } catch(e: WishlistNotFoundException) {
@@ -336,11 +343,12 @@ class WishlistService(
         logger.debug("\n\t[DEBUG] [wishlist_service][remove_item] User {} removing item {} from wishlist {}", userId, itemId, wishlistId)
 
         try {
-            findWritableWishlist(userId, wishlistId)
+            val wishlist = findWritableWishlist(userId, wishlistId)
 
             val item = wishlistItemRepository.findByIdAndWishlistId(itemId, wishlistId)
                 .orElseThrow { WishlistItemNotFoundException(itemId) }
 
+            recordActivity(wishlist, userId, item.game, WishlistActivityAction.REMOVED)
             wishlistItemRepository.delete(item)
 
             logger.info("\n\t[INFO] [wishlist_service][remove_item] Item {} removed from wishlist {} by user {}", itemId, wishlistId, userId)
@@ -513,4 +521,14 @@ class WishlistService(
     private fun isOwnerOrMember(wishlist: Wishlist, userId: UUID): Boolean =
         wishlist.owner.id == userId ||
                 (wishlist.isShared && wishlistMemberRepository.existsByWishlistIdAndUserId(wishlist.id!!, userId))
+
+    private fun recordActivity(wishlist: Wishlist, userId: UUID, game: Game, action: WishlistActivityAction) {
+        val hasOtherParticipants = wishlist.owner.id != userId || wishlistMemberRepository.existsByWishlistId(wishlist.id!!)
+
+        if(!wishlist.isShared || !hasOtherParticipants) {
+            return
+        }
+
+        wishlistActivityRepository.save(WishlistActivity(wishlist = wishlist, actor = userRepository.getReferenceById(userId), game = game, action = action))
+    }
 }

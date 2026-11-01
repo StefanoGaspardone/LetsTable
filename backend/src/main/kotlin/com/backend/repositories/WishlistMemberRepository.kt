@@ -27,4 +27,6 @@ interface WishlistMemberRepository: JpaRepository<WishlistMember, UUID> {
     @Modifying
     @Query("DELETE FROM WishlistMember wm WHERE wm.wishlist.id IN (SELECT w.id FROM Wishlist w WHERE w.owner.id = :ownerId)")
     fun deleteAllByWishlistOwnerId(@Param("ownerId") ownerId: UUID)
+
+    fun existsByWishlistId(wishlistId: UUID): Boolean
 }

@@ -12,24 +12,24 @@ export const NOTIFICATION_ACTIONS = {
 
 const NOTIFICATION_CHANNELS = [
 	{ id: 'friends', name: 'Amici', description: 'Richieste di amicizia e nuove amicizie' },
-	{ id: 'matches', name: 'Partite', description: 'Partite a cui hai partecipato e risultati' },
 	{ id: 'wishlists', name: 'Wishlist', description: 'Novità nelle wishlist condivise' },
+	{ id: 'achievements', name: 'Obiettivi', description: 'Obiettivi sbloccati' },
 ];
+
+const CHANNEL_BY_TYPE_PREFIX: Record<string, string> = {
+	FRIEND: 'friends',
+	WISHLIST: 'wishlists',
+	ACHIEVEMENT: 'achievements',
+};
+
+const LOCAL_COPY_PREFIX = 'local-';
+
+type Notification = import('expo-notifications').Notification;
 
 export const getIsPushNotificationsSupported = () => {
 	const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 	return !(isExpoGo && Platform.OS === 'android');
 }
-
-const LOCAL_COPY_PREFIX = 'local-';
-
-const CHANNEL_BY_TYPE_PREFIX: Record<string, string> = {
-	FRIEND: 'friends',
-	MATCH: 'matches',
-	WISHLIST: 'wishlists',
-};
-
-type Notification = import('expo-notifications').Notification;
 
 const resolveChannelId = (notification: Notification): string | undefined => {
 	const { trigger, content } = notification.request;

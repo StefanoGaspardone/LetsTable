@@ -5,6 +5,7 @@ import com.backend.exceptions.InvalidSchedulerTokenException
 import com.backend.models.dtos.JobResultResponse
 import com.backend.schedulers.HotGamesScheduler
 import com.backend.schedulers.UserCleanupScheduler
+import com.backend.schedulers.WishlistNotificationScheduler
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -27,6 +28,7 @@ import java.security.MessageDigest
 class InternalJobsController(
     private val hotGamesScheduler: HotGamesScheduler,
     private val userCleanupScheduler: UserCleanupScheduler,
+    private val wishlistNotificationScheduler: WishlistNotificationScheduler,
     @Value($$"${job.token:}") private val jobToken: String,
 ) {
 
@@ -115,6 +117,50 @@ class InternalJobsController(
 
         val deleted = userCleanupScheduler.deleteStaleInactiveAccounts()
         return ResponseEntity.ok(JobResultResponse(job = "user-cleanup", affected = deleted))
+    }
+
+    @Operation(summary = "Send wishlist notifications", description = "Group pending changes on shared wishlists and notify the other participants once the author has been idle for 2 minutes. Triggered every minute.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Pending activities processed, returns the number of notifications sent",
+                content = [Content(schema = Schema(implementation = JobResultResponse::class))]
+            ),
+            ApiResponse(
+                responseCode = "401", description = "Unauthorized - Missing or invalid scheduler token",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "InvalidTokenExample",
+                        summary = "Invalid scheduler token example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Invalid scheduler token\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "500", description = "Internal Server Error - Flush failed",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "FlushFailedExample",
+                        summary = "Flush failed example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":500,\"error\":\"Internal Server Error\",\"message\":\"An unexpected error occurred\"}"
+                    )]
+                )]
+            ),
+        ]
+    )
+    @PostMapping("/wishlist-notifications")
+    fun wishlistNotifications(
+        @Parameter(description = "Shared secret configured in Cloud Scheduler", required = true)
+        @RequestHeader("X-Scheduler-Token", required = false) token: String?,
+    ): ResponseEntity<JobResultResponse> {
+        checkToken(token)
+
+        val sent = wishlistNotificationScheduler.flushWishlistNotifications()
+        return ResponseEntity.ok(JobResultResponse(job = "wishlist-notifications", affected = sent.toLong()))
     }
 
     private fun checkToken(token: String?) {
