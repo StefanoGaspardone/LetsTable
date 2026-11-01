@@ -12,9 +12,9 @@ import { requestAndRegisterPushToken, unregisterCurrentPushToken } from '@/lib/p
 
 import { User } from '@/types/user';
 
-const USER_STORAGE_KEY = '@auth_user';
-
 import { syncWidgets } from '@/widgets/widget-registry';
+
+const USER_STORAGE_KEY = '@auth_user';
 
 const readCachedUser = async (): Promise<User | null> => {
 	try {

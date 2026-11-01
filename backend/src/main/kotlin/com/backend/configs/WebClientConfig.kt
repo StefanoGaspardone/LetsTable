@@ -31,9 +31,9 @@ class WebClientConfig {
     }
 
     @Bean
-    fun expoPushWebClient(): WebClient {
+    fun fcmWebClient(): WebClient {
         return WebClient.builder()
-            .baseUrl("https://exp.host/--/api/v2/push")
+            .baseUrl("https://fcm.googleapis.com/v1")
             .defaultHeader("Content-Type", "application/json")
             .defaultHeader("Accept", "application/json")
             .build()

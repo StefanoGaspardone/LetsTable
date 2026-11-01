@@ -96,6 +96,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 						targetCellWidth: 4,
 						targetCellHeight: 1,
 						updatePeriodMillis: 1800000,
+						previewImage: './assets/widget-preview/stats-overview.png',
 					},
 					{
 						name: 'WinRate',
@@ -106,6 +107,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 						targetCellWidth: 2,
 						targetCellHeight: 1,
 						updatePeriodMillis: 1800000,
+						previewImage: './assets/widget-preview/win-rate.png',
 					},
 					{
 						name: 'Collection',
@@ -116,6 +118,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 						targetCellWidth: 2,
 						targetCellHeight: 1,
 						updatePeriodMillis: 1800000,
+						previewImage: './assets/widget-preview/collection.png',
 					},
 					{
 						name: 'Friends',
@@ -126,6 +129,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 						targetCellWidth: 2,
 						targetCellHeight: 1,
 						updatePeriodMillis: 1800000,
+						previewImage: './assets/widget-preview/friends.png',
 					},
 				],
 			},

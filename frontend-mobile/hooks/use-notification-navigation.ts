@@ -1,62 +1,94 @@
 import { useEffect, useRef } from 'react';
+import * as Notifications from 'expo-notifications';
 
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
+import { useToast } from '@/contexts/toast-context';
 
-import { getIsPushNotificationsSupported } from '@/lib/push-notifications';
+import { useAcceptFriendRequest, useRejectFriendRequest } from '@/hooks/use-friend';
 
-type NotificationData = Record<string, unknown> | undefined;
+import { NOTIFICATION_ACTIONS } from '@/lib/push-notifications';
 
-let lastHandledNotificationId: string | null = null;
+interface NotificationData {
+	type?: string;
+	requestId?: string;
+	wishlistId?: string;
+}
+
+const getResponseKey = (response: Notifications.NotificationResponse) => `${response.notification.request.identifier}:${response.actionIdentifier}`;
 
 export const useNotificationNavigation = (enabled: boolean) => {
 	const router = useNavigationStack();
-	const routerRef = useRef(router);
-	routerRef.current = router;
+	const { showToast } = useToast();
 
-	useEffect(() => {
-		if(!enabled || !getIsPushNotificationsSupported()) return;
+	const acceptRequest = useAcceptFriendRequest();
+	const rejectRequest = useRejectFriendRequest();
 
-		const navigate = (identifier: string, data: NotificationData) => {
-			if(identifier === lastHandledNotificationId) return;
-			lastHandledNotificationId = identifier;
+	const handledKeysRef = useRef(new Set<string>());
+	const handleResponseRef = useRef<(response: Notifications.NotificationResponse) => Promise<void>>(async () => undefined);
 
-			switch(data?.type) {
-				case 'FRIEND_REQUEST':
-					routerRef.current.push('/(tabs)/friends?tab=requests');
-					break;
-				case 'FRIEND_ACCEPTED':
-					routerRef.current.push('/(tabs)/friends');
-					break;
-				case 'WISHLIST_MEMBER_ADDED':
-					if(typeof data.wishlistId === 'string') {
-						routerRef.current.push(`/wishlist/${data.wishlistId}`);
-					}
-					break;
-			}
+	const handleFriendRequestAction = async (action: string, requestId: string) => {
+		const isAccept = action === NOTIFICATION_ACTIONS.accept;
+
+		try {
+			if(isAccept) await acceptRequest.mutateAsync(requestId);
+			else await rejectRequest.mutateAsync(requestId);
+
+			showToast(isAccept ? 'Richiesta di amicizia accettata' : 'Richiesta di amicizia rifiutata', isAccept ? 'success' : 'info');
+		} catch(error: any) {
+			const message = error?.response?.status === 404 ? 'Questa richiesta non è più valida' : 'Impossibile completare l\'operazione';
+			showToast(message, 'error');
 		}
 
-		let subscription: { remove: () => void } | undefined;
-		let cancelled = false;
+		router.push(isAccept ? '/(tabs)/friends' : '/(tabs)/friends?tab=requests');
+	}
 
-		import('expo-notifications').then(async Notifications => {
-			if(cancelled) return;
+	const navigateTo = (data: NotificationData) => {
+		switch(data.type) {
+			case 'FRIEND_REQUEST':
+				router.push('/(tabs)/friends?tab=requests');
+				break;
+			case 'FRIEND_ACCEPTED':
+				router.push('/(tabs)/friends');
+				break;
+			case 'WISHLIST_MEMBER_ADDED':
+				if(data.wishlistId) router.push(`/wishlist/${data.wishlistId}`);
+				break;
+		}
+	}
 
-			const lastResponse = await Notifications.getLastNotificationResponseAsync();
+	handleResponseRef.current = async (response) => {
+		const key = getResponseKey(response);
+		if(handledKeysRef.current.has(key)) return;
+		handledKeysRef.current.add(key);
 
-			if(lastResponse) {
-				navigate(lastResponse.notification.request.identifier, lastResponse.notification.request.content.data);
-			}
+		Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
 
-			subscription = Notifications.addNotificationResponseReceivedListener(response => {
-				navigate(response.notification.request.identifier, response.notification.request.content.data);
-			});
-		}).catch(() => {
-			console.log('expo-notifications not available in this environment');
+		const data = response.notification.request.content.data as NotificationData;
+		const action = response.actionIdentifier;
+		const isFriendRequestAction = action === NOTIFICATION_ACTIONS.accept || action === NOTIFICATION_ACTIONS.reject;
+
+		if(data.type === 'FRIEND_REQUEST' && data.requestId && isFriendRequestAction) {
+			await Notifications.dismissNotificationAsync(response.notification.request.identifier).catch(() => undefined);
+			await handleFriendRequestAction(action, data.requestId);
+			return;
+		}
+
+		navigateTo(data);
+	}
+
+	useEffect(() => {
+		if(!enabled) return;
+
+		Notifications.getLastNotificationResponseAsync()
+			.then(response => {
+				if(response) handleResponseRef.current(response);
+			})
+			.catch(error => console.log('Failed to read last notification response:', error));
+
+		const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+			handleResponseRef.current(response);
 		});
 
-		return () => {
-			cancelled = true;
-			subscription?.remove();
-		};
+		return () => subscription.remove();
 	}, [enabled]);
 }

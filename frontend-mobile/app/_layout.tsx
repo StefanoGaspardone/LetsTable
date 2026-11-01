@@ -23,9 +23,11 @@ import ServerDownOverlay from '@/components/common/server-down-overlay';
 import { useHealthCheck } from '@/hooks/use-health-check';
 import { useNotificationNavigation } from '@/hooks/use-notification-navigation';
 
-import { configureNotifications } from '@/lib/push-notifications';
+import { configureNotifications, setupNotificationHandler } from '@/lib/push-notifications';
 import { queryClient } from '@/lib/query-client';
 import { NAV_THEME } from '@/lib/theme';
+
+setupNotificationHandler();
 
 SplashScreen.preventAutoHideAsync();
 

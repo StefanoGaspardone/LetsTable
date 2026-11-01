@@ -15,6 +15,7 @@ import com.backend.models.entities.FriendRequest
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.FriendRequestStatus
 import com.backend.models.enums.FriendshipStatus
+import com.backend.models.enums.NotificationType
 import com.backend.repositories.FriendRequestRepository
 import com.backend.repositories.UserRepository
 import org.slf4j.LoggerFactory
@@ -66,9 +67,10 @@ class FriendService(
 
                 pushNotificationService.sendToUser(
                     userId = receiverId,
+                    type = NotificationType.FRIEND_ACCEPTED,
                     title = "Richiesta accettata",
                     body = "${sender.username} ha accettato la tua richiesta di amicizia",
-                    data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to reverseRequest.id.toString()),
+                    data = mapOf("requestId" to reverseRequest.id.toString()),
                 )
                 userAchievementService.evaluateAfterCommit(setOf(senderId, receiverId))
 
@@ -84,9 +86,10 @@ class FriendService(
 
             pushNotificationService.sendToUser(
                 userId = receiverId,
+                type = NotificationType.FRIEND_REQUEST,
                 title = "Nuova richiesta di amicizia",
                 body = "${sender.username} ti ha inviato una richiesta di amicizia",
-                data = mapOf("type" to "FRIEND_REQUEST", "requestId" to saved.id.toString()),
+                data = mapOf("requestId" to saved.id.toString()),
             )
 
             logger.info("\n\t[INFO] [friend_service][send_request] Friend request sent from {} to {}", senderId, receiverId)
@@ -125,9 +128,10 @@ class FriendService(
 
             pushNotificationService.sendToUser(
                 userId = senderId,
+                type = NotificationType.FRIEND_ACCEPTED,
                 title = "Richiesta accettata",
                 body = "${request.receiver.username} ha accettato la tua richiesta di amicizia",
-                data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to requestId.toString()),
+                data = mapOf("requestId" to requestId.toString()),
             )
             userAchievementService.evaluateAfterCommit(setOf(senderId, currentUserId))
 

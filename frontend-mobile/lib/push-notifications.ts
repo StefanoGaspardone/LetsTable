@@ -3,23 +3,53 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 
 import { registerPushToken, unregisterPushToken } from '@/api/push-token';
 
-const ANDROID_CHANNEL_ID = 'default';
+export const FRIEND_REQUEST_CATEGORY = 'friend_request';
+
+export const NOTIFICATION_ACTIONS = {
+	accept: 'accept',
+	reject: 'reject',
+} as const;
+
+const NOTIFICATION_CHANNELS = [
+	{ id: 'friends', name: 'Amici', description: 'Richieste di amicizia e nuove amicizie' },
+	{ id: 'matches', name: 'Partite', description: 'Partite a cui hai partecipato e risultati' },
+	{ id: 'wishlists', name: 'Wishlist', description: 'Novità nelle wishlist condivise' },
+];
 
 export const getIsPushNotificationsSupported = () => {
 	const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 	return !(isExpoGo && Platform.OS === 'android');
 }
 
-const getProjectId = (): string | undefined =>
-	Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+const LOCAL_COPY_PREFIX = 'local-';
 
-export const configureNotifications = async (): Promise<void> => {
+const CHANNEL_BY_TYPE_PREFIX: Record<string, string> = {
+	FRIEND: 'friends',
+	MATCH: 'matches',
+	WISHLIST: 'wishlists',
+};
+
+type Notification = import('expo-notifications').Notification;
+
+const resolveChannelId = (notification: Notification): string | undefined => {
+	const { trigger, content } = notification.request;
+
+	if(trigger && 'remoteMessage' in trigger) {
+		const channelId = (trigger.remoteMessage as { data?: Record<string, string> } | null)?.data?.channelId;
+		if(channelId) return channelId;
+	}
+
+	const type = typeof content.data?.type === 'string' ? content.data.type : '';
+	return CHANNEL_BY_TYPE_PREFIX[type.split('_')[0]];
+}
+
+export const setupNotificationHandler = () => {
 	if(!getIsPushNotificationsSupported()) return;
 
-	const Notifications = await import('expo-notifications');
+	const Notifications = require('expo-notifications') as typeof import('expo-notifications');
 
 	Notifications.setNotificationHandler({
-		handleNotification: async () => ({
+		handleNotification: () => Promise.resolve({
 			shouldPlaySound: true,
 			shouldSetBadge: false,
 			shouldShowBanner: true,
@@ -27,28 +57,55 @@ export const configureNotifications = async (): Promise<void> => {
 		}),
 	});
 
-	if(Platform.OS === 'android') {
-		await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-			name: 'Notifiche',
-			importance: Notifications.AndroidImportance.HIGH,
-			vibrationPattern: [0, 250, 250, 250],
-			lightColor: '#C45135',
-		});
-	}
+	Notifications.addNotificationReceivedListener(notification => {
+		const { identifier, content } = notification.request;
+
+		if(identifier.startsWith(LOCAL_COPY_PREFIX)) return;
+
+		const channelId = resolveChannelId(notification);
+
+		Notifications.scheduleNotificationAsync({
+			identifier: `${LOCAL_COPY_PREFIX}${identifier}`,
+			content: {
+				title: content.title,
+				body: content.body,
+				data: content.data,
+				sound: 'default',
+				...(content.categoryIdentifier ? { categoryIdentifier: content.categoryIdentifier } : {}),
+			},
+			trigger: channelId ? { channelId } : null,
+		}).catch(error => console.log('Failed to present notification:', error));
+	});
 }
 
-const getExpoPushToken = async (): Promise<string | null> => {
-	const projectId = getProjectId();
-
-	if(!projectId) {
-		console.log('Missing EAS projectId, cannot get push token');
-		return null;
-	}
+export const configureNotifications = async (): Promise<void> => {
+	if(!getIsPushNotificationsSupported()) return;
 
 	const Notifications = await import('expo-notifications');
-	const { data } = await Notifications.getExpoPushTokenAsync({ projectId });
 
-	return data;
+	if(Platform.OS === 'android') {
+		await Promise.all(NOTIFICATION_CHANNELS.map(channel =>
+			Notifications.setNotificationChannelAsync(channel.id, {
+				name: channel.name,
+				description: channel.description,
+				importance: Notifications.AndroidImportance.HIGH,
+				vibrationPattern: [0, 250, 250, 250],
+				lightColor: '#C45135',
+			})
+		));
+	}
+
+	await Notifications.setNotificationCategoryAsync(FRIEND_REQUEST_CATEGORY, [
+		{ identifier: NOTIFICATION_ACTIONS.accept, buttonTitle: 'Accetta', options: { opensAppToForeground: true } },
+		{ identifier: NOTIFICATION_ACTIONS.reject, buttonTitle: 'Rifiuta', options: { opensAppToForeground: true, isDestructive: true } },
+	]);
+}
+
+const getDevicePushToken = async (): Promise<string | null> => {
+	const Notifications = await import('expo-notifications');
+	const { data } = await Notifications.getDevicePushTokenAsync();
+
+	return typeof data === 'string' ? data : null;
 }
 
 export const requestAndRegisterPushToken = async (): Promise<string | null> => {
@@ -78,7 +135,7 @@ export const requestAndRegisterPushToken = async (): Promise<string | null> => {
 			return null;
 		}
 
-		const token = await getExpoPushToken();
+		const token = await getDevicePushToken();
 
 		if(!token) return null;
 
@@ -99,7 +156,7 @@ export const unregisterCurrentPushToken = async (): Promise<void> => {
 	if(!getIsPushNotificationsSupported()) return;
 
 	try {
-		const token = await getExpoPushToken();
+		const token = await getDevicePushToken();
 
 		if(token) await unregisterPushToken(token);
 	} catch(error) {

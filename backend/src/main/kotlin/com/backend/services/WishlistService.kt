@@ -7,6 +7,7 @@ import com.backend.models.entities.Wishlist
 import com.backend.models.entities.WishlistItem
 import com.backend.models.entities.WishlistMember
 import com.backend.models.enums.AccountStatus
+import com.backend.models.enums.NotificationType
 import com.backend.models.mappers.toPageDTO
 import com.backend.models.specifications.WishlistFilterType
 import com.backend.models.specifications.WishlistItemSpecification
@@ -186,9 +187,10 @@ class WishlistService(
 
             pushNotificationService.sendToUser(
                 userId = memberUserId,
+                type = NotificationType.WISHLIST_MEMBER_ADDED,
                 title = "Aggiunto a una wishlist",
                 body = "Sei stato aggiunto alla wishlist \"${wishlist.name}\"",
-                data = mapOf("type" to "WISHLIST_MEMBER_ADDED", "wishlistId" to wishlistId.toString()),
+                data = mapOf("wishlistId" to wishlistId.toString()),
             )
 
             logger.info("\n\t[INFO] [wishlist_service][add_member] User {} added as member to wishlist {} by {}", memberUserId, wishlistId, userId)
