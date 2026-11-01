@@ -4,28 +4,26 @@ type AppVariant = 'development' | 'preview' | 'production';
 
 const APP_VARIANT = (process.env.APP_VARIANT ?? 'production') as AppVariant;
 
-const BASE_PACKAGE = 'com.letstable';
 const BASE_NAME = "Let's Table";
-const BASE_SCHEME = 'letstable';
 
-const VARIANTS: Record<AppVariant, { suffix: string; nameSuffix: string }> = {
-	development: { suffix: '.dev', nameSuffix: ' (Dev)' },
-	preview: { suffix: '.preview', nameSuffix: ' (Preview)' },
-	production: { suffix: '', nameSuffix: '' },
+const VARIANTS: Record<AppVariant, { packageName: string; scheme: string; nameSuffix: string }> = {
+	development: { packageName: 'com.letstable.dev', scheme: 'letstable-dev', nameSuffix: ' (Dev)' },
+	preview: { packageName: 'com.letstable.preview', scheme: 'letstable-preview', nameSuffix: ' (Preview)' },
+	production: { packageName: 'com.letstable.app', scheme: 'letstable', nameSuffix: '' },
 }
 
 const variant = VARIANTS[APP_VARIANT];
 
 const APP_NAME = `${BASE_NAME}${variant.nameSuffix}`;
-const PACKAGE_NAME = `${BASE_PACKAGE}${variant.suffix}`;
-const SCHEME = `${BASE_SCHEME}${variant.suffix.replace('.', '-')}`;
+const PACKAGE_NAME = variant.packageName;
+const SCHEME = variant.scheme;
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
 	...config,
 	name: APP_NAME,
 	slug: "lets-table",
 	owner: "stegaspadev2002",
-	version: "2.1.0",
+	version: "2.2.0",
 	orientation: "portrait",
 	icon: "./assets/images/icon.png",
 	scheme: SCHEME,
