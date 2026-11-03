@@ -4,13 +4,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { ThemeProvider, useTheme } from '@/contexts/theme-context';
 
+const mockSetColorScheme = jest.fn();
+
 jest.mock('@react-native-async-storage/async-storage', () => ({
 	getItem: jest.fn(),
-	setItem: jest.fn(),
+	setItem: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('nativewind', () => ({
-	useColorScheme: () => ({ setColorScheme: jest.fn() }),
+	useColorScheme: () => ({ setColorScheme: mockSetColorScheme }),
 }));
 
 const mockedGetItem = AsyncStorage.getItem as jest.MockedFunction<typeof AsyncStorage.getItem>;
@@ -23,6 +25,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 describe('ThemeProvider / useTheme', () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		mockedSetItem.mockResolvedValue(undefined);
 	});
 
 	it('defaults to "light" while loading', async () => {
@@ -45,6 +48,16 @@ describe('ThemeProvider / useTheme', () => {
 		expect(mockedGetItem).toHaveBeenCalledWith('@theme_preference');
 	});
 
+	it('applies the stored preference to NativeWind', async () => {
+		mockedGetItem.mockResolvedValueOnce('dark');
+
+		const { result } = await renderHook(() => useTheme(), { wrapper });
+
+		await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+		expect(mockSetColorScheme).toHaveBeenCalledWith('dark');
+	});
+
 	it('defaults to "light" when nothing is stored', async () => {
 		mockedGetItem.mockResolvedValueOnce(null);
 
@@ -65,25 +78,20 @@ describe('ThemeProvider / useTheme', () => {
 		expect(result.current.themePreference).toBe('light');
 	});
 
-	it('accepts "light" as a valid stored preference', async () => {
-		mockedGetItem.mockResolvedValueOnce('light');
+	it('falls back to "light" and stops loading when reading the preference fails', async () => {
+		const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+		mockedGetItem.mockRejectedValueOnce(new Error('Storage unavailable'));
 
 		const { result } = await renderHook(() => useTheme(), { wrapper });
 
 		await waitFor(() => expect(result.current.isLoading).toBe(false));
 
 		expect(result.current.themePreference).toBe('light');
+		expect(consoleLog).toHaveBeenCalledWith('Failed to load theme preference:', expect.any(Error));
+		consoleLog.mockRestore();
 	});
 
-	it('sets isLoading to false after the initial load, regardless of stored value', async () => {
-        mockedGetItem.mockResolvedValueOnce(null);
-
-        const { result } = await renderHook(() => useTheme(), { wrapper });
-
-        await waitFor(() => expect(result.current.isLoading).toBe(false));
-    });
-
-	it('updates the preference and persists it to AsyncStorage', async () => {
+	it('updates the preference, applies it and persists it to AsyncStorage', async () => {
 		mockedGetItem.mockResolvedValueOnce('system');
 
 		const { result } = await renderHook(() => useTheme(), { wrapper });
@@ -95,6 +103,7 @@ describe('ThemeProvider / useTheme', () => {
 		});
 
 		expect(result.current.themePreference).toBe('dark');
+		expect(mockSetColorScheme).toHaveBeenLastCalledWith('dark');
 		expect(mockedSetItem).toHaveBeenCalledWith('@theme_preference', 'dark');
 	});
 
@@ -111,6 +120,24 @@ describe('ThemeProvider / useTheme', () => {
 
 		expect(result.current.themePreference).toBe('light');
 		expect(mockedSetItem).toHaveBeenCalledWith('@theme_preference', 'light');
+	});
+
+	it('keeps the new preference even when saving it fails', async () => {
+		const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+		mockedGetItem.mockResolvedValueOnce('light');
+		mockedSetItem.mockRejectedValueOnce(new Error('Disk full'));
+
+		const { result } = await renderHook(() => useTheme(), { wrapper });
+
+		await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+		await act(async () => {
+			result.current.setThemePreference('dark');
+		});
+
+		expect(result.current.themePreference).toBe('dark');
+		await waitFor(() => expect(consoleLog).toHaveBeenCalledWith('Failed to save theme preference:', expect.any(Error)));
+		consoleLog.mockRestore();
 	});
 
 	it('throws when used without a provider', async () => {

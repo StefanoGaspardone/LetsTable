@@ -2,7 +2,7 @@ import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { router } from 'expo-router';
 
-import { apiClient, API_URL } from '@/api/client';
+import { apiClient, API_URL, refreshSession, setNetworkErrorHandler, setSessionExpiredHandler } from '@/api/client';
 import { tokenStorage } from '@/lib/token-storage';
 
 jest.mock('@/lib/token-storage');
@@ -10,11 +10,13 @@ jest.mock('expo-router', () => ({
 	router: { replace: jest.fn() },
 }));
 
-const mockedGetAccessToken = tokenStorage.getAccessToken as jest.MockedFunction<typeof tokenStorage.getAccessToken>;
-const mockedGetRefreshToken = tokenStorage.getRefreshToken as jest.MockedFunction<typeof tokenStorage.getRefreshToken>;
-const mockedSetTokens = tokenStorage.setTokens as jest.MockedFunction<typeof tokenStorage.setTokens>;
-const mockedClearTokens = tokenStorage.clearTokens as jest.MockedFunction<typeof tokenStorage.clearTokens>;
-const mockedRouterReplace = router.replace as jest.MockedFunction<typeof router.replace>;
+const mockedGetAccessToken = jest.mocked(tokenStorage.getAccessToken);
+const mockedGetRefreshToken = jest.mocked(tokenStorage.getRefreshToken);
+const mockedSetTokens = jest.mocked(tokenStorage.setTokens);
+const mockedClearTokens = jest.mocked(tokenStorage.clearTokens);
+const mockedRouterReplace = jest.mocked(router.replace);
+
+const REFRESH_URL = `${API_URL}/auth/refresh`;
 
 describe('apiClient', () => {
 	let clientMock: MockAdapter;
@@ -24,11 +26,18 @@ describe('apiClient', () => {
 		jest.clearAllMocks();
 		clientMock = new MockAdapter(apiClient);
 		globalAxiosMock = new MockAdapter(axios);
+
+		mockedSetTokens.mockImplementation(async (accessToken) => {
+			mockedGetAccessToken.mockResolvedValue(accessToken);
+		});
+		mockedClearTokens.mockResolvedValue(undefined);
 	});
 
 	afterEach(() => {
 		clientMock.restore();
 		globalAxiosMock.restore();
+		setSessionExpiredHandler(null);
+		setNetworkErrorHandler(null);
 	});
 
 	describe('request interceptor', () => {
@@ -52,29 +61,63 @@ describe('apiClient', () => {
 	});
 
 	describe('response interceptor - non-auth errors', () => {
-		it('rejects immediately for non-401/403 errors without attempting a refresh', async () => {
+		it.each([400, 404, 500])('rejects immediately for status %i without attempting a refresh', async (status) => {
 			mockedGetAccessToken.mockResolvedValue('token');
-			clientMock.onGet('/broken').reply(500, { message: 'Server error' });
+			clientMock.onGet('/broken').reply(status, { message: 'Error' });
 
 			await expect(apiClient.get('/broken')).rejects.toMatchObject({
-				response: expect.objectContaining({ status: 500 }),
+				response: expect.objectContaining({ status }),
 			});
 
 			expect(mockedGetRefreshToken).not.toHaveBeenCalled();
 		});
 	});
 
-	describe('response interceptor - 401 handling', () => {
-		it('refreshes the token and retries the original request on 401', async () => {
+	describe('response interceptor - network errors', () => {
+		it('notifies the network error handler when the request gets no response', async () => {
+			const handler = jest.fn();
+			setNetworkErrorHandler(handler);
+			mockedGetAccessToken.mockResolvedValue('token');
+			clientMock.onGet('/offline').networkError();
+
+			await expect(apiClient.get('/offline')).rejects.toBeTruthy();
+
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(mockedGetRefreshToken).not.toHaveBeenCalled();
+		});
+
+		it('does not notify the network error handler when the request is canceled', async () => {
+			const handler = jest.fn();
+			setNetworkErrorHandler(handler);
+			mockedGetAccessToken.mockResolvedValue('token');
+			clientMock.onGet('/cancel').reply(200, {});
+
+			const controller = new AbortController();
+			controller.abort();
+
+			await expect(apiClient.get('/cancel', { signal: controller.signal })).rejects.toMatchObject({ code: 'ERR_CANCELED' });
+
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it('still rejects when no network error handler is registered', async () => {
+			mockedGetAccessToken.mockResolvedValue('token');
+			clientMock.onGet('/offline').networkError();
+
+			await expect(apiClient.get('/offline')).rejects.toBeTruthy();
+		});
+	});
+
+	describe('response interceptor - auth errors', () => {
+		it.each([401, 403])('refreshes the token and retries the original request with the new token on %i', async (status) => {
 			mockedGetAccessToken.mockResolvedValue('expired-token');
 			mockedGetRefreshToken.mockResolvedValue('valid-refresh-token');
-			mockedSetTokens.mockResolvedValue(undefined);
 
 			clientMock
-				.onGet('/protected').replyOnce(401, { message: 'Unauthorized' })
+				.onGet('/protected').replyOnce(status, { message: 'Unauthorized' })
 				.onGet('/protected').replyOnce(200, { data: 'secret' });
 
-			globalAxiosMock.onPost(`${API_URL}/auth/refresh`).reply(200, {
+			globalAxiosMock.onPost(REFRESH_URL).reply(200, {
 				accessToken: 'new-access-token',
 				refreshToken: 'new-refresh-token',
 			});
@@ -83,6 +126,8 @@ describe('apiClient', () => {
 
 			expect(response.data).toEqual({ data: 'secret' });
 			expect(mockedSetTokens).toHaveBeenCalledWith('new-access-token', 'new-refresh-token');
+			expect(JSON.parse(globalAxiosMock.history.post[0].data)).toEqual({ refreshToken: 'valid-refresh-token' });
+			expect(clientMock.history.get[1].headers?.Authorization).toBe('Bearer new-access-token');
 		});
 
 		it('does not attempt to refresh when the failing request is /auth/refresh itself', async () => {
@@ -107,11 +152,38 @@ describe('apiClient', () => {
 			expect(mockedGetRefreshToken).not.toHaveBeenCalled();
 		});
 
-		it('clears tokens and redirects to welcome when there is no refresh token available', async () => {
+		it('expires the session and rejects when there is no refresh token available', async () => {
 			mockedGetAccessToken.mockResolvedValue('expired-token');
 			mockedGetRefreshToken.mockResolvedValue(null);
+			clientMock.onGet('/protected').reply(401, { message: 'Unauthorized' });
+
+			await expect(apiClient.get('/protected')).rejects.toThrow('Missing refresh token');
+
+			expect(mockedClearTokens).toHaveBeenCalled();
+			expect(mockedRouterReplace).toHaveBeenCalledWith('/(auth)/welcome');
+			expect(globalAxiosMock.history.post).toHaveLength(0);
+		});
+
+		it('calls the session expired handler instead of redirecting when one is registered', async () => {
+			const sessionExpiredHandler = jest.fn();
+			setSessionExpiredHandler(sessionExpiredHandler);
+			mockedGetAccessToken.mockResolvedValue('expired-token');
+			mockedGetRefreshToken.mockResolvedValue(null);
+			clientMock.onGet('/protected').reply(401, { message: 'Unauthorized' });
+
+			await expect(apiClient.get('/protected')).rejects.toThrow('Missing refresh token');
+
+			expect(mockedClearTokens).toHaveBeenCalled();
+			expect(sessionExpiredHandler).toHaveBeenCalledTimes(1);
+			expect(mockedRouterReplace).not.toHaveBeenCalled();
+		});
+
+		it('expires the session when the refresh is rejected by the server', async () => {
+			mockedGetAccessToken.mockResolvedValue('expired-token');
+			mockedGetRefreshToken.mockResolvedValue('invalid-refresh-token');
 
 			clientMock.onGet('/protected').reply(401, { message: 'Unauthorized' });
+			globalAxiosMock.onPost(REFRESH_URL).reply(401, { message: 'Refresh token invalid' });
 
 			await expect(apiClient.get('/protected')).rejects.toMatchObject({
 				response: expect.objectContaining({ status: 401 }),
@@ -121,25 +193,39 @@ describe('apiClient', () => {
 			expect(mockedRouterReplace).toHaveBeenCalledWith('/(auth)/welcome');
 		});
 
-		it('clears tokens and redirects to welcome when the refresh call itself fails', async () => {
+		it('keeps the session when the refresh fails with a server error', async () => {
 			mockedGetAccessToken.mockResolvedValue('expired-token');
-			mockedGetRefreshToken.mockResolvedValue('invalid-refresh-token');
+			mockedGetRefreshToken.mockResolvedValue('valid-refresh-token');
 
 			clientMock.onGet('/protected').reply(401, { message: 'Unauthorized' });
-			globalAxiosMock.onPost(`${API_URL}/auth/refresh`).reply(401, { message: 'Refresh token invalid' });
+			globalAxiosMock.onPost(REFRESH_URL).reply(503, { message: 'Unavailable' });
+
+			await expect(apiClient.get('/protected')).rejects.toMatchObject({
+				response: expect.objectContaining({ status: 503 }),
+			});
+
+			expect(mockedClearTokens).not.toHaveBeenCalled();
+			expect(mockedRouterReplace).not.toHaveBeenCalled();
+		});
+
+		it('keeps the session when the refresh fails because of the network', async () => {
+			mockedGetAccessToken.mockResolvedValue('expired-token');
+			mockedGetRefreshToken.mockResolvedValue('valid-refresh-token');
+
+			clientMock.onGet('/protected').reply(401, { message: 'Unauthorized' });
+			globalAxiosMock.onPost(REFRESH_URL).networkError();
 
 			await expect(apiClient.get('/protected')).rejects.toBeTruthy();
 
-			expect(mockedClearTokens).toHaveBeenCalled();
-			expect(mockedRouterReplace).toHaveBeenCalledWith('/(auth)/welcome');
+			expect(mockedClearTokens).not.toHaveBeenCalled();
+			expect(mockedRouterReplace).not.toHaveBeenCalled();
 		});
 
 		it('does not attempt a second refresh for the same request if it fails again after a successful retry', async () => {
 			mockedGetAccessToken.mockResolvedValue('expired-token');
 			mockedGetRefreshToken.mockResolvedValue('valid-refresh-token');
-			mockedSetTokens.mockResolvedValue(undefined);
 
-			globalAxiosMock.onPost(`${API_URL}/auth/refresh`).reply(200, {
+			globalAxiosMock.onPost(REFRESH_URL).reply(200, {
 				accessToken: 'still-bad-token',
 				refreshToken: 'still-bad-refresh',
 			});
@@ -150,16 +236,15 @@ describe('apiClient', () => {
 				response: expect.objectContaining({ status: 401 }),
 			});
 
-			const refreshCalls = globalAxiosMock.history.post.filter(r => r.url === `${API_URL}/auth/refresh`);
+			const refreshCalls = globalAxiosMock.history.post.filter(request => request.url === REFRESH_URL);
 			expect(refreshCalls).toHaveLength(1);
 		});
 
-		it('queues concurrent requests while a refresh is already in progress and resolves them all with the new token', async () => {
+		it('shares a single refresh between concurrent requests and resolves them all with the new token', async () => {
 			mockedGetAccessToken.mockResolvedValue('expired-token');
 			mockedGetRefreshToken.mockResolvedValue('valid-refresh-token');
-			mockedSetTokens.mockResolvedValue(undefined);
 
-			globalAxiosMock.onPost(`${API_URL}/auth/refresh`).reply(200, {
+			globalAxiosMock.onPost(REFRESH_URL).reply(200, {
 				accessToken: 'new-access-token',
 				refreshToken: 'new-refresh-token',
 			});
@@ -178,8 +263,47 @@ describe('apiClient', () => {
 			expect(first.data).toEqual({ data: 'first-ok' });
 			expect(second.data).toEqual({ data: 'second-ok' });
 
-			const refreshCalls = globalAxiosMock.history.post.filter(r => r.url === `${API_URL}/auth/refresh`);
+			const refreshCalls = globalAxiosMock.history.post.filter(request => request.url === REFRESH_URL);
 			expect(refreshCalls).toHaveLength(1);
+		});
+	});
+
+	describe('refreshSession', () => {
+		it('returns the same pending refresh to concurrent callers', async () => {
+			mockedGetRefreshToken.mockResolvedValue('valid-refresh-token');
+			globalAxiosMock.onPost(REFRESH_URL).reply(200, {
+				accessToken: 'new-access-token',
+				refreshToken: 'new-refresh-token',
+			});
+
+			const [first, second] = await Promise.all([refreshSession(), refreshSession()]);
+
+			expect(first).toBe('new-access-token');
+			expect(second).toBe('new-access-token');
+			expect(globalAxiosMock.history.post).toHaveLength(1);
+		});
+
+		it('starts a new refresh once the previous one has completed', async () => {
+			mockedGetRefreshToken.mockResolvedValue('valid-refresh-token');
+			globalAxiosMock.onPost(REFRESH_URL).reply(200, {
+				accessToken: 'new-access-token',
+				refreshToken: 'new-refresh-token',
+			});
+
+			await refreshSession();
+			await refreshSession();
+
+			expect(globalAxiosMock.history.post).toHaveLength(2);
+		});
+
+		it('allows a new refresh after a failed one', async () => {
+			mockedGetRefreshToken.mockResolvedValue('valid-refresh-token');
+			globalAxiosMock
+				.onPost(REFRESH_URL).replyOnce(503)
+				.onPost(REFRESH_URL).replyOnce(200, { accessToken: 'new-access-token', refreshToken: 'new-refresh-token' });
+
+			await expect(refreshSession()).rejects.toBeTruthy();
+			await expect(refreshSession()).resolves.toBe('new-access-token');
 		});
 	});
 });

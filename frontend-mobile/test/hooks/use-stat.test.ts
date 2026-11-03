@@ -1,99 +1,110 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient } from '@tanstack/react-query';
 
-import { useHomeStats } from '@/hooks/use-stat';
-import { listCollection } from '@/api/collection';
-import { getWinStats } from '@/api/match';
+import { MY_STATS_KEY, useMyStats } from '@/hooks/use-stat';
+import { getMyStats } from '@/api/stats';
+import { syncWidgets } from '@/widgets/widget-registry';
 
 import { createWrapper } from '@/test/helpers/test-utils';
 
-jest.mock('@/api/collection');
-jest.mock('@/api/match');
+jest.mock('@/api/stats', () => ({
+	getMyStats: jest.fn(),
+}));
 
-const mockedListCollection = listCollection as jest.MockedFunction<typeof listCollection>;
-const mockedGetWinStats = getWinStats as jest.MockedFunction<typeof getWinStats>;
+jest.mock('@/widgets/widget-registry', () => ({
+	syncWidgets: jest.fn(),
+}));
 
-describe('useHomeStats', () => {
+const mockedGetMyStats = jest.mocked(getMyStats);
+const mockedSyncWidgets = jest.mocked(syncWidgets);
+
+const stats = { totalMatches: 12, totalWins: 5, totalGames: 8, totalFriends: 3 };
+
+describe('useMyStats', () => {
 	let queryClient: QueryClient;
 
+	const renderStats = async () => {
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		return renderHook(() => useMyStats(), { wrapper: wrapperResult.wrapper });
+	}
+
 	beforeEach(() => {
-		jest.clearAllMocks();
+		jest.resetAllMocks();
+		mockedSyncWidgets.mockResolvedValue(undefined);
 	});
 
 	afterEach(() => {
 		queryClient?.clear();
 	});
 
-	it('returns default zero values while loading', async () => {
-		mockedGetWinStats.mockImplementation(() => new Promise(() => {}));
-		mockedListCollection.mockImplementation(() => new Promise(() => {}));
+	it('returns zero values while loading', async () => {
+		mockedGetMyStats.mockImplementation(() => new Promise(() => {}));
 
-		const { wrapper } = createWrapper();
+		const { result } = await renderStats();
 
-		const { result } = await renderHook(() => useHomeStats(), { wrapper });
-
-		expect(result.current.totalMatches).toBe(0);
-		expect(result.current.totalWins).toBe(0);
-		expect(result.current.totalGames).toBe(0);
-		expect(result.current.isLoading).toBe(true);
+		expect(result.current).toEqual({ totalMatches: 0, totalWins: 0, totalGames: 0, totalFriends: 0, isLoading: true });
+		expect(mockedSyncWidgets).not.toHaveBeenCalled();
 	});
 
-	it('returns the combined stats once both queries resolve', async () => {
-		mockedGetWinStats.mockResolvedValueOnce({ totalMatches: 12, totalWins: 5 } as any);
-		mockedListCollection.mockResolvedValueOnce({ totalElements: 8 } as any);
+	it('returns the stats once loaded and caches them under the shared key', async () => {
+		mockedGetMyStats.mockResolvedValueOnce(stats as any);
 
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		const { result } = await renderHook(() => useHomeStats(), { wrapper: wrapperResult.wrapper });
+		const { result } = await renderStats();
 
 		await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+		expect(result.current).toEqual({ ...stats, isLoading: false });
+		expect(mockedGetMyStats).toHaveBeenCalledTimes(1);
+		expect(queryClient.getQueryData(MY_STATS_KEY)).toEqual(stats);
+	});
+
+	it('syncs the home screen widgets with the loaded stats', async () => {
+		mockedGetMyStats.mockResolvedValueOnce(stats as any);
+
+		await renderStats();
+
+		await waitFor(() => expect(mockedSyncWidgets).toHaveBeenCalledWith(stats));
+	});
+
+	it('syncs the widgets again when the stats change', async () => {
+		mockedGetMyStats.mockResolvedValueOnce(stats as any);
+
+		await renderStats();
+
+		await waitFor(() => expect(mockedSyncWidgets).toHaveBeenCalledTimes(1));
+
+		const updated = { ...stats, totalWins: 6 };
+
+		await act(async () => {
+			queryClient.setQueryData(MY_STATS_KEY, updated);
+		});
+
+		await waitFor(() => expect(mockedSyncWidgets).toHaveBeenLastCalledWith(updated));
+	});
+
+	it('falls back to zero values and does not sync the widgets when the request fails', async () => {
+		mockedGetMyStats.mockRejectedValueOnce(new Error('Network error'));
+
+		const { result } = await renderStats();
+
+		await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+		expect(result.current.totalMatches).toBe(0);
+		expect(result.current.totalFriends).toBe(0);
+		expect(mockedSyncWidgets).not.toHaveBeenCalled();
+	});
+
+	it('logs without throwing when syncing the widgets fails', async () => {
+		const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+		mockedGetMyStats.mockResolvedValueOnce(stats as any);
+		mockedSyncWidgets.mockRejectedValueOnce(new Error('Widget error'));
+
+		const { result } = await renderStats();
+
+		await waitFor(() => expect(consoleLog).toHaveBeenCalledWith('Failed to sync widgets:', expect.any(Error)));
 		expect(result.current.totalMatches).toBe(12);
-		expect(result.current.totalWins).toBe(5);
-		expect(result.current.totalGames).toBe(8);
-	});
-
-	it('calls listCollection with page 0 and size 1', async () => {
-		mockedGetWinStats.mockResolvedValueOnce({ totalMatches: 0, totalWins: 0 } as any);
-		mockedListCollection.mockResolvedValueOnce({ totalElements: 0 } as any);
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		await renderHook(() => useHomeStats(), { wrapper: wrapperResult.wrapper });
-
-		await waitFor(() => expect(mockedListCollection).toHaveBeenCalledWith({ page: 0, size: 1 }));
-	});
-
-	it('remains loading if only one of the two queries has resolved', async () => {
-		mockedGetWinStats.mockResolvedValueOnce({ totalMatches: 3, totalWins: 1 } as any);
-		mockedListCollection.mockImplementation(() => new Promise(() => {}));
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		const { result } = await renderHook(() => useHomeStats(), { wrapper: wrapperResult.wrapper });
-
-		await waitFor(() => expect(result.current.totalMatches).toBe(3));
-
-		expect(result.current.isLoading).toBe(true);
-		expect(result.current.totalGames).toBe(0);
-	});
-
-	it('falls back to zero when winStats data is undefined after an error', async () => {
-		mockedGetWinStats.mockRejectedValueOnce(new Error('Network error'));
-		mockedListCollection.mockResolvedValueOnce({ totalElements: 4 } as any);
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		const { result } = await renderHook(() => useHomeStats(), { wrapper: wrapperResult.wrapper });
-
-		await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-		expect(result.current.totalMatches).toBe(0);
-		expect(result.current.totalWins).toBe(0);
-		expect(result.current.totalGames).toBe(4);
+		consoleLog.mockRestore();
 	});
 });

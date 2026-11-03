@@ -12,21 +12,34 @@ jest.mock('expo-router', () => ({
 	},
 }));
 
-const mockedPush = expoRouter.push as jest.MockedFunction<typeof expoRouter.push>;
-const mockedReplace = expoRouter.replace as jest.MockedFunction<typeof expoRouter.replace>;
+let mockIsAuthenticated = true;
+
+jest.mock('@/contexts/auth-context', () => ({
+	useAuth: () => ({ isAuthenticated: mockIsAuthenticated }),
+}));
+
+const mockedPush = jest.mocked(expoRouter.push);
+const mockedReplace = jest.mocked(expoRouter.replace);
+
+const HOME_ROUTE = '/(tabs)/home';
+const WELCOME_ROUTE = '/(auth)/welcome';
 
 const wrapper = ({ children }: { children: ReactNode }) => (
 	<NavigationStackProvider>{children}</NavigationStackProvider>
 );
 
+const renderNavigation = () => renderHook(() => useNavigationStack(), { wrapper });
+
 describe('NavigationStackProvider / useNavigationStack', () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
+		jest.restoreAllMocks();
+		mockIsAuthenticated = true;
 	});
 
 	describe('push', () => {
 		it('calls expo-router push with the given href', async () => {
-			const { result } = await renderHook(() => useNavigationStack(), { wrapper });
+			const { result } = await renderNavigation();
 
 			await act(async () => {
 				result.current.push('/game/13');
@@ -36,74 +49,24 @@ describe('NavigationStackProvider / useNavigationStack', () => {
 		});
 
 		it('accepts a pathname/params object', async () => {
-			const { result } = await renderHook(() => useNavigationStack(), { wrapper });
+			const { result } = await renderNavigation();
+			const href = { pathname: '/(auth)/activate', params: { identifier: 'test@example.com' } };
 
 			await act(async () => {
-				result.current.push({ pathname: '/(auth)/activate', params: { identifier: 'test@example.com' } });
+				result.current.push(href);
 			});
 
-			expect(mockedPush).toHaveBeenCalledWith({ pathname: '/(auth)/activate', params: { identifier: 'test@example.com' } });
-		});
-
-		it('adds the href to the internal stack so a later back() returns to the previous entry', async () => {
-			const { result } = await renderHook(() => useNavigationStack(), { wrapper });
-
-			await act(async () => {
-				result.current.push('/game/1');
-			});
-			await act(async () => {
-				result.current.push('/game/2');
-			});
-			await act(async () => {
-				result.current.back();
-			});
-
-			expect(mockedReplace).toHaveBeenCalledWith('/game/1');
-		});
-	});
-
-	describe('replace', () => {
-		it('calls expo-router replace with the given href', async () => {
-			const { result } = await renderHook(() => useNavigationStack(), { wrapper });
-
-			await act(async () => {
-				result.current.replace('/(auth)/login');
-			});
-
-			expect(mockedReplace).toHaveBeenCalledWith('/(auth)/login');
-		});
-
-		it('resets the internal stack to just the new href', async () => {
-			const { result } = await renderHook(() => useNavigationStack(), { wrapper });
-
-			await act(async () => {
-				result.current.push('/game/1');
-			});
-			await act(async () => {
-				result.current.push('/game/2');
-			});
-			await act(async () => {
-				result.current.replace('/home');
-			});
-			await act(async () => {
-				result.current.back();
-			});
-
-			expect(mockedReplace).toHaveBeenLastCalledWith('/(tabs)/home');
+			expect(mockedPush).toHaveBeenCalledWith(href);
 		});
 	});
 
 	describe('back', () => {
 		it('pops the current entry and navigates to the previous one', async () => {
-			const { result } = await renderHook(() => useNavigationStack(), { wrapper });
+			const { result } = await renderNavigation();
 
 			await act(async () => {
 				result.current.push('/first');
-			});
-			await act(async () => {
 				result.current.push('/second');
-			});
-			await act(async () => {
 				result.current.push('/third');
 			});
 			await act(async () => {
@@ -113,39 +76,12 @@ describe('NavigationStackProvider / useNavigationStack', () => {
 			expect(mockedReplace).toHaveBeenCalledWith('/second');
 		});
 
-		it('navigates to home when there is only one entry left in the stack', async () => {
-			const { result } = await renderHook(() => useNavigationStack(), { wrapper });
-
-			await act(async () => {
-				result.current.push('/only-entry');
-			});
-			await act(async () => {
-				result.current.back();
-			});
-
-			expect(mockedReplace).toHaveBeenCalledWith('/(tabs)/home');
-		});
-
-		it('navigates to home when the stack is already empty', async () => {
-			const { result } = await renderHook(() => useNavigationStack(), { wrapper });
-
-			await act(async () => {
-				result.current.back();
-			});
-
-			expect(mockedReplace).toHaveBeenCalledWith('/(tabs)/home');
-		});
-
-		it('supports repeated back navigation through multiple pushes', async () => {
-			const { result } = await renderHook(() => useNavigationStack(), { wrapper });
+		it('supports repeated back navigation down to home', async () => {
+			const { result } = await renderNavigation();
 
 			await act(async () => {
 				result.current.push('/a');
-			});
-			await act(async () => {
 				result.current.push('/b');
-			});
-			await act(async () => {
 				result.current.push('/c');
 			});
 
@@ -162,18 +98,97 @@ describe('NavigationStackProvider / useNavigationStack', () => {
 			await act(async () => {
 				result.current.back();
 			});
-			expect(mockedReplace).toHaveBeenLastCalledWith('/(tabs)/home');
+			expect(mockedReplace).toHaveBeenLastCalledWith(HOME_ROUTE);
+		});
+
+		it('falls back to home when the stack is empty and the user is authenticated', async () => {
+			const { result } = await renderNavigation();
+
+			await act(async () => {
+				result.current.back();
+			});
+
+			expect(mockedReplace).toHaveBeenCalledWith(HOME_ROUTE);
+		});
+
+		it('falls back to welcome when the stack is empty and the user is logged out', async () => {
+			mockIsAuthenticated = false;
+			const { result } = await renderNavigation();
+
+			await act(async () => {
+				result.current.push('/(auth)/login');
+			});
+			await act(async () => {
+				result.current.back();
+			});
+
+			expect(mockedReplace).toHaveBeenCalledWith(WELCOME_ROUTE);
+		});
+
+		it('uses the latest authentication state for the fallback', async () => {
+			const { result, rerender } = await renderNavigation();
+
+			mockIsAuthenticated = false;
+			await rerender({});
+
+			await act(async () => {
+				result.current.back();
+			});
+
+			expect(mockedReplace).toHaveBeenCalledWith(WELCOME_ROUTE);
+		});
+	});
+
+	describe('replace', () => {
+		it('calls expo-router replace with the given href', async () => {
+			const { result } = await renderNavigation();
+
+			await act(async () => {
+				result.current.replace('/(auth)/login');
+			});
+
+			expect(mockedReplace).toHaveBeenCalledWith('/(auth)/login');
+		});
+
+		it('resets the stack to just the new href, so back goes to the fallback', async () => {
+			const { result } = await renderNavigation();
+
+			await act(async () => {
+				result.current.push('/game/1');
+				result.current.push('/game/2');
+				result.current.replace('/wishlist/1');
+			});
+			await act(async () => {
+				result.current.back();
+			});
+
+			expect(mockedReplace).toHaveBeenLastCalledWith(HOME_ROUTE);
+		});
+
+		it.each([HOME_ROUTE, WELCOME_ROUTE])('empties the stack when replacing with the root route %s', async (route) => {
+			let capturedHandler: (() => boolean) | undefined;
+			jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_event, handler) => {
+				capturedHandler = handler as () => boolean;
+				return { remove: jest.fn() };
+			});
+
+			const { result } = await renderNavigation();
+
+			await act(async () => {
+				result.current.push('/game/1');
+				result.current.replace(route);
+			});
+
+			expect(capturedHandler?.()).toBe(false);
 		});
 	});
 
 	describe('dismissAll', () => {
-		it('clears the internal stack without navigating', async () => {
-			const { result } = await renderHook(() => useNavigationStack(), { wrapper });
+		it('clears the stack without navigating, so a later back() goes straight to home', async () => {
+			const { result } = await renderNavigation();
 
 			await act(async () => {
 				result.current.push('/a');
-			});
-			await act(async () => {
 				result.current.push('/b');
 			});
 
@@ -186,89 +201,75 @@ describe('NavigationStackProvider / useNavigationStack', () => {
 
 			expect(mockedPush).not.toHaveBeenCalled();
 			expect(mockedReplace).not.toHaveBeenCalled();
-		});
 
-		it('leaves the stack empty so a later back() goes straight to home', async () => {
-			const { result } = await renderHook(() => useNavigationStack(), { wrapper });
-
-			await act(async () => {
-				result.current.push('/a');
-			});
-			await act(async () => {
-				result.current.push('/b');
-			});
-			await act(async () => {
-				result.current.dismissAll();
-			});
 			await act(async () => {
 				result.current.back();
 			});
 
-			expect(mockedReplace).toHaveBeenCalledWith('/(tabs)/home');
+			expect(mockedReplace).toHaveBeenCalledWith(HOME_ROUTE);
 		});
 	});
 
 	describe('hardware back button', () => {
-		it('registers a hardwareBackPress listener on mount', async () => {
-			const addEventListenerSpy = jest.spyOn(BackHandler, 'addEventListener');
+		let capturedHandler: (() => boolean) | undefined;
+		const removeMock = jest.fn();
 
-			await renderHook(() => useNavigationStack(), { wrapper });
-
-			expect(addEventListenerSpy).toHaveBeenCalledWith('hardwareBackPress', expect.any(Function));
-		});
-
-		it('calls back() when the hardware back button is pressed', async () => {
-			let capturedHandler: (() => boolean) | undefined;
-
+		beforeEach(() => {
+			capturedHandler = undefined;
 			jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_event, handler) => {
 				capturedHandler = handler as () => boolean;
-				return { remove: jest.fn() };
+				return { remove: removeMock };
 			});
+		});
 
-			const { result } = await renderHook(() => useNavigationStack(), { wrapper });
+		it('registers a hardwareBackPress listener on mount', async () => {
+			await renderNavigation();
+
+			expect(BackHandler.addEventListener).toHaveBeenCalledWith('hardwareBackPress', expect.any(Function));
+		});
+
+		it('navigates back and consumes the event when the stack is not empty', async () => {
+			const { result } = await renderNavigation();
 
 			await act(async () => {
 				result.current.push('/a');
-			});
-			await act(async () => {
 				result.current.push('/b');
 			});
 
 			mockedReplace.mockClear();
 
+			let handled: boolean | undefined;
 			await act(async () => {
-				capturedHandler?.();
+				handled = capturedHandler?.();
 			});
 
+			expect(handled).toBe(true);
 			expect(mockedReplace).toHaveBeenCalledWith('/a');
 		});
 
-        it('removes the listener on unmount', async () => {
-            const removeMock = jest.fn();
-            jest.spyOn(BackHandler, 'addEventListener').mockReturnValue({ remove: removeMock } as any);
+		it('lets the system handle the event when the stack is empty', async () => {
+			await renderNavigation();
 
-            const { unmount } = await renderHook(() => useNavigationStack(), { wrapper });
+			expect(capturedHandler?.()).toBe(false);
+			expect(mockedReplace).not.toHaveBeenCalled();
+		});
 
-            await act(async () => {
-                unmount();
-            });
+		it('removes the listener on unmount', async () => {
+			const { unmount } = await renderNavigation();
 
-            expect(removeMock).toHaveBeenCalled();
-        });
+			await act(async () => {
+				await unmount();
+			});
+
+			expect(removeMock).toHaveBeenCalled();
+		});
 	});
 
 	describe('useNavigationStack outside provider', () => {
 		it('throws when used without a provider', async () => {
-			const { result } = await renderHook(() => {
-				try {
-					return useNavigationStack();
-				} catch(error) {
-					return error;
-				}
-			});
-
-			expect(result.current).toBeInstanceOf(Error);
-			expect((result.current as Error).message).toBe('useNavigationStack must be used within a NavigationStackProvider');
+			await expect(renderHook(() => useNavigationStack())).rejects.toThrow(
+				'useNavigationStack must be used within a NavigationStackProvider'
+			);
 		});
 	});
 });

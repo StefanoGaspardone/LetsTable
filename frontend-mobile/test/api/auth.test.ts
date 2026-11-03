@@ -1,5 +1,5 @@
 import { apiClient } from '@/api/client';
-import { signup, activate, resendActivationOtp, login, forgotPassword, resetPassword } from '@/api/auth';
+import { signup, activate, resendActivationOtp, login, logout, forgotPassword, resetPassword } from '@/api/auth';
 
 jest.mock('@/api/client', () => ({
 	apiClient: {
@@ -7,7 +7,7 @@ jest.mock('@/api/client', () => ({
 	},
 }));
 
-const mockedPost = apiClient.post as jest.MockedFunction<typeof apiClient.post>;
+const mockedPost = jest.mocked(apiClient.post);
 
 describe('auth API', () => {
 	beforeEach(() => {
@@ -65,29 +65,41 @@ describe('auth API', () => {
 		});
 	});
 
-	describe('forgotPassword', () => {
-		it('posts to /auth/password/forgot with the identifier', async () => {
+	describe('logout', () => {
+		it('posts to /auth/logout with the refresh token', async () => {
 			mockedPost.mockResolvedValueOnce({} as any);
 
-			await forgotPassword('stefano@example.com');
+			await logout('refresh-token');
 
-			expect(mockedPost).toHaveBeenCalledWith('/auth/password/forgot', {
-				identifier: 'stefano@example.com',
-			});
+			expect(mockedPost).toHaveBeenCalledWith('/auth/logout', { refreshToken: 'refresh-token' });
+		});
+	});
+
+	describe('forgotPassword', () => {
+		it('posts to /auth/password/forgot with the given payload', async () => {
+			const payload = { identifier: 'stefano@example.com' };
+			mockedPost.mockResolvedValueOnce({} as any);
+
+			await forgotPassword(payload as any);
+
+			expect(mockedPost).toHaveBeenCalledWith('/auth/password/forgot', payload);
 		});
 	});
 
 	describe('resetPassword', () => {
-		it('posts to /auth/password/reset with identifier, otpCode, and newPassword', async () => {
+		it('posts to /auth/password/reset with the given payload', async () => {
+			const payload = { identifier: 'stefano@example.com', otpCode: '123456', newPassword: 'newPassword123' };
 			mockedPost.mockResolvedValueOnce({} as any);
 
-			await resetPassword('stefano@example.com', '123456', 'newPassword123');
+			await resetPassword(payload as any);
 
-			expect(mockedPost).toHaveBeenCalledWith('/auth/password/reset', {
-				identifier: 'stefano@example.com',
-				otpCode: '123456',
-				newPassword: 'newPassword123',
-			});
+			expect(mockedPost).toHaveBeenCalledWith('/auth/password/reset', payload);
 		});
+	});
+
+	it('propagates errors from the API client', async () => {
+		mockedPost.mockRejectedValueOnce(new Error('Network error'));
+
+		await expect(login({ identifier: 'stefano', password: 'x' } as any)).rejects.toThrow('Network error');
 	});
 });

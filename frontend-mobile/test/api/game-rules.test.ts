@@ -1,7 +1,9 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
-import { apiClient } from '@/api/client';
+import { apiClient, refreshSession } from '@/api/client';
 import { listGameRules, uploadGameRule, deleteGameRule, downloadRuleFile } from '@/api/game-rules';
+
+import { tokenStorage } from '@/lib/token-storage';
 
 jest.mock('@/api/client', () => ({
 	apiClient: {
@@ -9,18 +11,42 @@ jest.mock('@/api/client', () => ({
 		post: jest.fn(),
 		delete: jest.fn(),
 	},
+	refreshSession: jest.fn(),
+}));
+
+jest.mock('@/lib/token-storage', () => ({
+	tokenStorage: {
+		getAccessToken: jest.fn(),
+	},
+}));
+
+jest.mock('@/lib/file', () => ({
+	getRuleFileDownloadUrl: (gameId: string, fileId: string) => `https://api.test/games/${gameId}/rules/${fileId}/download`,
 }));
 
 jest.mock('expo-file-system/legacy', () => ({
 	cacheDirectory: 'file:///cache/',
-	writeAsStringAsync: jest.fn(),
-	EncodingType: { Base64: 'base64' },
+	getInfoAsync: jest.fn(),
+	makeDirectoryAsync: jest.fn(),
+	downloadAsync: jest.fn(),
+	deleteAsync: jest.fn(),
 }));
 
-const mockedGet = apiClient.get as jest.MockedFunction<typeof apiClient.get>;
-const mockedPost = apiClient.post as jest.MockedFunction<typeof apiClient.post>;
-const mockedDelete = apiClient.delete as jest.MockedFunction<typeof apiClient.delete>;
-const mockedWriteAsStringAsync = FileSystem.writeAsStringAsync as jest.MockedFunction<typeof FileSystem.writeAsStringAsync>;
+const mockedGet = jest.mocked(apiClient.get);
+const mockedPost = jest.mocked(apiClient.post);
+const mockedDelete = jest.mocked(apiClient.delete);
+const mockedRefreshSession = jest.mocked(refreshSession);
+const mockedGetAccessToken = jest.mocked(tokenStorage.getAccessToken);
+const mockedGetInfoAsync = jest.mocked(FileSystem.getInfoAsync);
+const mockedMakeDirectoryAsync = jest.mocked(FileSystem.makeDirectoryAsync);
+const mockedDownloadAsync = jest.mocked(FileSystem.downloadAsync);
+const mockedDeleteAsync = jest.mocked(FileSystem.deleteAsync);
+
+const DOWNLOAD_URL = 'https://api.test/games/game-1/rules/file-1/download';
+const LOCAL_DIRECTORY = 'file:///cache/rules/file-1/';
+const LOCAL_URI = `${LOCAL_DIRECTORY}rules.pdf`;
+
+const downloadResult = (status: number) => ({ status, uri: LOCAL_URI, headers: {}, md5: undefined, mimeType: null }) as any;
 
 describe('game-rules API', () => {
 	beforeEach(() => {
@@ -54,15 +80,10 @@ describe('game-rules API', () => {
 			expect(result).toEqual(responseData);
 		});
 
-		it('logs and rethrows the error when the upload fails', async () => {
-			const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
-			const error = new Error('Upload failed');
-			mockedPost.mockRejectedValueOnce(error);
+		it('rethrows the error when the upload fails', async () => {
+			mockedPost.mockRejectedValueOnce(new Error('Upload failed'));
 
 			await expect(uploadGameRule('game-1', 'file:///local/rules.pdf', 'rules.pdf', 'application/pdf')).rejects.toThrow('Upload failed');
-
-			expect(consoleLog).toHaveBeenCalled();
-			consoleLog.mockRestore();
 		});
 	});
 
@@ -77,42 +98,89 @@ describe('game-rules API', () => {
 	});
 
 	describe('downloadRuleFile', () => {
-		it('requests the file as an arraybuffer', async () => {
-			const buffer = new Uint8Array([72, 101, 108, 108, 111]).buffer;
-			mockedGet.mockResolvedValueOnce({ data: buffer } as any);
-			mockedWriteAsStringAsync.mockResolvedValueOnce(undefined);
+		beforeEach(() => {
+			mockedGetInfoAsync.mockResolvedValue({ exists: false } as any);
+			mockedGetAccessToken.mockResolvedValue('access-token');
+			mockedDownloadAsync.mockResolvedValue(downloadResult(200));
+		});
 
-			await downloadRuleFile('game-1', 'file-1', 'rules.pdf');
+		it('returns the cached file without downloading it again', async () => {
+			mockedGetInfoAsync.mockResolvedValueOnce({ exists: true } as any);
 
-			expect(mockedGet).toHaveBeenCalledWith('/games/game-1/rules/file-1/download', {
-				responseType: 'arraybuffer',
+			const result = await downloadRuleFile('game-1', 'file-1', 'rules.pdf');
+
+			expect(result).toBe(LOCAL_URI);
+			expect(mockedGetInfoAsync).toHaveBeenCalledWith(LOCAL_URI);
+			expect(mockedMakeDirectoryAsync).not.toHaveBeenCalled();
+			expect(mockedDownloadAsync).not.toHaveBeenCalled();
+		});
+
+		it('creates the cache directory and downloads the file with the access token', async () => {
+			const result = await downloadRuleFile('game-1', 'file-1', 'rules.pdf');
+
+			expect(result).toBe(LOCAL_URI);
+			expect(mockedMakeDirectoryAsync).toHaveBeenCalledWith(LOCAL_DIRECTORY, { intermediates: true });
+			expect(mockedDownloadAsync).toHaveBeenCalledWith(DOWNLOAD_URL, LOCAL_URI, {
+				headers: { Authorization: 'Bearer access-token' },
 			});
 		});
 
-		it('writes the decoded file to the correct local path', async () => {
-			const buffer = new Uint8Array([72, 101, 108, 108, 111]).buffer;
-			mockedGet.mockResolvedValueOnce({ data: buffer } as any);
-			mockedWriteAsStringAsync.mockResolvedValueOnce(undefined);
-
-			const localUri = await downloadRuleFile('game-1', 'file-1', 'rules.pdf');
-
-			expect(localUri).toBe('file:///cache/rules.pdf');
-			expect(mockedWriteAsStringAsync).toHaveBeenCalledWith(
-				'file:///cache/rules.pdf',
-				expect.any(String),
-				{ encoding: 'base64' }
-			);
-		});
-
-		it('encodes the binary response as base64 before writing', async () => {
-			const buffer = new Uint8Array([72, 101, 108, 108, 111]).buffer;
-			mockedGet.mockResolvedValueOnce({ data: buffer } as any);
-			mockedWriteAsStringAsync.mockResolvedValueOnce(undefined);
+		it('downloads without an Authorization header when there is no access token', async () => {
+			mockedGetAccessToken.mockResolvedValueOnce(null);
 
 			await downloadRuleFile('game-1', 'file-1', 'rules.pdf');
 
-			const writtenBase64 = mockedWriteAsStringAsync.mock.calls[0][1];
-			expect(writtenBase64).toBe('SGVsbG8=');
+			expect(mockedDownloadAsync).toHaveBeenCalledWith(DOWNLOAD_URL, LOCAL_URI, { headers: {} });
+		});
+
+		it.each([401, 403])('refreshes the session and retries once when the server responds %i', async (status) => {
+			mockedGetAccessToken
+				.mockResolvedValueOnce('expired-token')
+				.mockResolvedValueOnce('fresh-token');
+			mockedDownloadAsync
+				.mockResolvedValueOnce(downloadResult(status))
+				.mockResolvedValueOnce(downloadResult(200));
+			mockedRefreshSession.mockResolvedValueOnce(undefined as any);
+
+			const result = await downloadRuleFile('game-1', 'file-1', 'rules.pdf');
+
+			expect(result).toBe(LOCAL_URI);
+			expect(mockedRefreshSession).toHaveBeenCalledTimes(1);
+			expect(mockedDownloadAsync).toHaveBeenCalledTimes(2);
+			expect(mockedDownloadAsync).toHaveBeenLastCalledWith(DOWNLOAD_URL, LOCAL_URI, {
+				headers: { Authorization: 'Bearer fresh-token' },
+			});
+			expect(mockedDeleteAsync).not.toHaveBeenCalled();
+		});
+
+		it('deletes the partial file and throws when the download fails', async () => {
+			mockedDownloadAsync.mockResolvedValueOnce(downloadResult(500));
+
+			await expect(downloadRuleFile('game-1', 'file-1', 'rules.pdf')).rejects.toThrow('Rule file download failed with status 500');
+
+			expect(mockedRefreshSession).not.toHaveBeenCalled();
+			expect(mockedDeleteAsync).toHaveBeenCalledWith(LOCAL_URI, { idempotent: true });
+		});
+
+		it('throws when the retry after refreshing the session still fails', async () => {
+			mockedDownloadAsync
+				.mockResolvedValueOnce(downloadResult(401))
+				.mockResolvedValueOnce(downloadResult(401));
+			mockedRefreshSession.mockResolvedValueOnce(undefined as any);
+
+			await expect(downloadRuleFile('game-1', 'file-1', 'rules.pdf')).rejects.toThrow('Rule file download failed with status 401');
+
+			expect(mockedRefreshSession).toHaveBeenCalledTimes(1);
+			expect(mockedDeleteAsync).toHaveBeenCalledWith(LOCAL_URI, { idempotent: true });
+		});
+
+		it('propagates the error when refreshing the session fails', async () => {
+			mockedDownloadAsync.mockResolvedValueOnce(downloadResult(401));
+			mockedRefreshSession.mockRejectedValueOnce(new Error('Session expired'));
+
+			await expect(downloadRuleFile('game-1', 'file-1', 'rules.pdf')).rejects.toThrow('Session expired');
+
+			expect(mockedDownloadAsync).toHaveBeenCalledTimes(1);
 		});
 	});
 });

@@ -1,20 +1,29 @@
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient } from '@tanstack/react-query';
 
-import { useGameDetail, useHotGames, useGameSearch, useCollectionStatus, useDefaultWishlistStatus, useToggleCollection, useToggleDefaultWishlist } from '@/hooks/use-game';
+import { useGameDetail, useHotGames, useGameSearch, useCollectionStatus, useDefaultWishlistStatus, useToggleCollection, useToggleDefaultWishlist, useGameRules, useGameExpansions, useOverallGames } from '@/hooks/use-game';
 import { useDefaultWishlistId } from '@/hooks/use-wishlist';
 
-import { getGameByBggId, getHotGames, searchGame } from '@/api/game';
+import { getGameByBggId, getGameExpansions, getHotGames, getOverallGames, searchGame } from '@/api/game';
 import { addToCollection, getGameStatusInCollection, removeFromCollection } from '@/api/collection';
-import { addItemToWishlist, getItemStatusInWishlist, removeItemFromWishlist } from '@/api/wishlist';
+import { addItemToWishlist, getItemStatusInWishlist, getMyDefaultWishlist, removeItemFromWishlist } from '@/api/wishlist';
+import { listGameRules } from '@/api/game-rules';
 
 import { createWrapper } from '@/test/helpers/test-utils';
 
 jest.mock('@/api/game');
 jest.mock('@/api/collection');
 jest.mock('@/api/wishlist');
-jest.mock('@/hooks/use-wishlist');
+jest.mock('@/hooks/use-wishlist', () => ({
+	...jest.requireActual('@/hooks/use-wishlist'),
+	useDefaultWishlistId: jest.fn(),
+}));
+jest.mock('@/api/game-rules');
 
+const mockedGetMyDefaultWishlist = jest.mocked(getMyDefaultWishlist);
+const mockedGetOverallGames = jest.mocked(getOverallGames);
+const mockedGetGameExpansions = jest.mocked(getGameExpansions);
+const mockedListGameRules = jest.mocked(listGameRules);
 const mockedGetGameByBggId = getGameByBggId as jest.MockedFunction<typeof getGameByBggId>;
 const mockedGetHotGames = getHotGames as jest.MockedFunction<typeof getHotGames>;
 const mockedSearchGame = searchGame as jest.MockedFunction<typeof searchGame>;
@@ -203,7 +212,7 @@ describe('useToggleCollection', () => {
 	let queryClient: QueryClient;
 
 	beforeEach(() => {
-		jest.clearAllMocks();
+		jest.resetAllMocks();
 	});
 
 	afterEach(() => {
@@ -238,7 +247,7 @@ describe('useToggleCollection', () => {
 		expect(mockedAddToCollection).not.toHaveBeenCalled();
 	});
 
-	it('invalidates the correct queries on success', async () => {
+	it('refreshes every collection query and the stats on success', async () => {
 		mockedAddToCollection.mockResolvedValueOnce(undefined as any);
 
 		const wrapperResult = createWrapper();
@@ -249,8 +258,8 @@ describe('useToggleCollection', () => {
 
 		await result.current.mutateAsync({ gameId: 'game-1', itemId: null });
 
-		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['collection', 'status', 'game-1'] });
 		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['collection'] });
+		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['me', 'stats'] });
 	});
 });
 
@@ -258,36 +267,25 @@ describe('useToggleDefaultWishlist', () => {
 	let queryClient: QueryClient;
 
 	beforeEach(() => {
-		jest.clearAllMocks();
+		jest.resetAllMocks();
 	});
 
 	afterEach(() => {
 		queryClient?.clear();
 	});
 
-	it('throws when there is no default wishlist', async () => {
-		mockedUseDefaultWishlistId.mockReturnValue(null);
-
+	const renderToggle = async () => {
 		const wrapperResult = createWrapper();
 		queryClient = wrapperResult.queryClient;
 
-		const { result } = await renderHook(() => useToggleDefaultWishlist(), { wrapper: wrapperResult.wrapper });
+		return renderHook(() => useToggleDefaultWishlist(), { wrapper: wrapperResult.wrapper });
+	}
 
-		result.current.mutate({ gameId: 'game-1', itemId: null });
-
-		await waitFor(() => expect(result.current.isError).toBe(true));
-
-		expect(mockedAddItemToWishlist).not.toHaveBeenCalled();
-	});
-
-	it('calls addItemToWishlist when itemId is null', async () => {
-		mockedUseDefaultWishlistId.mockReturnValue('wishlist-1');
+	it('adds the game to the default wishlist when itemId is null', async () => {
+		mockedGetMyDefaultWishlist.mockResolvedValueOnce({ id: 'wishlist-1' } as any);
 		mockedAddItemToWishlist.mockResolvedValueOnce(undefined as any);
 
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		const { result } = await renderHook(() => useToggleDefaultWishlist(), { wrapper: wrapperResult.wrapper });
+		const { result } = await renderToggle();
 
 		await result.current.mutateAsync({ gameId: 'game-1', itemId: null });
 
@@ -295,14 +293,11 @@ describe('useToggleDefaultWishlist', () => {
 		expect(mockedRemoveItemFromWishlist).not.toHaveBeenCalled();
 	});
 
-	it('calls removeItemFromWishlist when itemId is present', async () => {
-		mockedUseDefaultWishlistId.mockReturnValue('wishlist-1');
+	it('removes the item from the default wishlist when itemId is present', async () => {
+		mockedGetMyDefaultWishlist.mockResolvedValueOnce({ id: 'wishlist-1' } as any);
 		mockedRemoveItemFromWishlist.mockResolvedValueOnce(undefined as any);
 
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		const { result } = await renderHook(() => useToggleDefaultWishlist(), { wrapper: wrapperResult.wrapper });
+		const { result } = await renderToggle();
 
 		await result.current.mutateAsync({ gameId: 'game-1', itemId: 'item-1' });
 
@@ -310,19 +305,122 @@ describe('useToggleDefaultWishlist', () => {
 		expect(mockedAddItemToWishlist).not.toHaveBeenCalled();
 	});
 
-	it('invalidates the correct queries on success', async () => {
-		mockedUseDefaultWishlistId.mockReturnValue('wishlist-1');
-		mockedAddItemToWishlist.mockResolvedValueOnce(undefined as any);
+	it('reuses the cached default wishlist instead of fetching it again', async () => {
+		mockedAddItemToWishlist.mockResolvedValue(undefined as any);
 
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-		const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
-
-		const { result } = await renderHook(() => useToggleDefaultWishlist(), { wrapper: wrapperResult.wrapper });
+		const { result } = await renderToggle();
+		queryClient.setQueryData(['default-wishlist'], { id: 'cached-wishlist' });
 
 		await result.current.mutateAsync({ gameId: 'game-1', itemId: null });
 
-		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists', 'item-status', 'wishlist-1', 'game-1'] });
+		expect(mockedGetMyDefaultWishlist).not.toHaveBeenCalled();
+		expect(mockedAddItemToWishlist).toHaveBeenCalledWith('cached-wishlist', 'game-1');
+	});
+
+	it('fails without touching the wishlist when the default wishlist cannot be loaded', async () => {
+		mockedGetMyDefaultWishlist.mockRejectedValueOnce(new Error('Default wishlist not found'));
+
+		const { result } = await renderToggle();
+
+		await expect(result.current.mutateAsync({ gameId: 'game-1', itemId: null })).rejects.toThrow('Default wishlist not found');
+
+		expect(mockedAddItemToWishlist).not.toHaveBeenCalled();
+	});
+
+	it('refreshes the wishlists and the users wishlists on success', async () => {
+		mockedGetMyDefaultWishlist.mockResolvedValueOnce({ id: 'wishlist-1' } as any);
+		mockedAddItemToWishlist.mockResolvedValueOnce(undefined as any);
+
+		const { result } = await renderToggle();
+		const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+		await result.current.mutateAsync({ gameId: 'game-1', itemId: null });
+
 		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists'] });
+		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['users', 'wishlist'] });
+	});
+});
+
+describe('useOverallGames', () => {
+	it('fetches the first page of the overall ranking', async () => {
+		jest.resetAllMocks();
+		mockedGetOverallGames.mockResolvedValueOnce({ content: [{ id: '1' }], number: 0, last: true } as any);
+
+		const { wrapper, queryClient } = createWrapper();
+
+		const { result } = await renderHook(() => useOverallGames(), { wrapper });
+
+		await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+		expect(mockedGetOverallGames).toHaveBeenCalledWith(0);
+		queryClient.clear();
+	});
+
+	it('does not fetch when disabled', async () => {
+		jest.resetAllMocks();
+		const { wrapper, queryClient } = createWrapper();
+
+		const { result } = await renderHook(() => useOverallGames(false), { wrapper });
+
+		expect(result.current.fetchStatus).toBe('idle');
+		queryClient.clear();
+	});
+});
+
+describe('useGameExpansions', () => {
+	beforeEach(() => {
+		jest.resetAllMocks();
+	});
+
+	it('does not fetch without a bggId or when disabled', async () => {
+		const { wrapper, queryClient } = createWrapper();
+
+		const { result: withoutId } = await renderHook(() => useGameExpansions(null), { wrapper });
+		const { result: disabled } = await renderHook(() => useGameExpansions(13, false), { wrapper });
+
+		expect(withoutId.current.fetchStatus).toBe('idle');
+		expect(disabled.current.fetchStatus).toBe('idle');
+		expect(mockedGetGameExpansions).not.toHaveBeenCalled();
+		queryClient.clear();
+	});
+
+	it('fetches the expansions of the game', async () => {
+		mockedGetGameExpansions.mockResolvedValueOnce({ content: [{ id: 'exp-1' }], number: 0, last: true } as any);
+		const { wrapper, queryClient } = createWrapper();
+
+		const { result } = await renderHook(() => useGameExpansions(13), { wrapper });
+
+		await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+		expect(mockedGetGameExpansions).toHaveBeenCalledWith(13, 0);
+		queryClient.clear();
+	});
+});
+
+describe('useGameRules', () => {
+	beforeEach(() => {
+		jest.resetAllMocks();
+	});
+
+	it('does not fetch without a game id or when disabled', async () => {
+		const { wrapper, queryClient } = createWrapper();
+
+		await renderHook(() => useGameRules(undefined), { wrapper });
+		await renderHook(() => useGameRules('game-1', false), { wrapper });
+
+		expect(mockedListGameRules).not.toHaveBeenCalled();
+		queryClient.clear();
+	});
+
+	it('lists the rule files of the game', async () => {
+		mockedListGameRules.mockResolvedValueOnce([{ id: 'file-1' }] as any);
+		const { wrapper, queryClient } = createWrapper();
+
+		const { result } = await renderHook(() => useGameRules('game-1'), { wrapper });
+
+		await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+		expect(mockedListGameRules).toHaveBeenCalledWith('game-1');
+		queryClient.clear();
 	});
 });

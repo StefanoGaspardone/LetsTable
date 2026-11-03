@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getLatestAppVersion } from '@/api/app-version';
 
-import { compareVersions, downloadAndInstallApk, IS_PLAY_DISTRIBUTION, openStorePage } from '@/lib/app-version';
+import { compareVersions, downloadAndInstallApk, isPlayDistribution, openStorePage } from '@/lib/app-version';
 
 import { useToast } from '@/contexts/toast-context';
 
@@ -66,7 +66,6 @@ export const useAppUpdate = (enabled: boolean) => {
 		if(!info) return 'none';
 		if(compareVersions(CURRENT_APP_VERSION, info.minSupportedVersion) < 0) return 'required';
 		if(compareVersions(CURRENT_APP_VERSION, info.latestVersion) >= 0) return 'none';
-		if(!isDismissedLoaded) return 'none';
 
 		if(isForced) return 'available';
 		if(!isDismissedLoaded) return 'none';
@@ -106,7 +105,7 @@ export const useUpdateInstaller = (info: AppVersionInfo) => {
 	const start = async () => {
 		if(progress !== null) return;
 
-		if(IS_PLAY_DISTRIBUTION) {
+		if(isPlayDistribution()) {
 			await openStorePage();
 			return;
 		}

@@ -9,7 +9,9 @@ jest.mock('expo-router', () => ({
 	useFocusEffect: jest.fn(),
 }));
 
-const mockedUseFocusEffect = useFocusEffect as jest.MockedFunction<typeof useFocusEffect>;
+const mockedUseFocusEffect = jest.mocked(useFocusEffect);
+
+const lastFocusCallback = () => mockedUseFocusEffect.mock.calls.at(-1)?.[0] as () => void;
 
 describe('useRefetchOnFocus', () => {
 	beforeEach(() => {
@@ -17,64 +19,79 @@ describe('useRefetchOnFocus', () => {
 	});
 
 	it('registers a focus effect callback', async () => {
-        const { wrapper } = createWrapper();
+		const { wrapper } = createWrapper();
 
-        await renderHook(() => useRefetchOnFocus(['friends']), { wrapper });
+		await renderHook(() => useRefetchOnFocus(['friends']), { wrapper });
 
-        expect(mockedUseFocusEffect).toHaveBeenCalledWith(expect.any(Function));
-    });
+		expect(mockedUseFocusEffect).toHaveBeenCalledWith(expect.any(Function));
+	});
 
-	it('invalidates the given query key when the focus callback runs', async () => {
-        const { wrapper, queryClient } = createWrapper();
-        const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+	it('refetches only active and stale queries for the given key when the screen gains focus', async () => {
+		const { wrapper, queryClient } = createWrapper();
+		const refetchSpy = jest.spyOn(queryClient, 'refetchQueries');
 
-        await renderHook(() => useRefetchOnFocus(['friends']), { wrapper });
+		await renderHook(() => useRefetchOnFocus(['friends']), { wrapper });
 
-        const focusCallback = mockedUseFocusEffect.mock.calls[0][0];
-        focusCallback();
+		lastFocusCallback()();
 
-        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['friends'] });
-    });
+		expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['friends'], type: 'active', stale: true });
+	});
 
-	it('invalidates using the exact query key provided, including nested segments', async () => {
-        const { wrapper, queryClient } = createWrapper();
-        const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+	it('uses the exact query key provided, including nested segments', async () => {
+		const { wrapper, queryClient } = createWrapper();
+		const refetchSpy = jest.spyOn(queryClient, 'refetchQueries');
 
-        await renderHook(() => useRefetchOnFocus(['matches', 'detail', 'match-123']), { wrapper });
+		await renderHook(() => useRefetchOnFocus(['matches', 'detail', 'match-123']), { wrapper });
 
-        const focusCallback = mockedUseFocusEffect.mock.calls[0][0];
-        focusCallback();
+		lastFocusCallback()();
 
-        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['matches', 'detail', 'match-123'] });
-    });
+		expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['matches', 'detail', 'match-123'], type: 'active', stale: true });
+	});
 
-	it('re-registers the callback when the queryKey changes', async () => {
-        const { wrapper } = createWrapper();
+	it('does not invalidate queries', async () => {
+		const { wrapper, queryClient } = createWrapper();
+		const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
 
-        const { rerender } = await renderHook(
-            ({ queryKey }: { queryKey: (string | undefined)[] }) => useRefetchOnFocus(queryKey),
-            { wrapper, initialProps: { queryKey: ['collection', 'status', 'game-1'] } }
-        );
+		await renderHook(() => useRefetchOnFocus(['friends']), { wrapper });
 
-        expect(mockedUseFocusEffect).toHaveBeenCalledTimes(1);
+		lastFocusCallback()();
 
-        await rerender({ queryKey: ['collection', 'status', 'game-2'] });
+		expect(invalidateSpy).not.toHaveBeenCalled();
+	});
 
-        expect(mockedUseFocusEffect).toHaveBeenCalledTimes(2);
-    });
+	it('keeps the same callback when the query key is equal by value', async () => {
+		const { wrapper } = createWrapper();
 
-	it('does not re-register the callback when the queryKey is unchanged', async () => {
-        const { wrapper } = createWrapper();
+		const { rerender } = await renderHook(
+			({ queryKey }: { queryKey: string[] }) => useRefetchOnFocus(queryKey),
+			{ wrapper, initialProps: { queryKey: ['friends'] } }
+		);
 
-        const { rerender } = await renderHook(
-            ({ queryKey }: { queryKey: string[] }) => useRefetchOnFocus(queryKey),
-            { wrapper, initialProps: { queryKey: ['friends'] } }
-        );
+		const firstCallback = lastFocusCallback();
 
-        expect(mockedUseFocusEffect).toHaveBeenCalledTimes(1);
+		await rerender({ queryKey: ['friends'] });
 
-        rerender({ queryKey: ['friends'] });
+		expect(lastFocusCallback()).toBe(firstCallback);
+	});
 
-        expect(mockedUseFocusEffect).toHaveBeenCalledTimes(1);
-    });
+	it('creates a new callback that refetches the new key when the query key changes', async () => {
+		const { wrapper, queryClient } = createWrapper();
+		const refetchSpy = jest.spyOn(queryClient, 'refetchQueries');
+
+		const { rerender } = await renderHook(
+			({ queryKey }: { queryKey: string[] }) => useRefetchOnFocus(queryKey),
+			{ wrapper, initialProps: { queryKey: ['collection', 'status', 'game-1'] } }
+		);
+
+		const firstCallback = lastFocusCallback();
+
+		await rerender({ queryKey: ['collection', 'status', 'game-2'] });
+
+		const secondCallback = lastFocusCallback();
+		expect(secondCallback).not.toBe(firstCallback);
+
+		secondCallback();
+
+		expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ['collection', 'status', 'game-2'], type: 'active', stale: true });
+	});
 });

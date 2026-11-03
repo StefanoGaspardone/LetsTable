@@ -7,6 +7,8 @@ import {
 	createMatch,
 	updateMatch,
 	getWinStats,
+	listGameStats,
+	getRecentGames,
 } from '@/api/match';
 
 jest.mock('@/api/client', () => ({
@@ -173,6 +175,54 @@ describe('match API', () => {
 
 			expect(mockedGet).toHaveBeenCalledWith('/matches/win-stats');
 			expect(result).toEqual(responseData);
+		});
+	});
+
+		describe('getRecentGames', () => {
+		it('calls GET /matches/recent-games and returns the response data', async () => {
+			const responseData = [{ id: 'game-1' }, { id: 'game-2' }];
+			mockedGet.mockResolvedValueOnce({ data: responseData } as any);
+
+			const result = await getRecentGames();
+
+			expect(mockedGet).toHaveBeenCalledWith('/matches/recent-games');
+			expect(result).toEqual(responseData);
+		});
+	});
+
+	describe('listGameStats', () => {
+		it('uses page 0, size 20 and no sort by default', async () => {
+			mockedGet.mockResolvedValueOnce({ data: { content: [] } } as any);
+
+			await listGameStats();
+
+			expect(mockedGet).toHaveBeenCalledWith('/matches/game-stats', {
+				params: { page: 0, size: 20, sort: undefined },
+			});
+		});
+
+		it('passes page, size and sort through', async () => {
+			const responseData = { content: [{ gameId: 'game-1', matchCount: 3 }] };
+			mockedGet.mockResolvedValueOnce({ data: responseData } as any);
+
+			const result = await listGameStats({ page: 2, size: 10, sort: 'winRate-desc' });
+
+			expect(mockedGet).toHaveBeenCalledWith('/matches/game-stats', {
+				params: { page: 2, size: 10, sort: 'winRate-desc' },
+			});
+			expect(result).toEqual(responseData);
+		});
+	});
+
+	describe('listMatches with winner score sort', () => {
+		it('passes the winnerScore sort through', async () => {
+			mockedGet.mockResolvedValueOnce({ data: { content: [] } } as any);
+
+			await listMatches({ page: 0, sort: 'winnerScore-desc' });
+
+			expect(mockedGet).toHaveBeenCalledWith('/matches', {
+				params: expect.objectContaining({ sort: 'winnerScore-desc' }),
+			});
 		});
 	});
 });

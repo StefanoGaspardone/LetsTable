@@ -22,6 +22,7 @@ import {
 	addItemToWishlist,
 	addMemberToWishlist,
 	deleteWishlist,
+	getMyDefaultWishlist,
 	getWishlistById,
 	leaveWishlist,
 	listMyWishlists,
@@ -47,6 +48,7 @@ const mockedRemoveMemberFromWishlist = removeMemberFromWishlist as jest.MockedFu
 const mockedDeleteWishlist = deleteWishlist as jest.MockedFunction<typeof deleteWishlist>;
 const mockedLeaveWishlist = leaveWishlist as jest.MockedFunction<typeof leaveWishlist>;
 const mockedUpdateWishlist = updateWishlist as jest.MockedFunction<typeof updateWishlist>;
+const mockedGetMyDefaultWishlist = jest.mocked(getMyDefaultWishlist);
 
 describe('useMyWishlists', () => {
 	let queryClient: QueryClient;
@@ -86,62 +88,6 @@ describe('useMyWishlists', () => {
 		const { result } = await renderHook(() => useMyWishlists(), { wrapper: wrapperResult.wrapper });
 
 		await waitFor(() => expect(result.current.isError).toBe(true));
-	});
-});
-
-describe('useDefaultWishlistId', () => {
-	let queryClient: QueryClient;
-
-	beforeEach(() => {
-		jest.clearAllMocks();
-	});
-
-	afterEach(() => {
-		queryClient?.clear();
-	});
-
-	it('returns the id of the wishlist marked as default', async () => {
-		mockedListMyWishlists.mockResolvedValueOnce({
-			content: [
-				{ id: 'w-1', isDefault: false } as any,
-				{ id: 'w-2', isDefault: true } as any,
-			],
-			number: 0,
-			last: true,
-		} as any);
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		const { result } = await renderHook(() => useDefaultWishlistId(), { wrapper: wrapperResult.wrapper });
-
-		await waitFor(() => expect(result.current).toBe('w-2'));
-	});
-
-	it('returns null when no wishlist is marked as default', async () => {
-		mockedListMyWishlists.mockResolvedValueOnce({
-			content: [{ id: 'w-1', isDefault: false } as any],
-			number: 0,
-			last: true,
-		} as any);
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		const { result } = await renderHook(() => useDefaultWishlistId(), { wrapper: wrapperResult.wrapper });
-
-		await waitFor(() => expect(mockedListMyWishlists).toHaveBeenCalled());
-		await waitFor(() => expect(result.current).toBeNull());
-	});
-
-	it('returns null while the wishlists are still loading', async () => {
-		mockedListMyWishlists.mockImplementation(() => new Promise(() => {}));
-
-		const { wrapper } = createWrapper();
-
-		const { result } = await renderHook(() => useDefaultWishlistId(), { wrapper });
-
-		expect(result.current).toBeNull();
 	});
 });
 
@@ -280,128 +226,6 @@ describe('useWishlistMembers', () => {
 	});
 });
 
-describe('useAddToDefaultWishlist', () => {
-	let queryClient: QueryClient;
-
-	beforeEach(() => {
-		jest.clearAllMocks();
-	});
-
-	afterEach(() => {
-		queryClient?.clear();
-	});
-
-	it('adds the game to the default wishlist', async () => {
-		mockedListMyWishlists.mockResolvedValueOnce({
-			content: [
-				{ id: 'w-1', isDefault: false } as any,
-				{ id: 'w-2', isDefault: true } as any,
-			],
-			number: 0,
-			last: true,
-		} as any);
-		mockedAddItemToWishlist.mockResolvedValueOnce(undefined as any);
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		const { result } = await renderHook(() => useAddToDefaultWishlist(), { wrapper: wrapperResult.wrapper });
-
-		await result.current.mutateAsync('game-1');
-
-		expect(mockedAddItemToWishlist).toHaveBeenCalledWith('w-2', 'game-1');
-	});
-
-	it('throws when no default wishlist exists', async () => {
-		mockedListMyWishlists.mockResolvedValueOnce({
-			content: [{ id: 'w-1', isDefault: false } as any],
-			number: 0,
-			last: true,
-		} as any);
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		const { result } = await renderHook(() => useAddToDefaultWishlist(), { wrapper: wrapperResult.wrapper });
-
-		result.current.mutate('game-1');
-
-		await waitFor(() => expect(result.current.isError).toBe(true));
-
-		expect(result.current.error).toEqual(new Error('Default wishlist not found'));
-		expect(mockedAddItemToWishlist).not.toHaveBeenCalled();
-	});
-
-	it('invalidates the wishlists query on success', async () => {
-		mockedListMyWishlists.mockResolvedValueOnce({
-			content: [{ id: 'w-1', isDefault: true } as any],
-			number: 0,
-			last: true,
-		} as any);
-		mockedAddItemToWishlist.mockResolvedValueOnce(undefined as any);
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-		const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
-
-		const { result } = await renderHook(() => useAddToDefaultWishlist(), { wrapper: wrapperResult.wrapper });
-
-		await result.current.mutateAsync('game-1');
-
-		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists'] });
-	});
-});
-
-
-describe('useDefaultWishlist', () => {
-	let queryClient: QueryClient;
-
-	beforeEach(() => {
-		jest.clearAllMocks();
-	});
-
-	afterEach(() => {
-		queryClient?.clear();
-	});
-
-	it('returns the wishlist marked as default', async () => {
-		mockedListMyWishlists.mockResolvedValueOnce({
-			content: [
-				{ id: 'w-1', isDefault: false } as any,
-				{ id: 'w-2', isDefault: true, name: 'La mia wishlist' } as any,
-			],
-			number: 0,
-			last: true,
-		} as any);
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		const { result } = await renderHook(() => useDefaultWishlist(), { wrapper: wrapperResult.wrapper });
-
-		await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-		expect(result.current.data?.id).toBe('w-2');
-	});
-
-	it('returns null when no wishlist is marked as default', async () => {
-		mockedListMyWishlists.mockResolvedValueOnce({
-			content: [{ id: 'w-1', isDefault: false } as any],
-			number: 0,
-			last: true,
-		} as any);
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		const { result } = await renderHook(() => useDefaultWishlist(), { wrapper: wrapperResult.wrapper });
-
-		await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-		expect(result.current.data).toBeNull();
-	});
-});
-
 describe('useAddItemToWishlist', () => {
 	let queryClient: QueryClient;
 
@@ -439,6 +263,7 @@ describe('useAddItemToWishlist', () => {
 
 		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists', 'items', 'w-1'] });
 		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists', 'preview-items', 'w-1'] });
+		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists', 'item-status', 'w-1'] });
 	});
 
 	it('surfaces an error when the mutation fails', async () => {
@@ -492,6 +317,7 @@ describe('useRemoveItemFromWishlist', () => {
 
 		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists', 'items', 'w-1'] });
 		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists', 'preview-items', 'w-1'] });
+		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists', 'item-status', 'w-1'] });
 	});
 });
 
@@ -573,85 +399,6 @@ describe('useRemoveMemberFromWishlist', () => {
 	});
 });
 
-describe('useDeleteWishlist', () => {
-	let queryClient: QueryClient;
-
-	beforeEach(() => {
-		jest.clearAllMocks();
-	});
-
-	afterEach(() => {
-		queryClient?.clear();
-	});
-
-	it('deletes the given wishlist', async () => {
-		mockedDeleteWishlist.mockResolvedValueOnce(undefined as any);
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		const { result } = await renderHook(() => useDeleteWishlist(), { wrapper: wrapperResult.wrapper });
-
-		await result.current.mutateAsync('w-1');
-
-		expect(mockedDeleteWishlist).toHaveBeenCalledWith('w-1');
-	});
-
-	it('invalidates the wishlists query on success', async () => {
-		mockedDeleteWishlist.mockResolvedValueOnce(undefined as any);
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-		const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
-
-		const { result } = await renderHook(() => useDeleteWishlist(), { wrapper: wrapperResult.wrapper });
-
-		await result.current.mutateAsync('w-1');
-
-		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists'] });
-	});
-});
-
-describe('useLeaveWishlist', () => {
-	let queryClient: QueryClient;
-
-	beforeEach(() => {
-		jest.clearAllMocks();
-	});
-
-	afterEach(() => {
-		queryClient?.clear();
-	});
-
-	it('leaves the given wishlist', async () => {
-		mockedLeaveWishlist.mockResolvedValueOnce(undefined as any);
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-
-		const { result } = await renderHook(() => useLeaveWishlist(), { wrapper: wrapperResult.wrapper });
-
-		await result.current.mutateAsync('w-1');
-
-		expect(mockedLeaveWishlist).toHaveBeenCalledWith('w-1');
-	});
-
-	it('invalidates the wishlists query on success', async () => {
-		mockedLeaveWishlist.mockResolvedValueOnce(undefined as any);
-
-		const wrapperResult = createWrapper();
-		queryClient = wrapperResult.queryClient;
-		const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
-
-		const { result } = await renderHook(() => useLeaveWishlist(), { wrapper: wrapperResult.wrapper });
-
-		await result.current.mutateAsync('w-1');
-
-		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists'] });
-	});
-});
-
-
 describe('useUpdateWishlist', () => {
 	let queryClient: QueryClient;
 
@@ -705,5 +452,241 @@ describe('useUpdateWishlist', () => {
 
 		expect(result.current.error).toEqual(new Error('Forbidden'));
 		expect(invalidateSpy).not.toHaveBeenCalled();
+	});
+});
+
+describe('useDefaultWishlist', () => {
+	let queryClient: QueryClient;
+
+	beforeEach(() => {
+		jest.resetAllMocks();
+	});
+
+	afterEach(() => {
+		queryClient?.clear();
+	});
+
+	it('loads the default wishlist from the dedicated endpoint', async () => {
+		mockedGetMyDefaultWishlist.mockResolvedValueOnce({ id: 'w-2', name: 'La mia wishlist', isDefault: true } as any);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useDefaultWishlist(), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+		expect(result.current.data?.id).toBe('w-2');
+		expect(mockedListMyWishlists).not.toHaveBeenCalled();
+	});
+
+	it('is fetched only once and shared between components', async () => {
+		mockedGetMyDefaultWishlist.mockResolvedValue({ id: 'w-2' } as any);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result: first } = await renderHook(() => useDefaultWishlist(), { wrapper: wrapperResult.wrapper });
+		await waitFor(() => expect(first.current.isSuccess).toBe(true));
+
+		const { result: second } = await renderHook(() => useDefaultWishlist(), { wrapper: wrapperResult.wrapper });
+
+		expect(second.current.data?.id).toBe('w-2');
+		expect(mockedGetMyDefaultWishlist).toHaveBeenCalledTimes(1);
+	});
+
+	it('surfaces an error when the default wishlist cannot be loaded', async () => {
+		mockedGetMyDefaultWishlist.mockRejectedValueOnce(new Error('Default wishlist not found'));
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useDefaultWishlist(), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(result.current.isError).toBe(true));
+	});
+});
+
+describe('useDefaultWishlistId', () => {
+	let queryClient: QueryClient;
+
+	beforeEach(() => {
+		jest.resetAllMocks();
+	});
+
+	afterEach(() => {
+		queryClient?.clear();
+	});
+
+	it('returns the id of the default wishlist', async () => {
+		mockedGetMyDefaultWishlist.mockResolvedValueOnce({ id: 'w-2' } as any);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useDefaultWishlistId(), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(result.current).toBe('w-2'));
+	});
+
+	it('returns null while loading', async () => {
+		mockedGetMyDefaultWishlist.mockImplementation(() => new Promise(() => {}));
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useDefaultWishlistId(), { wrapper: wrapperResult.wrapper });
+
+		expect(result.current).toBeNull();
+	});
+
+	it('returns null when the default wishlist cannot be loaded', async () => {
+		mockedGetMyDefaultWishlist.mockRejectedValueOnce(new Error('Not found'));
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(() => useDefaultWishlistId(), { wrapper: wrapperResult.wrapper });
+
+		await waitFor(() => expect(mockedGetMyDefaultWishlist).toHaveBeenCalled());
+		expect(result.current).toBeNull();
+	});
+});
+
+describe('useAddToDefaultWishlist', () => {
+	let queryClient: QueryClient;
+
+	beforeEach(() => {
+		jest.resetAllMocks();
+	});
+
+	afterEach(() => {
+		queryClient?.clear();
+	});
+
+	const renderAdd = async () => {
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		return renderHook(() => useAddToDefaultWishlist(), { wrapper: wrapperResult.wrapper });
+	}
+
+	it('adds the game to the default wishlist', async () => {
+		mockedGetMyDefaultWishlist.mockResolvedValueOnce({ id: 'w-2' } as any);
+		mockedAddItemToWishlist.mockResolvedValueOnce({ id: 'item-1' } as any);
+
+		const { result } = await renderAdd();
+
+		await result.current.mutateAsync('game-1');
+
+		expect(mockedAddItemToWishlist).toHaveBeenCalledWith('w-2', 'game-1');
+	});
+
+	it('reuses the cached default wishlist', async () => {
+		mockedAddItemToWishlist.mockResolvedValueOnce({ id: 'item-1' } as any);
+
+		const { result } = await renderAdd();
+		queryClient.setQueryData(['default-wishlist'], { id: 'cached' });
+
+		await result.current.mutateAsync('game-1');
+
+		expect(mockedGetMyDefaultWishlist).not.toHaveBeenCalled();
+		expect(mockedAddItemToWishlist).toHaveBeenCalledWith('cached', 'game-1');
+	});
+
+	it('fails without adding anything when the default wishlist cannot be loaded', async () => {
+		mockedGetMyDefaultWishlist.mockRejectedValueOnce(new Error('Default wishlist not found'));
+
+		const { result } = await renderAdd();
+
+		await expect(result.current.mutateAsync('game-1')).rejects.toThrow('Default wishlist not found');
+
+		expect(mockedAddItemToWishlist).not.toHaveBeenCalled();
+	});
+
+	it('refreshes the wishlists and the users wishlists on success', async () => {
+		mockedGetMyDefaultWishlist.mockResolvedValueOnce({ id: 'w-1' } as any);
+		mockedAddItemToWishlist.mockResolvedValueOnce({ id: 'item-1' } as any);
+
+		const { result } = await renderAdd();
+		const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+		await result.current.mutateAsync('game-1');
+
+		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['wishlists'] });
+		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['users', 'wishlist'] });
+	});
+});
+
+describe.each([
+	['useDeleteWishlist', () => useDeleteWishlist(), () => mockedDeleteWishlist],
+	['useLeaveWishlist', () => useLeaveWishlist(), () => mockedLeaveWishlist],
+] as const)('%s', (_, useHook, getApiMock) => {
+	let queryClient: QueryClient;
+
+	beforeEach(() => {
+		jest.resetAllMocks();
+	});
+
+	afterEach(() => {
+		queryClient?.clear();
+	});
+
+	const seedCache = () => {
+		queryClient.setQueryData(['wishlists', 'mine', 'all', 'default'], { pages: [], pageParams: [] });
+		queryClient.setQueryData(['wishlists', 'detail', 'w-1'], { id: 'w-1' });
+		queryClient.setQueryData(['wishlists', 'items', 'w-1'], { pages: [], pageParams: [] });
+		queryClient.setQueryData(['wishlists', 'detail', 'w-2'], { id: 'w-2' });
+	}
+
+	const findQuery = (queryKey: unknown[]) => queryClient.getQueryCache().find({ queryKey, exact: true });
+
+	it('calls the API with the wishlist id', async () => {
+		(getApiMock() as jest.Mock).mockResolvedValueOnce(undefined);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+
+		const { result } = await renderHook(useHook, { wrapper: wrapperResult.wrapper });
+
+		await result.current.mutateAsync('w-1');
+
+		expect(getApiMock()).toHaveBeenCalledWith('w-1');
+	});
+
+	it('removes the queries of that wishlist and refreshes the others', async () => {
+		(getApiMock() as jest.Mock).mockResolvedValueOnce(undefined);
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+		seedCache();
+
+		const { result } = await renderHook(useHook, { wrapper: wrapperResult.wrapper });
+
+		await act(async () => {
+			await result.current.mutateAsync('w-1');
+		});
+
+		expect(findQuery(['wishlists', 'detail', 'w-1'])).toBeUndefined();
+		expect(findQuery(['wishlists', 'items', 'w-1'])).toBeUndefined();
+		expect(findQuery(['wishlists', 'mine', 'all', 'default'])?.state.isInvalidated).toBe(true);
+		expect(findQuery(['wishlists', 'detail', 'w-2'])?.state.isInvalidated).toBe(true);
+	});
+
+	it('leaves the cache untouched when the request fails', async () => {
+		(getApiMock() as jest.Mock).mockRejectedValueOnce(new Error('Forbidden'));
+
+		const wrapperResult = createWrapper();
+		queryClient = wrapperResult.queryClient;
+		seedCache();
+
+		const { result } = await renderHook(useHook, { wrapper: wrapperResult.wrapper });
+
+		await act(async () => {
+			await expect(result.current.mutateAsync('w-1')).rejects.toThrow('Forbidden');
+		});
+
+		expect(findQuery(['wishlists', 'detail', 'w-1'])).toBeDefined();
+		expect(findQuery(['wishlists', 'detail', 'w-2'])?.state.isInvalidated).toBe(false);
 	});
 });

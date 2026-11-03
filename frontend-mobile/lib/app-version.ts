@@ -52,7 +52,7 @@ export const parseReleaseNotes = (markdown: string): ReleaseNoteSection[] => {
 	return sections.filter(section => section.items.length > 0);
 }
 
-export const IS_PLAY_DISTRIBUTION = Constants.expoConfig?.extra?.distribution === 'play';
+export const isPlayDistribution = () => Constants.expoConfig?.extra?.distribution === 'play';
 
 export const openStorePage = async () => {
 	const packageName = Application.applicationId;

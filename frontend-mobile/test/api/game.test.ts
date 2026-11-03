@@ -1,5 +1,5 @@
 import { apiClient } from '@/api/client';
-import { searchGame, getHotGames, getGameByBggId, getGameExpansions, getRecentGames } from '@/api/game';
+import { searchGame, getHotGames, getOverallGames, getGameByBggId, getGameExpansions } from '@/api/game';
 
 jest.mock('@/api/client', () => ({
 	apiClient: {
@@ -7,7 +7,7 @@ jest.mock('@/api/client', () => ({
 	},
 }));
 
-const mockedGet = apiClient.get as jest.MockedFunction<typeof apiClient.get>;
+const mockedGet = jest.mocked(apiClient.get);
 
 describe('game API', () => {
 	beforeEach(() => {
@@ -67,6 +67,30 @@ describe('game API', () => {
 		});
 	});
 
+	describe('getOverallGames', () => {
+		it('calls GET /games/overall with page and default size and returns the response data', async () => {
+			const responseData = { content: [{ id: 'game-1' }] };
+			mockedGet.mockResolvedValueOnce({ data: responseData } as any);
+
+			const result = await getOverallGames(0);
+
+			expect(mockedGet).toHaveBeenCalledWith('/games/overall', {
+				params: { page: 0, size: 20 },
+			});
+			expect(result).toEqual(responseData);
+		});
+
+		it('uses the given size instead of the default when provided', async () => {
+			mockedGet.mockResolvedValueOnce({ data: { content: [] } } as any);
+
+			await getOverallGames(3, 40);
+
+			expect(mockedGet).toHaveBeenCalledWith('/games/overall', {
+				params: { page: 3, size: 40 },
+			});
+		});
+	});
+
 	describe('getGameByBggId', () => {
 		it('calls GET /games/:bggId and returns the response data', async () => {
 			const responseData = { id: 'game-1', name: 'Catan', bggId: 13 };
@@ -98,18 +122,6 @@ describe('game API', () => {
 			expect(mockedGet).toHaveBeenCalledWith('/games/13/expansions', {
 				params: { page: 1, size: 5 },
 			});
-		});
-	});
-
-	describe('getRecentGames', () => {
-		it('calls GET /matches/recent-games and returns the response data', async () => {
-			const responseData = [{ id: 'game-1' }, { id: 'game-2' }];
-			mockedGet.mockResolvedValueOnce({ data: responseData } as any);
-
-			const result = await getRecentGames();
-
-			expect(mockedGet).toHaveBeenCalledWith('/matches/recent-games');
-			expect(result).toEqual(responseData);
 		});
 	});
 });

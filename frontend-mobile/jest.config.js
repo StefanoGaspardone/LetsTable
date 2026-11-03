@@ -20,7 +20,9 @@ module.exports = {
 		'!app/**',
 		'!components/**',
 		'!test/**',
-		'!types/**'
+		'!types/**',
+		'!index.ts',
+		'!widgets/widget-components.tsx',
 	],
 	coverageReporters: ['lcov', 'text', 'html'],
 }

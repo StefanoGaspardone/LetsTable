@@ -5,6 +5,10 @@ export const createTestQueryClient = () => new QueryClient({
 	defaultOptions: {
 		queries: {
 			retry: false,
+			gcTime: Infinity,
+		},
+		mutations: {
+			gcTime: Infinity,
 		},
 	},
 });

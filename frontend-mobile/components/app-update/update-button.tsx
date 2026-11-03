@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 
 import { useUpdateInstaller } from '@/hooks/use-app-update';
 
-import { IS_PLAY_DISTRIBUTION } from '@/lib/app-version';
+import { isPlayDistribution } from '@/lib/app-version';
 
 import { AppVersionInfo } from '@/types/app-version';
 
@@ -17,7 +17,7 @@ const UpdateButton = ({ info }: UpdateButtonProps) => {
 	const { start, progress, isDownloading } = useUpdateInstaller(info);
 
 	const percent = Math.round((progress ?? 0) * 100);
-	const label = isDownloading ? `Download in corso... ${percent}%` : IS_PLAY_DISTRIBUTION ? 'Apri il Play Store' : 'Aggiorna ora';
+	const label = isDownloading ? `Download in corso... ${percent}%` : isPlayDistribution() ? 'Apri il Play Store' : 'Aggiorna ora';
 
 	return (
 		<View className = 'gap-2'>

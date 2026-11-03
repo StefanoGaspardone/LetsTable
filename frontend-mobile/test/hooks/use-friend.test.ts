@@ -131,7 +131,7 @@ describe('useSendFriendRequest', () => {
 		expect(mockedSendFriendRequest).toHaveBeenCalledWith('user-123');
 	});
 
-	it('invalidates friends and users search queries on success', async () => {
+	it('invalidates friends, users and stats queries on success', async () => {
 		mockedSendFriendRequest.mockResolvedValueOnce({ id: 'req-1' } as any);
 
 		const wrapperResult = createWrapper();
@@ -143,7 +143,8 @@ describe('useSendFriendRequest', () => {
 		await result.current.mutateAsync('user-123');
 
 		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['friends'] });
-		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['users', 'search'] });
+		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['users'] });
+		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['me', 'stats'] });
 	});
 
 	it('surfaces an error when the mutation fails', async () => {
@@ -315,5 +316,43 @@ describe('useRemoveFriend', () => {
 		await result.current.mutateAsync('friend-1');
 
 		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['friends'] });
+	});
+});
+
+describe('friend mutations', () => {
+	it.each([
+		['useAcceptFriendRequest', useAcceptFriendRequest, mockedAcceptFriendRequest],
+		['useRejectFriendRequest', useRejectFriendRequest, mockedRejectFriendRequest],
+		['useCancelFriendRequest', useCancelFriendRequest, mockedCancelFriendRequest],
+		['useRemoveFriend', useRemoveFriend, mockedRemoveFriend],
+	] as const)('%s refreshes friends, users and stats on success', async (_, useMutationHook, mockedApi) => {
+		(mockedApi as jest.Mock).mockResolvedValueOnce(undefined);
+
+		const { wrapper, queryClient } = createWrapper();
+		const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+		const { result } = await renderHook(() => useMutationHook(), { wrapper });
+
+		await result.current.mutateAsync('id-1');
+
+		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['friends'] });
+		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['users'] });
+		expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['me', 'stats'] });
+
+		queryClient.clear();
+	});
+
+	it('does not invalidate anything when the mutation fails', async () => {
+		mockedRemoveFriend.mockRejectedValueOnce(new Error('Not friends'));
+
+		const { wrapper, queryClient } = createWrapper();
+		const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+		const { result } = await renderHook(() => useRemoveFriend(), { wrapper });
+
+		await expect(result.current.mutateAsync('friend-1')).rejects.toThrow('Not friends');
+
+		expect(invalidateSpy).not.toHaveBeenCalled();
+		queryClient.clear();
 	});
 });
