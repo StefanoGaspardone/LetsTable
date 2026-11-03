@@ -53,9 +53,9 @@ class MatchService(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     companion object {
-        private val MATCH_SORT_FIELDS = setOf("playedAt", "createdAt", "durationMinutes")
+        private val MATCH_SORT_FIELDS = setOf("playedAt", "createdAt", "durationMinutes", "winnerScore")
         private const val DEFAULT_MATCH_SORT_FIELD = "playedAt"
-        private val MATCH_NULLS_LAST_FIELDS = setOf("durationMinutes")
+        private val MATCH_NULLS_LAST_FIELDS = setOf("durationMinutes", "winnerScore")
         private val MATCH_TIE_BREAKER: Sort = Sort.by(Sort.Order.desc("playedAt"), Sort.Order.desc("createdAt"))
         private val GAME_STATS_SORT_FIELDS = setOf("matchCount", "totalMinutes", "avgMinutes", "winRate", "lastPlayedAt", "gameName")
         private const val DEFAULT_GAME_STATS_SORT_FIELD = "matchCount"
@@ -87,6 +87,7 @@ class MatchService(
             )
 
             val (teams, players) = savePlayersAndTeams(match, request)
+            match.winnerScore = if(match.durationMinutes != null) computeWinnerScore(teams, players) else null
 
             if(match.durationMinutes != null) {
                 userAchievementService.evaluateAfterCommit(participantUserIds(request))
@@ -149,6 +150,7 @@ class MatchService(
             matchTeamRepository.deleteAllByMatchId(matchId)
 
             val (teams, players) = savePlayersAndTeams(match, request)
+            match.winnerScore = if(match.durationMinutes != null) computeWinnerScore(teams, players) else null
 
             userAchievementService.evaluateAfterCommit(participantUserIds(request))
 
@@ -513,4 +515,11 @@ class MatchService(
 
     private fun participantUserIds(request: MatchPlayersPayload): Set<UUID> =
         participantUserIdList(request).toSet()
+
+    private fun computeWinnerScore(teams: List<MatchTeam>, players: List<MatchPlayer>): Int? =
+        if(teams.isNotEmpty()) {
+            teams.filter { it.isWinner }.mapNotNull { it.score }.maxOrNull()
+        } else {
+            players.filter { it.isWinner == true }.mapNotNull { it.score }.maxOrNull()
+        }
 }

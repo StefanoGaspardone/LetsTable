@@ -22,6 +22,7 @@ import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 
 import { formatFullDate, toLocalDateString } from '@/lib/date';
+import { DEFAULT_MATCH_SORT, MATCH_SORT_OPTIONS } from '@/lib/sort';
 
 import { GameMatchStats, Match } from '@/types/match';
 
@@ -38,13 +39,6 @@ const LIST_SUB_VIEW_OPTIONS = [
 	{ value: 'stats', label: 'Statistiche' },
 ]
 
-const MATCH_SORT_OPTIONS: SortOption[] = [
-	{ value: 'playedAt-desc', label: 'Più recenti' },
-	{ value: 'playedAt-asc', label: 'Meno recenti' },
-	{ value: 'durationMinutes-desc', label: 'Più lunghe' },
-	{ value: 'durationMinutes-asc', label: 'Più corte' },
-]
-
 const STATS_SORT_OPTIONS: SortOption[] = [
 	{ value: 'matchCount-desc', label: 'Più giocati' },
 	{ value: 'matchCount-asc', label: 'Meno giocati' },
@@ -58,7 +52,6 @@ const STATS_SORT_OPTIONS: SortOption[] = [
 	{ value: 'gameName-asc', label: 'Nome (A-Z)' },
 ]
 
-const DEFAULT_MATCH_SORT = 'playedAt-desc';
 const DEFAULT_STATS_SORT = 'matchCount-desc';
 
 const LIST_CONTENT_STYLE = { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 100, flexGrow: 1 };
@@ -191,7 +184,7 @@ const MatchesScreen = () => {
 				</View>
 			)}
 			{viewMode === 'list' && (
-				<View className = 'pt-2.5'>
+				<View className = 'py-2.5'>
 					<ScrollView horizontal showsHorizontalScrollIndicator = { false } contentContainerStyle = {{ paddingHorizontal: 16, gap: 8, alignItems: 'center' }}>
 						<Pressable onPress = { () => sortSheetRef.current?.present() } className = { `flex-row items-center gap-1.5 rounded-full px-3 py-1.5 border active:opacity-80 ${isSortActive ? 'bg-primary/15 border-primary/40' : 'bg-secondary/80 border-border/40'}` }>
 							<ArrowUpDown size = { 13 } color = { isSortActive ? colors.primary : colors.mutedForeground }/>
@@ -271,7 +264,7 @@ const MatchesScreen = () => {
 										<ActivityIndicator color = { colors.primary }/>
 									</View>
 								) : selectedDayMatches && selectedDayMatches.content.length > 0 ? (
-									<View className = 'px-4 gap-2'>
+									<View className = 'px-4 gap-2 pb-4'>
 										{selectedDayMatches.content.map(item => (
 											<MatchListItem key = { item.id } match = { item }/>
 										))}

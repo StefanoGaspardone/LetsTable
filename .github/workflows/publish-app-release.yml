@@ -1,0 +1,41 @@
+name: Publish app release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    if: startsWith(github.event.release.tag_name, 'v') && !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build payload
+        id: payload
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          BODY: ${{ github.event.release.body }}
+        run: |
+          VERSION="${TAG#v}"
+          MIN=$(printf '%s' "$BODY" | grep -oP '<!--\s*min-supported:\s*\K[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)
+
+          jq -n --arg version "$VERSION" --arg min "$MIN" --arg notes "$BODY" \
+            '{ version: $version, releaseNotes: $notes } + (if $min == "" then {} else { minSupportedVersion: $min } end)' > payload.json
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          cat payload.json
+
+      - name: Check APK asset
+        env:
+          VERSION: ${{ steps.payload.outputs.version }}
+        run: |
+          curl -fsSIL "https://github.com/${{ github.repository }}/releases/download/v${VERSION}/lets-table-${VERSION}.apk" > /dev/null
+
+      - name: Publish release to backend
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          JOB_TOKEN: ${{ secrets.JOB_TOKEN }}
+        run: |
+          curl -fsS -X POST "${API_BASE_URL}/api/v1/internal/jobs/app-release" \
+            -H "Content-Type: application/json" \
+            -H "X-Scheduler-Token: ${JOB_TOKEN}" \
+            --data @payload.json

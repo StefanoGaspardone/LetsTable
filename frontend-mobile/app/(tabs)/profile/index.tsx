@@ -1,8 +1,7 @@
 import { useRef } from 'react';
 import { View, ScrollView, Pressable, Switch, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
-import Constants from 'expo-constants';
-import { Bell, Moon, Shield, LogOut, ChevronRight, Camera, Users, Trophy, Gamepad2, Edit3, Trash2, Award } from 'lucide-react-native';
+import { Bell, Moon, Shield, LogOut, ChevronRight, Camera, Users, Trophy, Gamepad2, Edit3, Trash2, Award, RefreshCw } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
 import ScreenHeader from '@/components/common/screen-header';
@@ -19,6 +18,7 @@ import { useUpdateMe } from '@/hooks/use-user';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 import { useMyAchievements } from '@/hooks/use-achievement';
 import { useAvatarActions } from '@/hooks/use-avatar';
+import { CURRENT_APP_VERSION, useCheckForUpdates } from '@/hooks/use-app-update';
 
 import { getAvatarUrl } from '@/lib/file';
 
@@ -28,6 +28,15 @@ const ProfileScreen = () => {
 	const { themePreference } = useTheme();
 	const { showToast } = useToast();
 	const router = useNavigationStack();
+
+	const { check: checkForUpdates, isChecking: isCheckingUpdates } = useCheckForUpdates();
+
+	const handleCheckForUpdates = async () => {
+		const result = await checkForUpdates();
+
+		if(result === 'up-to-date') showToast(`Hai già l'ultima versione (${CURRENT_APP_VERSION})`, 'success');
+		if(result === 'error') showToast('Impossibile controllare gli aggiornamenti', 'error');
+	}
 
 	const themeSheetRef = useRef<ThemePickerSheetRef>(null);
 
@@ -194,6 +203,24 @@ const ProfileScreen = () => {
 						</View>
 					</Pressable>
 				</View>
+				<Text className = 'mb-2 pl-2 text-xs font-bold uppercase tracking-wider text-muted-foreground'>
+					App
+				</Text>
+				<View className = 'mb-6 overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm'>
+					<Pressable onPress = { handleCheckForUpdates } disabled = { isCheckingUpdates } className = 'flex-row items-center justify-between p-3.5 active:bg-secondary/40'>
+						<View className = 'flex-row items-center gap-3'>
+							<View className = 'h-8 w-8 items-center justify-center rounded-xl bg-primary/15'>
+								<RefreshCw size = { 17 } color = { colors.primary }/>
+							</View>
+							<Text className = 'text-sm font-medium text-foreground'>Cerca aggiornamenti</Text>
+						</View>
+						{isCheckingUpdates ? (
+							<ActivityIndicator size = 'small' color = { colors.primary }/>
+						) : (
+							<Text className = 'text-xs text-muted-foreground'>v{CURRENT_APP_VERSION}</Text>
+						)}
+					</Pressable>
+				</View>
 				<View className = 'mb-4 overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm'>
 					<Pressable className = 'flex-row items-center justify-between p-3.5 active:bg-primary/10' onPress = { handleLogout }>
 						<View className = 'flex-row items-center gap-3'>
@@ -205,7 +232,7 @@ const ProfileScreen = () => {
 					</Pressable>
 				</View>
 				<Text className = 'mt-2 text-center text-xs text-muted-foreground/60'>
-					Versione { Constants.expoConfig?.version ?? '1.0.0' }
+					Versione { CURRENT_APP_VERSION }
 				</Text>
 			</ScrollView>
 			<ThemePickerSheet ref = { themeSheetRef }/>

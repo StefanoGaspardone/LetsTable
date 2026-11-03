@@ -1,89 +1,32 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Dices } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/text';
-
-import { Match } from '@/types/match';
-
-import { formatRelativeDays } from '@/lib/date';
-import { getAvatarUrl } from '@/lib/file';
+import AvatarStack from '@/components/matches/avatar-stack';
 
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
 import { useThemeColors } from '@/hooks/use-theme-colors';
 
+import { formatRelativeDays } from '@/lib/date';
+import { getAvatarUrl } from '@/lib/file';
+import { getMatchSummary } from '@/lib/match-summary';
+
+import { Match } from '@/types/match';
+
 interface MatchCardProps {
 	match: Match;
-}
-
-interface FlatPlayer {
-	name: string;
-	avatarId: string | null | undefined;
-	isWinner: boolean | null;
-}
-
-interface FlatTeam {
-	name: string;
-	color: string;
-	isWinner: boolean;
-}
-
-const MAX_VISIBLE_AVATARS = 4;
-const AVATAR_SIZE = 26;
-const AVATAR_OVERLAP = 8;
-
-const flattenPlayers = (match: Match): FlatPlayer[] => {
-	return (match.players ?? []).map(player => ({
-		name: player.user?.username ?? player.guestName ?? 'Sconosciuto',
-		avatarId: player.user?.avatarId,
-		isWinner: player.isWinner,
-	}))
-}
-
-const flattenTeams = (match: Match): FlatTeam[] => {
-	return (match.teams ?? []).map(team => ({
-		name: team.name ?? 'Squadra',
-		color: team.color,
-		isWinner: team.isWinner,
-	}))
-}
-
-const AvatarStack = ({ avatars, ringColor, remainingClassName, remainingTextClassName }: { avatars: { key: string; uri: string }[]; ringColor: string; remainingClassName: string; remainingTextClassName: string }) => {
-	const visible = avatars.slice(0, MAX_VISIBLE_AVATARS);
-	const remainingCount = avatars.length - visible.length;
-
-	return (
-		<View className = 'flex-row items-center'>
-			{visible.map((avatar, index) => (
-				<View key = { avatar.key } style = {{ marginLeft: index === 0 ? 0 : -AVATAR_OVERLAP, zIndex: visible.length - index }}>
-					<Image source = {{ uri: avatar.uri }} style = {{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 1, borderColor: ringColor }} contentFit = 'cover'/>
-				</View>
-			))}
-			{remainingCount > 0 && (
-				<View style = {{ marginLeft: -AVATAR_OVERLAP }} className = { remainingClassName }>
-					<Text className = { remainingTextClassName }>+{remainingCount}</Text>
-				</View>
-			)}
-		</View>
-	)
 }
 
 const MatchListItem = ({ match }: MatchCardProps) => {
 	const router = useNavigationStack();
 	const { colors } = useThemeColors();
 
-	const isInProgress = match.durationMinutes == null;
+	const { participants, winner, isInProgress } = useMemo(() => getMatchSummary(match), [match]);
 
-	const teams = match.isTeamBased ? flattenTeams(match) : [];
-	const players = !match.isTeamBased ? flattenPlayers(match) : [];
-	const winningTeam = teams.find(team => team.isWinner);
-	const winner = players.find(player => player.isWinner);
-
-	const avatars = match.isTeamBased
-		? teams.map((team, index) => ({ key: `${team.name}-${team.color}-${index}`, uri: getAvatarUrl(null, team.name) }))
-		: players.map((player, index) => ({ key: `${player.name}-${player.avatarId}-${index}`, uri: getAvatarUrl(player.avatarId ?? null, player.name) }));
+	const avatars = participants.map(participant => ({ key: participant.key, uri: getAvatarUrl(participant.avatarId, participant.name) }));
 
 	return (
 		<Pressable onPress = { () => router.push(`/match/${match.id}`) } className = 'flex-row items-stretch gap-3 rounded-2xl border border-border bg-card p-2 active:scale-[0.98] active:opacity-75'>
@@ -116,24 +59,18 @@ const MatchListItem = ({ match }: MatchCardProps) => {
 						<Text className = 'text-xs font-medium text-primary'>In corso</Text>
 					</View>
 				</View>
-			) : match.isTeamBased ? (
-				winningTeam && (
-					<View className = 'items-center justify-center gap-1'>
-						<Image source = {{ uri: getAvatarUrl(null, winningTeam.name) }} style = {{ width: 39, height: 39, borderRadius: 100 }} contentFit = 'cover'/>
-						<Text className = 'text-sm font-semibold text-foreground' numberOfLines = { 1 } style = {{ maxWidth: 60 }}>
-							{winningTeam.name}
+			) : winner && (
+				<View className = 'items-center justify-center'>
+					<Image source = {{ uri: getAvatarUrl(winner.avatarId, winner.name) }} style = {{ width: 39, height: 39, borderRadius: 100 }} contentFit = 'cover'/>
+					<Text className = 'mt-1 text-sm font-semibold text-foreground' numberOfLines = { 1 } style = {{ maxWidth: 60 }}>
+						{winner.name}
+					</Text>
+					{winner.score != null && (
+						<Text className = 'text-xs font-medium text-primary'>
+							{winner.score} pt
 						</Text>
-					</View>
-				)
-			) : (
-				winner && (
-					<View className = 'items-center justify-center gap-1'>
-						<Image source = {{ uri: getAvatarUrl(winner.avatarId ?? null, winner.name) }} style = {{ width: 39, height: 39, borderRadius: 100 }} contentFit = 'cover'/>
-						<Text className = 'text-sm font-semibold text-foreground' numberOfLines = { 1 } style = {{ maxWidth: 60 }}>
-							{winner.name}
-						</Text>
-					</View>
-				)
+					)}
+				</View>
 			)}
 		</Pressable>
 	)

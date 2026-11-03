@@ -19,9 +19,12 @@ import { NavigationStackProvider } from '@/contexts/navigation-stack-context';
 
 import AchievementCelebrationHost from '@/components/achievements/achievement-celebration-host';
 import ServerDownOverlay from '@/components/common/server-down-overlay';
+import UpdateRequiredScreen from '@/components/app-update/update-required-screen';
+import UpdateAvailableSheet from '@/components/app-update/update-available-sheet';
 
 import { useHealthCheck } from '@/hooks/use-health-check';
 import { useNotificationNavigation } from '@/hooks/use-notification-navigation';
+import { useAppUpdate } from '@/hooks/use-app-update';
 
 import { configureNotifications, setupNotificationHandler } from '@/lib/push-notifications';
 import { queryClient } from '@/lib/query-client';
@@ -44,6 +47,7 @@ const RootLayoutNav = () => {
 	});
 
 	const isReady = !isLoading && !isThemeLoading && fontsLoaded;
+	const { status: updateStatus, info: updateInfo, currentVersion, dismiss: dismissUpdate } = useAppUpdate(isReady);
 
 	useNotificationNavigation(isReady && isAuthenticated);
 
@@ -53,6 +57,10 @@ const RootLayoutNav = () => {
 
 	if(!isReady) {
 		return null;
+	}
+
+	if(updateStatus === 'required' && updateInfo) {
+		return <UpdateRequiredScreen info = { updateInfo } currentVersion = { currentVersion }/>;
 	}
 
 	const resolvedScheme = themePreference === 'system' ? systemColorScheme : themePreference;
@@ -67,6 +75,9 @@ const RootLayoutNav = () => {
 					<Stack.Screen name = '(tabs)'/>
 				</Stack>
 			</ThemeProvider>
+			{updateStatus === 'available' && updateInfo && (
+				<UpdateAvailableSheet info = { updateInfo } currentVersion = { currentVersion } onDismiss = { dismissUpdate }/>
+			)}
 		</KeyboardAvoidingView>
 	)
 }

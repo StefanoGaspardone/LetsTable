@@ -1,7 +1,7 @@
 {
 	"name": "frontend-mobile",
 	"main": "index.ts",
-	"version": "2.2.0",
+	"version": "2.3.0",
 	"scripts": {
 		"dev": "expo start -c",
 		"android": "expo start -c --android",
@@ -10,6 +10,7 @@
 		"clean": "rm -rf .expo node_modules",
 		"build": "eas build -p all --profile production",
 		"build:android": "eas build -p android --profile production --non-interactive",
+		"build:android:google": "eas build -p android --profile production-google --non-interactive",
 		"build:android:dev": "eas build -p android --profile development --non-interactive",
 		"build:android:preview": "eas build -p android --profile preview --non-interactive",
 		"build:ios": "eas build -p ios --profile production",

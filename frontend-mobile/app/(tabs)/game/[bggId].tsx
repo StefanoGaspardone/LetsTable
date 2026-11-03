@@ -8,7 +8,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, Plus, UserCheck, ArrowLeftRight, Puzzle, Gauge, PenTool, Palette, Building2, Trash2, Library, Check, Heart, Layers, Download, Award, WalletCards } from 'lucide-react-native';
+import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, Plus, UserCheck, ArrowLeftRight, Puzzle, Gauge, PenTool, Palette, Building2, Trash2, Library, Check, Heart, Layers, Download, Award, WalletCards, ArrowUpDown } from 'lucide-react-native';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, interpolate, interpolateColor, Extrapolation, useDerivedValue, useAnimatedReaction } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +19,7 @@ import ScreenHeader from '@/components/common/screen-header';
 import MeepleIllustration from '@/components/common/meeple-illustration';
 import BackButton from '@/components/common/back-button';
 import FabMenu from '@/components/common/fab-menu';
+import SortSheet, { SortSheetRef } from '@/components/common/sort-sheet';
 import SegmentedControl from '@/components/common/segmented-control';
 import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/matches/register-match-sheet';
 import AddToWishlistSheet, { AddToWishlistSheetRef } from '@/components/wishlists/add-to-wishlist-sheet';
@@ -36,6 +37,7 @@ import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { useThemeColors } from '@/hooks/use-theme-colors';
 
 import { getFileIconColor, getFileIconName } from '@/lib/file';
+import { DEFAULT_MATCH_SORT, MATCH_SORT_OPTIONS } from '@/lib/sort';
 
 const IMAGE_HEIGHT = 280;
 const SHEET_RADIUS = 28;
@@ -86,6 +88,7 @@ const GameDetailScreen = () => {
 
 	const registerMatchSheetRef = useRef<RegisterMatchSheetRef>(null);
 	const addToWishlistSheetRef = useRef<AddToWishlistSheetRef>(null);
+	const sortSheetRef = useRef<SortSheetRef>(null);
 
 	const pagerRef = useRef<ScrollView>(null);
 	const mainScrollRef = useRef<Animated.ScrollView>(null);
@@ -98,6 +101,7 @@ const GameDetailScreen = () => {
 	const [shouldFetchMatches, setShouldFetchMatches] = useState(false);
 	const [isStickyTabBarVisible, setIsStickyTabBarVisible] = useState(false);
 	const [openingFileId, setOpeningFileId] = useState<string | null>(null);
+	const [matchSort, setMatchSort] = useState(DEFAULT_MATCH_SORT);
 
 	const HEADER_HEIGHT = measuredHeaderHeight;
 	const COLLAPSE_DISTANCE = IMAGE_HEIGHT - SHEET_OVERLAP - HEADER_HEIGHT;
@@ -111,8 +115,11 @@ const GameDetailScreen = () => {
 	const expansionsQuery = useGameExpansions(numericBggId, shouldFetchExpansions);
 	const expansions = useMemo(() => expansionsQuery.data?.pages.flatMap(page => page.content) ?? [], [expansionsQuery.data]);
 
-	const matchesQuery = useMatches({ gameId: game?.id, sort: 'playedAt-desc', size: 20 }, shouldFetchMatches && !!game?.id);
+	const matchesQuery = useMatches({ gameId: game?.id, sort: matchSort, size: 20 }, shouldFetchMatches && !!game?.id);
 	const matches = useMemo(() => matchesQuery.data?.pages.flatMap(page => page.content) ?? [], [matchesQuery.data]);
+
+	const isMatchSortActive = matchSort !== DEFAULT_MATCH_SORT;
+	const matchSortLabel = MATCH_SORT_OPTIONS.find(option => option.value === matchSort)?.label ?? 'Ordina';
 
 	const { data: ruleFiles, isLoading: isLoadingRules } = useGameRules(game?.id, shouldFetchRules);
 
@@ -283,6 +290,8 @@ const GameDetailScreen = () => {
 			}
 
 			setActiveTab('info');
+			setMatchSort(DEFAULT_MATCH_SORT);
+
 			setShouldFetchExpansions(false);
 			setShouldFetchRules(false);
 			setShouldFetchMatches(false);
@@ -598,28 +607,38 @@ const GameDetailScreen = () => {
 									</View>
 								</View>
 							)}
-							<View style = {{ width: SCREEN_WIDTH }} onLayout = { handleTabLayout('matches') }>
-								<View className = 'px-4'>
-									{matchesQuery.isLoading ? (
-										<View className = 'items-center py-4'>
-											<ActivityIndicator color = { colors.primary }/>
-										</View>
-									) : matches.length > 0 ? (
-										<View className = 'gap-2'>
-											{matches.map(match => (
-												<MatchListItem key = { match.id } match = { match }/>
-											))}
-											{matchesQuery.isFetchingNextPage && (
-												<View className = 'items-center py-3'>
-													<ActivityIndicator size = 'small' color = { colors.primary }/>
-												</View>
-											)}
-										</View>
-									) : (
-										<Text className = 'py-2 text-sm text-muted-foreground'>Nessuna partita registrata per questo gioco.</Text>
-									)}
+								<View style = {{ width: SCREEN_WIDTH }} onLayout = { handleTabLayout('matches') }>
+									<View className = 'px-4'>
+										{(matches.length > 0 || isMatchSortActive) && (
+											<View className = 'mb-3 flex-row'>
+												<Pressable onPress = { () => sortSheetRef.current?.present() } className = { `flex-row items-center gap-1.5 rounded-full px-3 py-1.5 border active:opacity-80 ${isMatchSortActive ? 'bg-primary/15 border-primary/40' : 'bg-secondary/80 border-border/40'}` }>
+													<ArrowUpDown size = { 13 } color = { isMatchSortActive ? colors.primary : colors.mutedForeground }/>
+													<Text className = { `text-xs font-medium ${isMatchSortActive ? 'text-primary' : 'text-muted-foreground'}` }>
+														{matchSortLabel}
+													</Text>
+												</Pressable>
+											</View>
+										)}
+										{matchesQuery.isLoading ? (
+											<View className = 'items-center py-4'>
+												<ActivityIndicator color = { colors.primary }/>
+											</View>
+										) : matches.length > 0 ? (
+											<View className = 'gap-2'>
+												{matches.map(match => (
+													<MatchListItem key = { match.id } match = { match }/>
+												))}
+												{matchesQuery.isFetchingNextPage && (
+													<View className = 'items-center py-3'>
+														<ActivityIndicator size = 'small' color = { colors.primary }/>
+													</View>
+												)}
+											</View>
+										) : (
+											<Text className = 'py-2 text-sm text-muted-foreground'>Nessuna partita registrata per questo gioco.</Text>
+										)}
+									</View>
 								</View>
-							</View>
 						</ScrollView>
 					</View>
 				</View>
@@ -655,6 +674,7 @@ const GameDetailScreen = () => {
 			/>
 			<RegisterMatchSheet ref = { registerMatchSheetRef }/>
 			<AddToWishlistSheet ref = { addToWishlistSheetRef }/>
+			<SortSheet ref = { sortSheetRef } options = { MATCH_SORT_OPTIONS } selected = { matchSort } onSelect = { setMatchSort }/>
 		</View>
 	)
 }

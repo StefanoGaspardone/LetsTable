@@ -3,6 +3,8 @@ import { ConfigContext, ExpoConfig } from 'expo/config';
 type AppVariant = 'development' | 'preview' | 'production';
 
 const APP_VARIANT = (process.env.APP_VARIANT ?? 'production') as AppVariant;
+const DISTRIBUTION = process.env.DISTRIBUTION === 'play' ? 'play' : 'apk';
+const INSTALL_PACKAGES_PERMISSION = 'android.permission.REQUEST_INSTALL_PACKAGES';
 
 const BASE_NAME = "Let's Table";
 
@@ -18,12 +20,14 @@ const APP_NAME = `${BASE_NAME}${variant.nameSuffix}`;
 const PACKAGE_NAME = variant.packageName;
 const SCHEME = variant.scheme;
 
+const { version } = require('./package.json') as { version: string };
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
 	...config,
 	name: APP_NAME,
 	slug: "lets-table",
 	owner: "stegaspadev2002",
-	version: "2.2.0",
+	version,
 	orientation: "portrait",
 	icon: "./assets/images/icon.png",
 	scheme: SCHEME,
@@ -43,6 +47,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 			monochromeImage: './assets/images/adaptive-icon-monochrome.png',
 			backgroundColor: '#F2EFE9',
 		},
+		...(DISTRIBUTION === 'play'
+			? { blockedPermissions: [INSTALL_PACKAGES_PERMISSION] }
+			: { permissions: [INSTALL_PACKAGES_PERMISSION] }),
 	},
 	plugins: [
 		"expo-router",
@@ -141,6 +148,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 		apiUrl: process.env.EXPO_PUBLIC_API_URL ?? "https://letstable-backend-1040192390713.europe-west1.run.app/api/v1",
 		eas: {
 			projectId: "051685f9-5f00-4569-b4f4-483ffefc6bc8"
-		}
+		},
+		distribution: DISTRIBUTION,
 	}
 });

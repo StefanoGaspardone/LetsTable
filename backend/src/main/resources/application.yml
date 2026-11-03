@@ -120,3 +120,10 @@ cors:
 fcm:
   project-id: ${FCM_PROJECT_ID}
   credentials-path: ${FCM_CREDENTIALS_PATH:}
+
+# ============================================================
+# VERSION CONFIGURATION
+# ============================================================
+app:
+  release:
+    download-url-template: https://github.com/StefanoGaspardone/LetsTable/releases/download/v{version}/lets-table-{version}.apk

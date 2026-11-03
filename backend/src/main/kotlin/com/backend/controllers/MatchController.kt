@@ -265,7 +265,7 @@ class MatchController(
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) fromDate: LocalDate?,
         @Parameter(description = "Only matches played on or before this date (yyyy-MM-dd)")
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) toDate: LocalDate?,
-        @Parameter(description = "Sort field and direction: playedAt, createdAt or durationMinutes, followed by -asc or -desc, e.g. 'durationMinutes-desc'. In-progress matches (no duration) are always listed last when sorting by duration.") @RequestParam(required = false) sort: String?,
+        @Parameter(description = "Sort field and direction: playedAt, createdAt, durationMinutes or winnerScore, followed by -asc or -desc, e.g. 'winnerScore-desc'. Matches without a value (in-progress matches for duration, matches without scores for winnerScore) are always listed last.") @RequestParam(required = false) sort: String?,
     ): ResponseEntity<PageDTO<MatchDTO>> =
         ResponseEntity.ok(matchService.listMyMatches(CurrentUser.id(), page, size, gameId, fromDate, toDate, sort))
 

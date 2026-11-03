@@ -78,6 +78,7 @@ class ExceptionsHandler {
         InvalidFileTypeException::class,
         InvalidRankIndexFileException::class,
         CannotAccessOwnResourceViaPublicEndpointException::class,
+        InvalidAppReleaseException::class,
     )
     fun handleBadRequest(ex: RuntimeException) =
         buildResponse(HttpStatus.BAD_REQUEST, ex)
@@ -173,6 +174,7 @@ class ExceptionsHandler {
         MatchNotFoundException::class,
         UploadedFileNotFoundException::class,
         StorageNotFoundException::class,
+        AppReleaseNotFoundException::class,
     )
     fun handleNotFound(ex: RuntimeException) =
         buildResponse(HttpStatus.NOT_FOUND, ex)
@@ -191,6 +193,7 @@ class ExceptionsHandler {
         UserAlreadyWishlistMemberException::class,
         CannotModifyDefaultWishlistException::class,
         InvalidAccountStatusTransitionException::class,
+        AppReleaseAlreadyExistsException::class,
     )
     fun handleConflict(ex: RuntimeException) =
         buildResponse(HttpStatus.CONFLICT, ex)

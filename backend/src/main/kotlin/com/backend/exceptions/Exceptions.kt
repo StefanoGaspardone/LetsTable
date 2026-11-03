@@ -34,6 +34,8 @@ class InvalidRankIndexFileException(message: String): RuntimeException(message)
 
 class CannotAccessOwnResourceViaPublicEndpointException: RuntimeException("Cannot access your own resource via this endpoint, use the dedicated endpoint instead")
 
+class InvalidAppReleaseException(message: String): RuntimeException(message)
+
 // ============================================================
 // 401 UNAUTHORIZED
 // ============================================================
@@ -100,6 +102,8 @@ class UploadedFileNotFoundException(id: UUID): RuntimeException("File not found:
 
 class StorageNotFoundException(objectKey: String): RuntimeException("Object not found in storage: $objectKey")
 
+class AppReleaseNotFoundException: RuntimeException("No app release published yet")
+
 // ============================================================
 // 409 CONFLICT
 // ============================================================
@@ -121,6 +125,8 @@ class UserAlreadyWishlistMemberException(userId: UUID): RuntimeException("User i
 class CannotModifyDefaultWishlistException: RuntimeException("The default wishlist cannot be renamed or deleted")
 
 class InvalidAccountStatusTransitionException(message: String): RuntimeException(message)
+
+class AppReleaseAlreadyExistsException(version: String): RuntimeException("App release $version already exists")
 
 // ============================================================
 // 429 TOO MANY REQUESTS

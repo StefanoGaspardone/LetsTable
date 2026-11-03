@@ -36,6 +36,9 @@ class Match(
     @Column(name = "notes", nullable = true, columnDefinition = "TEXT")
     var notes: String? = null,
 
+    @Column(name = "winner_score")
+    var winnerScore: Int? = null,
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "match_expansions",

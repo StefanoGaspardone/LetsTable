@@ -2,10 +2,13 @@ package com.backend.controllers
 
 import com.backend.exceptions.ErrorResponse
 import com.backend.exceptions.InvalidSchedulerTokenException
+import com.backend.models.dtos.AppVersionDTO
+import com.backend.models.dtos.CreateAppReleaseRequest
 import com.backend.models.dtos.JobResultResponse
 import com.backend.schedulers.HotGamesScheduler
 import com.backend.schedulers.UserCleanupScheduler
 import com.backend.schedulers.WishlistNotificationScheduler
+import com.backend.services.AppReleaseService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -14,9 +17,12 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -29,6 +35,7 @@ class InternalJobsController(
     private val hotGamesScheduler: HotGamesScheduler,
     private val userCleanupScheduler: UserCleanupScheduler,
     private val wishlistNotificationScheduler: WishlistNotificationScheduler,
+    private val appReleaseService: AppReleaseService,
     @Value($$"${job.token:}") private val jobToken: String,
 ) {
 
@@ -168,5 +175,60 @@ class InternalJobsController(
                 MessageDigest.isEqual(token.toByteArray(), jobToken.toByteArray())
 
         if(!valid) throw InvalidSchedulerTokenException()
+    }
+
+    @Operation(summary = "Publish app release", description = "Publish a new version of the mobile app. Triggered by the GitHub workflow when a release is published.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "201", description = "Created - Release published",
+                content = [Content(schema = Schema(implementation = AppVersionDTO::class))]
+            ),
+            ApiResponse(
+                responseCode = "400", description = "Bad Request - Invalid version format or minSupportedVersion greater than version",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "InvalidMinVersionExample",
+                        summary = "Min version greater than version example",
+                        value = "{\"timestamp\":\"2026-11-03T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"minSupportedVersion cannot be greater than version\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "401", description = "Unauthorized - Missing or invalid scheduler token",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "InvalidTokenExample",
+                        summary = "Invalid scheduler token example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Invalid scheduler token\"}"
+                    )]
+                )]
+            ),
+            ApiResponse(
+                responseCode = "409", description = "Conflict - Version already published",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "AlreadyExistsExample",
+                        summary = "Duplicate version example",
+                        value = "{\"timestamp\":\"2026-11-03T12:00:00Z\",\"status\":409,\"error\":\"Conflict\",\"message\":\"App release 2.3.0 already exists\"}"
+                    )]
+                )]
+            ),
+        ]
+    )
+    @PostMapping("/app-release")
+    fun publishAppRelease(
+        @Parameter(description = "Shared secret configured in the GitHub workflow", required = true)
+        @RequestHeader("X-Scheduler-Token", required = false) token: String?,
+        @Valid @RequestBody request: CreateAppReleaseRequest,
+    ): ResponseEntity<AppVersionDTO> {
+        checkToken(token)
+        return ResponseEntity.status(HttpStatus.CREATED).body(appReleaseService.createRelease(request))
     }
 }
