@@ -7,11 +7,25 @@ describe('getPlayerColor', () => {
 	it('returns the palette color for the player index', () => {
 		expect(getPlayerColor(0)).toBe(PALETTE[0]);
 		expect(getPlayerColor(3)).toBe(PALETTE[3]);
+		expect(getPlayerColor(PALETTE.length - 1)).toBe(PALETTE[PALETTE.length - 1]);
 	});
 
 	it('wraps around when there are more players than colors', () => {
 		expect(getPlayerColor(PALETTE.length)).toBe(PALETTE[0]);
 		expect(getPlayerColor(PALETTE.length + 2)).toBe(PALETTE[2]);
+		expect(getPlayerColor(PALETTE.length * 3 + 2)).toBe(PALETTE[2]);
+	});
+});
+
+describe('PALETTE', () => {
+	it('contains only unique colors', () => {
+		expect(new Set(PALETTE).size).toBe(PALETTE.length);
+	});
+
+	it('contains only valid 6-digit hex colors', () => {
+		PALETTE.forEach(color => {
+			expect(color).toMatch(/^#[0-9A-Fa-f]{6}$/);
+		});
 	});
 });
 
