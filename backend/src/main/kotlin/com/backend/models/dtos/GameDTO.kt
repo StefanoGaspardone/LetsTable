@@ -1,7 +1,9 @@
 package com.backend.models.dtos
 
+import com.backend.models.entities.Category
 import com.backend.models.entities.Game
 import com.backend.models.entities.GameSleeve
+import com.backend.models.entities.Mechanic
 import com.backend.models.projections.GameMatchStatsProjection
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
@@ -80,6 +82,12 @@ data class GameDTO(
 
     @field:Schema(description = "Sleeve/component recommendations, empty if not yet synced or unavailable")
     val sleeves: List<GameSleeveDTO>,
+
+    @field:Schema(description = "Game mechanics, empty if not yet fully synced")
+    val mechanics: List<GameTermDTO> = emptyList(),
+
+    @field:Schema(description = "Game categories, empty if not yet fully synced")
+    val categories: List<GameTermDTO> = emptyList(),
 ) {
     companion object {
         fun from(game: Game, inCollection: Boolean? = null, baseGame: GameDTO? = null, sleeves: List<GameSleeveDTO> = emptyList()) = GameDTO(
@@ -106,7 +114,9 @@ data class GameDTO(
             designers = game.designers,
             artists = game.artists,
             publishers = game.publishers,
-            sleeves = sleeves
+            sleeves = sleeves,
+            mechanics = game.mechanics.map { GameTermDTO.from(it) }.sortedBy { it.name },
+            categories = game.categories.map { GameTermDTO.from(it) }.sortedBy { it.name },
         )
 
         fun fromSearchResult(item: BggSearchItemXml) = GameDTO(
@@ -215,5 +225,25 @@ data class GameMatchStatsDTO(
             winRate = projection.winRate,
             lastPlayedAt = projection.lastPlayedAt,
         )
+    }
+}
+
+@Schema(description = "A BoardGameGeek mechanic or category")
+data class GameTermDTO(
+    @field:Schema(description = "Internal Let's Table id")
+    val id: UUID,
+
+    @field:Schema(description = "BoardGameGeek internal id")
+    val bggId: Long,
+
+    @field:Schema(description = "Display name, Italian when available", example = "Piazzamento lavoratori")
+    val name: String,
+) {
+    companion object {
+        fun from(mechanic: Mechanic) =
+            GameTermDTO(mechanic.id!!, mechanic.bggId, mechanic.nameIt ?: mechanic.name)
+
+        fun from(category: Category) =
+            GameTermDTO(category.id!!, category.bggId, category.nameIt ?: category.name)
     }
 }

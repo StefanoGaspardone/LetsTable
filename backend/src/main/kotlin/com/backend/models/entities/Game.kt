@@ -3,6 +3,7 @@ package com.backend.models.entities
 import com.backend.utils.ExpansionRefListConverter
 import com.backend.utils.StringListConverter
 import jakarta.persistence.*
+import org.hibernate.annotations.BatchSize
 import org.hibernate.annotations.CreationTimestamp
 import org.hibernate.annotations.UpdateTimestamp
 import java.time.Instant
@@ -87,6 +88,24 @@ class Game(
     @Convert(converter = StringListConverter::class)
     @Column(name = "publishers", nullable = true, columnDefinition = "TEXT")
     var publishers: List<String> = emptyList(),
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "game_mechanics",
+        joinColumns = [JoinColumn(name = "game_id")],
+        inverseJoinColumns = [JoinColumn(name = "mechanic_id")],
+    )
+    @BatchSize(size = 50)
+    var mechanics: MutableSet<Mechanic> = mutableSetOf(),
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "game_categories",
+        joinColumns = [JoinColumn(name = "game_id")],
+        inverseJoinColumns = [JoinColumn(name = "category_id")],
+    )
+    @BatchSize(size = 50)
+    var categories: MutableSet<Category> = mutableSetOf(),
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

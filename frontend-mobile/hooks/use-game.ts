@@ -2,7 +2,7 @@ import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClie
 
 import { addToCollection, getGameStatusInCollection, removeFromCollection } from '@/api/collection';
 import { addItemToWishlist, getItemStatusInWishlist, removeItemFromWishlist } from '@/api/wishlist';
-import { getGameByBggId, getGameExpansions, getHotGames, getOverallGames, searchGame } from '@/api/game';
+import { browseGames, BrowseGamesParams, getGameByBggId, getGameCategories, getGameExpansions, getGameMechanics, getHotGames, getOverallGames, searchGame } from '@/api/game';
 import { listGameRules } from '@/api/game-rules';
 
 import { defaultWishlistQuery, useDefaultWishlistId } from '@/hooks/use-wishlist';
@@ -10,6 +10,7 @@ import { MY_STATS_KEY } from '@/hooks/use-stat';
 
 const GAME_STALE_TIME_MS = 5 * 60 * 1000;
 const RANKING_STALE_TIME_MS = 30 * 60 * 1000;
+const TERMS_STALE_TIME_MS = 60 * 60 * 1000;
 
 interface ToggleVariables {
 	gameId: string;
@@ -125,5 +126,35 @@ export const useGameRules = (gameId: string | undefined, enabled = true) => {
 		queryKey: ['games', 'rules', gameId],
 		queryFn: () => listGameRules(gameId!),
 		enabled: enabled && !!gameId,
+	});
+}
+
+export const useBrowseGames = (params: BrowseGamesParams, enabled = true) => {
+	return useInfiniteQuery({
+		queryKey: ['games', 'browse', params],
+		queryFn: ({ pageParam }) => browseGames(params, pageParam),
+		initialPageParam: 0,
+		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
+		enabled,
+		staleTime: GAME_STALE_TIME_MS,
+		placeholderData: keepPreviousData,
+	});
+}
+
+export const useGameMechanics = (enabled = true) => {
+	return useQuery({
+		queryKey: ['games', 'mechanics'],
+		queryFn: getGameMechanics,
+		enabled,
+		staleTime: TERMS_STALE_TIME_MS,
+	});
+}
+
+export const useGameCategories = (enabled = true) => {
+	return useQuery({
+		queryKey: ['games', 'categories'],
+		queryFn: getGameCategories,
+		enabled,
+		staleTime: TERMS_STALE_TIME_MS,
 	});
 }

@@ -10,3 +10,14 @@ export const MATCH_SORT_OPTIONS: SortOption[] = [
 ]
 
 export const DEFAULT_MATCH_SORT = 'playedAt-desc';
+
+export const GAME_SORT_OPTIONS = [
+	{ value: 'name-asc', label: 'Nome (A-Z)' },
+	{ value: 'name-desc', label: 'Nome (Z-A)' },
+	{ value: 'bggRank-asc', label: 'Classifica BGG' },
+	{ value: 'avgRating-desc', label: 'Voto più alto' },
+	{ value: 'yearPublished-desc', label: 'Più recenti' },
+	{ value: 'yearPublished-asc', label: 'Meno recenti' },
+];
+
+export const DEFAULT_GAME_SORT = 'name-asc';

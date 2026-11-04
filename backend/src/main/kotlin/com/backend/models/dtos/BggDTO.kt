@@ -15,6 +15,11 @@ data class BggSearchResponseXml(
     val items: List<BggSearchItemXml> = emptyList(),
 )
 
+data class BggTermRef(
+    val bggId: Long,
+    val name: String,
+)
+
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class BggSearchItemXml(
     @field:JacksonXmlProperty(isAttribute = true)
@@ -100,7 +105,8 @@ data class BggThingItemXml(
     @field:JacksonXmlProperty(localName = "statistics")
     val statistics: BggThingStatisticsXml? = null,
 ) {
-    fun primaryName(): String? = names.firstOrNull { it.type == "primary" }?.value ?: names.firstOrNull()?.value
+    fun primaryName(): String? =
+        names.firstOrNull { it.type == "primary" }?.value ?: names.firstOrNull()?.value
 
     fun expansionRefs(): List<ExpansionRef> =
         links.filter { it.type == "boardgameexpansion" }
@@ -126,6 +132,17 @@ data class BggThingItemXml(
 
     fun averageRating(): Double? =
         statistics?.ratings?.average?.value?.toDoubleOrNull()
+
+    fun mechanics(): List<BggTermRef> =
+        termRefs("boardgamemechanic")
+
+    fun categories(): List<BggTermRef> =
+        termRefs("boardgamecategory")
+
+    private fun termRefs(type: String): List<BggTermRef> =
+        links.filter { it.type == type }
+            .mapNotNull { link -> link.id.toLongOrNull()?.let { id -> BggTermRef(id, link.value) } }
+            .distinctBy { it.bggId }
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)

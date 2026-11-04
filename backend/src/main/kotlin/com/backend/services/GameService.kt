@@ -2,6 +2,7 @@ package com.backend.services
 
 import com.backend.clients.BggClient
 import com.backend.exceptions.GameNotFoundOnBggException
+import com.backend.exceptions.InvalidSortException
 import com.backend.models.dtos.BggThingItemXml
 import com.backend.models.dtos.GameDTO
 import com.backend.models.dtos.GameSleeveDTO
@@ -15,6 +16,7 @@ import com.backend.repositories.GameRepository
 import com.backend.repositories.GameSleeveRepository
 import com.backend.security.CurrentUser
 import com.backend.utils.BggDetails
+import com.backend.utils.resolveSort
 import com.backend.utils.safePageRequest
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
@@ -34,6 +36,7 @@ class GameService(
     private val gameSleeveRepository: GameSleeveRepository,
     private val hotGamesPersistenceService: HotGamesPersistenceService,
     private val gameSleevePersistenceService: GameSleevePersistenceService,
+    private val gameTermService: GameTermService,
     private val bggRankIndexRepository: BggRankIndexRepository,
 ) {
 
@@ -44,6 +47,10 @@ class GameService(
         private const val MAX_EXPANSIONS_PAGE_SIZE = 50
         private const val MAX_OVERALL_PAGE_SIZE = 50
         private const val UNKNOWN_GAME_NAME = "Sconosciuto"
+        private const val DEFAULT_CATALOG_SORT_FIELD = "name"
+        private const val DEFAULT_CATALOG_SORT = "name-asc"
+
+        private val CATALOG_SORT_FIELDS = setOf("name", "yearPublished", "bggRank", "avgRating")
     }
 
     fun getOrSyncGame(bggId: Long, resolveBaseGame: Boolean = true): GameDTO {
@@ -115,6 +122,7 @@ class GameService(
 
         val bggIds = hotItems.map { it.id }
         val detailsByBggId = fetchDetailsOrEmpty(bggIds)
+        val terms = gameTermService.resolve(detailsByBggId.values)
         val existingByBggId = gameRepository.findAllByBggIdIn(bggIds).associateBy { it.bggId }
 
         val gamesToSave = hotItems.map { item ->
@@ -122,7 +130,7 @@ class GameService(
             val details = detailsByBggId[item.id]
 
             val game = when {
-                details != null -> applyDetails(item.id, existing, details)
+                details != null -> applyDetails(item.id, existing, details, terms)
                 existing != null -> existing
                 else -> Game(
                     bggId = item.id,
@@ -143,26 +151,14 @@ class GameService(
         logger.info("\n\t[INFO] [game_service][force_refresh_hot_games] Hot games cache refreshed with {} entries", gamesToSave.size)
     }
 
-    fun search(query: String, page: Int, size: Int): PageDTO<GameDTO> {
-        logger.debug("\n\t[DEBUG] [game_service][search] Searching games\n\tquery={}\n\tpage={}\n\tsize={}", query, page, size)
+    fun search(query: String?, mechanicId: UUID?, categoryId: UUID?, isExpansion: Boolean?, sort: String?, page: Int, size: Int): PageDTO<GameDTO> {
+        val normalizedQuery = query?.trim()?.takeIf { it.isNotEmpty() }
+        val hasFilters = mechanicId != null || categoryId != null || isExpansion != null || sort != null
 
-        try {
-            val results = bggClient.searchGames(query).items
-            val pageable = safePageRequest(page, size)
-            val pageItems = slice(results, pageable)
-
-            val gamesByBggId = resolveGames(pageItems.map { it.id })
-            val inCollectionMap = buildInCollectionMap(gamesByBggId.values.mapNotNull { it.id })
-
-            val content = pageItems.map { item ->
-                gamesByBggId[item.id]?.let { GameDTO.from(it, inCollectionMap[it.id]) } ?: GameDTO.fromSearchResult(item)
-            }
-
-            logger.info("\n\t[INFO] [game_service][search] Returning {} results for query {}", content.size, query)
-            return paginate(content, pageable, results.size.toLong())
-        } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [game_service][search] Error searching games with query {}: {}", query, e.message, e)
-            throw e
+        return if(normalizedQuery != null && !hasFilters) {
+            searchOnBgg(normalizedQuery, page, size)
+        } else {
+            searchCatalog(normalizedQuery, mechanicId, categoryId, isExpansion, sort, page, size)
         }
     }
 
@@ -268,7 +264,8 @@ class GameService(
         }
 
         val detailsByBggId = fetchDetailsOrEmpty(bggIds)
-        val gamesToSave = bggIds.mapNotNull { id -> detailsByBggId[id]?.let { applyDetails(id, existingByBggId[id], it) } }
+        val terms = gameTermService.resolve(detailsByBggId.values)
+        val gamesToSave = bggIds.mapNotNull { id -> detailsByBggId[id]?.let { applyDetails(id, existingByBggId[id], it, terms) } }
 
         if(gamesToSave.isEmpty()) {
             return emptyMap()
@@ -297,7 +294,7 @@ class GameService(
             ?: throw GameNotFoundOnBggException(bggId)
 
         return try {
-            gameRepository.save(applyDetails(bggId, existing, details))
+            gameRepository.save(applyDetails(bggId, existing, details, gameTermService.resolve(listOf(details))))
         } catch(e: DataIntegrityViolationException) {
             gameRepository.findByBggId(bggId).orElseThrow { e }
         }
@@ -326,8 +323,14 @@ class GameService(
         }
     }
 
-    private fun applyDetails(bggId: Long, existing: Game?, details: BggThingItemXml): Game =
-        BggDetails.applyBggDetails(existing ?: Game(bggId = bggId, name = "", lastSyncedAt = Instant.now()), details)
+    private fun applyDetails(bggId: Long, existing: Game?, details: BggThingItemXml, terms: GameTerms): Game {
+        val game = BggDetails.applyBggDetails(existing ?: Game(bggId = bggId, name = "", lastSyncedAt = Instant.now()), details)
+
+        game.mechanics = details.mechanics().mapNotNull { terms.mechanics[it.bggId] }.toMutableSet()
+        game.categories = details.categories().mapNotNull { terms.categories[it.bggId] }.toMutableSet()
+
+        return game
+    }
 
     private fun isStale(game: Game): Boolean =
         game.lastSyncedAt.isBefore(Instant.now().minus(STALE_AFTER_DAYS, ChronoUnit.DAYS))
@@ -361,4 +364,52 @@ class GameService(
 
     private fun <T : Any> paginate(content: List<T>, pageable: Pageable, total: Long): PageDTO<T> =
         PageImpl(content, pageable, total).toPageDTO { it }
+
+    private fun escapeLike(value: String): String =
+        value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+    private fun searchOnBgg(query: String, page: Int, size: Int): PageDTO<GameDTO> {
+        logger.debug("\n\t[DEBUG] [game_service][search] Searching games\n\tquery={}\n\tpage={}\n\tsize={}", query, page, size)
+
+        try {
+            val results = bggClient.searchGames(query).items
+            val pageable = safePageRequest(page, size)
+            val pageItems = slice(results, pageable)
+
+            val gamesByBggId = resolveGames(pageItems.map { it.id })
+            val inCollectionMap = buildInCollectionMap(gamesByBggId.values.mapNotNull { it.id })
+
+            val content = pageItems.map { item ->
+                gamesByBggId[item.id]?.let { GameDTO.from(it, inCollectionMap[it.id]) } ?: GameDTO.fromSearchResult(item)
+            }
+
+            logger.info("\n\t[INFO] [game_service][search] Returning {} results for query {}", content.size, query)
+            return paginate(content, pageable, results.size.toLong())
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [game_service][search] Error searching games with query {}: {}", query, e.message, e)
+            throw e
+        }
+    }
+
+    private fun searchCatalog(query: String?, mechanicId: UUID?, categoryId: UUID?, isExpansion: Boolean?, sort: String?, page: Int, size: Int): PageDTO<GameDTO> {
+        logger.debug("\n\t[DEBUG] [game_service][search_catalog] Searching catalog\n\tquery={}\n\tmechanicId={}\n\tcategoryId={}\n\tisExpansion={}\n\tsort={}\n\tpage={}\n\tsize={}", query, mechanicId, categoryId, isExpansion, sort, page, size)
+
+        try {
+            val pageable = safePageRequest(page, size, resolveSort(sort ?: DEFAULT_CATALOG_SORT, CATALOG_SORT_FIELDS, DEFAULT_CATALOG_SORT_FIELD, setOf("yearPublished", "bggRank", "avgRating")))
+            val namePattern = query?.let { "%${escapeLike(it.lowercase())}%" } ?: "%"
+
+            val result = gameRepository.searchCatalog(namePattern, isExpansion, mechanicId, categoryId, pageable)
+            val inCollectionMap = buildInCollectionMap(result.content.mapNotNull { it.id })
+
+            logger.info("\n\t[INFO] [game_service][search_catalog] Retrieved {} of {} catalog games", result.numberOfElements, result.totalElements)
+            return result.toPageDTO { GameDTO.from(it, inCollectionMap[it.id]) }
+        } catch(e: InvalidSortException) {
+            logger.warn("\n\t[WARN] [game_service][search_catalog] Invalid sort {}", sort)
+            throw e
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [game_service][search_catalog] Error searching catalog: {}", e.message, e)
+            throw e
+        }
+    }
+
 }

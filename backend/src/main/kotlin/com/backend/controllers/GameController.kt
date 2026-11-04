@@ -2,10 +2,13 @@ package com.backend.controllers
 
 import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.GameDTO
+import com.backend.models.dtos.GameTermDTO
 import com.backend.models.dtos.PageDTO
 import com.backend.services.GameService
+import com.backend.services.GameTermService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.media.ArraySchema
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
@@ -14,30 +17,32 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import java.util.UUID
 
 @Tag(name = "Games", description = "Search and browse games from BoardGameGeek")
 @RestController
 @RequestMapping("/api/v1/games")
 class GameController(
     private val gameService: GameService,
+    private val gameTermService: GameTermService
 ) {
 
-    @Operation(summary = "Search games", description = "Live search against BoardGameGeek. Results of the requested page are enriched with full details, cached for 7 days.")
+    @Operation(summary = "Search games", description = "Without filters and with a query, runs a live search against BoardGameGeek. With an empty query or any filter/sort, searches the local catalog of synced games, alphabetically by default.")
     @ApiResponses(
         value = [
             ApiResponse(
-                responseCode = "200", description = "Ok - Page of search results",
+                responseCode = "200", description = "Ok - Page of games",
                 content = [Content(schema = Schema(implementation = PageDTO::class))]
             ),
             ApiResponse(
-                responseCode = "400", description = "Bad Request - Missing query parameter",
+                responseCode = "400", description = "Bad Request - Invalid sort field",
                 content = [Content(
                     mediaType = "application/json",
                     schema = Schema(implementation = ErrorResponse::class),
                     examples = [ExampleObject(
-                        name = "MissingParameterExample",
-                        summary = "Missing query example",
-                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Missing required parameter 'query'\"}"
+                        name = "InvalidSortExample",
+                        summary = "Invalid sort example",
+                        value = "{\"timestamp\":\"2026-08-19T12:00:00Z\",\"status\":400,\"error\":\"Bad Request\",\"message\":\"Invalid sort field 'price'\"}"
                     )]
                 )]
             ),
@@ -57,11 +62,15 @@ class GameController(
     )
     @GetMapping("/search")
     fun search(
-        @Parameter(description = "Text to search on BoardGameGeek", example = "Ark Nova") @RequestParam query: String,
+        @Parameter(description = "Text to search, optional", example = "Ark Nova") @RequestParam(required = false) query: String?,
+        @Parameter(description = "Filter by mechanic id") @RequestParam(required = false) mechanicId: UUID?,
+        @Parameter(description = "Filter by category id") @RequestParam(required = false) categoryId: UUID?,
+        @Parameter(description = "Filter expansions (true) or base games (false)") @RequestParam(required = false) isExpansion: Boolean?,
+        @Parameter(description = "Sort as field-direction: name, yearPublished, bggRank, avgRating", example = "name-asc") @RequestParam(required = false) sort: String?,
         @Parameter(description = "Page number (0-indexed)") @RequestParam(defaultValue = "0") page: Int,
         @Parameter(description = "Page size (1-100)") @RequestParam(defaultValue = "20") size: Int,
     ): ResponseEntity<PageDTO<GameDTO>> =
-        ResponseEntity.ok(gameService.search(query, page, size))
+        ResponseEntity.ok(gameService.search(query, mechanicId, categoryId, isExpansion, sort, page, size))
 
     @Operation(summary = "Hot games", description = "Trending games on BoardGameGeek, cached and refreshed periodically by a scheduled job.")
     @ApiResponses(
@@ -174,4 +183,30 @@ class GameController(
         @Parameter(description = "Page size (1-50)") @RequestParam(defaultValue = "10") size: Int,
     ): ResponseEntity<PageDTO<GameDTO>> =
         ResponseEntity.ok(gameService.getExpansions(bggId, page, size))
+
+    @Operation(summary = "List mechanics", description = "All BoardGameGeek mechanics found on synced games, sorted by display name. Use the id to filter /search.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - List of mechanics",
+                content = [Content(array = ArraySchema(schema = Schema(implementation = GameTermDTO::class)))]
+            ),
+        ]
+    )
+    @GetMapping("/mechanics")
+    fun getMechanics(): ResponseEntity<List<GameTermDTO>> =
+        ResponseEntity.ok(gameTermService.getMechanics())
+
+    @Operation(summary = "List categories", description = "All BoardGameGeek categories found on synced games, sorted by display name. Use the id to filter /search.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - List of categories",
+                content = [Content(array = ArraySchema(schema = Schema(implementation = GameTermDTO::class)))]
+            ),
+        ]
+    )
+    @GetMapping("/categories")
+    fun getCategories(): ResponseEntity<List<GameTermDTO>> =
+        ResponseEntity.ok(gameTermService.getCategories())
 }

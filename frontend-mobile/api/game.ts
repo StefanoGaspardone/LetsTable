@@ -1,7 +1,15 @@
 import { apiClient } from '@/api/client';
 
-import { Game } from '@/types/game';
+import { Game, GameTerm } from '@/types/game';
 import { PageDTO } from '@/types/page';
+
+export interface BrowseGamesParams {
+	query?: string;
+	mechanicId?: string;
+	categoryId?: string;
+	isExpansion?: boolean;
+	sort?: string;
+}
 
 export const searchGame = async (query: string, page: number, size = 20): Promise<PageDTO<Game>> => {
 	const { data } = await apiClient.get<PageDTO<Game>>('/games/search', {
@@ -33,5 +41,22 @@ export const getGameExpansions = async (bggId: number, page: number, size = 10):
 	const { data } = await apiClient.get<PageDTO<Game>>(`/games/${bggId}/expansions`, {
 		params: { page, size },
 	});
+	return data;
+}
+
+export const browseGames = async (params: BrowseGamesParams, page: number, size = 20): Promise<PageDTO<Game>> => {
+	const { data } = await apiClient.get<PageDTO<Game>>('/games/search', {
+		params: { ...params, page, size },
+	});
+	return data;
+}
+
+export const getGameMechanics = async (): Promise<GameTerm[]> => {
+	const { data } = await apiClient.get<GameTerm[]>('/games/mechanics');
+	return data;
+}
+
+export const getGameCategories = async (): Promise<GameTerm[]> => {
+	const { data } = await apiClient.get<GameTerm[]>('/games/categories');
 	return data;
 }

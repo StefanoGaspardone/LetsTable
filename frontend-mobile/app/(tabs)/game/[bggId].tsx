@@ -21,6 +21,7 @@ import BackButton from '@/components/common/back-button';
 import FabMenu from '@/components/common/fab-menu';
 import SortSheet, { SortSheetRef } from '@/components/common/sort-sheet';
 import SegmentedControl from '@/components/common/segmented-control';
+import GameTermsCard, { GameTermType } from '@/components/games/game-terms-card';
 import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/matches/register-match-sheet';
 import AddToWishlistSheet, { AddToWishlistSheetRef } from '@/components/wishlists/add-to-wishlist-sheet';
 import GameListItem from '@/components/games/game-list-item';
@@ -38,6 +39,7 @@ import { useThemeColors } from '@/hooks/use-theme-colors';
 
 import { getFileIconColor, getFileIconName } from '@/lib/file';
 import { DEFAULT_MATCH_SORT, MATCH_SORT_OPTIONS } from '@/lib/sort';
+import { GameTerm } from '@/types/game';
 
 const IMAGE_HEIGHT = 280;
 const SHEET_RADIUS = 28;
@@ -140,6 +142,10 @@ const GameDetailScreen = () => {
 
 	const handleVisitBgg = () => {
 		Linking.openURL(`https://boardgamegeek.com/boardgame/${bggId}`);
+	}
+
+	const handleTermPress = (type: GameTermType, term: GameTerm) => {
+		router.push(`/browse?${type}Id=${term.id}&${type}Name=${encodeURIComponent(term.name)}`);
 	}
 
 	const handleOpenRuleFile = async (fileId: string, fileName: string, contentType: string) => {
@@ -477,6 +483,7 @@ const GameDetailScreen = () => {
 											</View>
 										)}
 									</View>
+									<GameTermsCard mechanics = { game.mechanics } categories = { game.categories } onPress = { handleTermPress }/>
 									{game.sleeves.length > 0 && (
 										<View className = 'rounded-2xl border border-border bg-card p-4'>
 											<View className = 'mb-3 flex-row items-center gap-2'>

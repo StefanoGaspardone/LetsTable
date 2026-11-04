@@ -1,5 +1,5 @@
 export interface Game {
-id: string;
+	id: string;
 	bggId: number;
 	name: string;
 	yearPublished: number | null;
@@ -22,6 +22,8 @@ id: string;
 	designers: string[];
 	artists: string[];
 	publishers: string[];
+	mechanics: GameTerm[];
+	categories: GameTerm[];
 	sleeves: GameSleeve[];
 }
 
@@ -32,4 +34,10 @@ export interface GameSleeve {
 	width: number | null;
 	quantity: number | null;
 	quantityNote: string | null;
+}
+
+export interface GameTerm {
+	id: string;
+	bggId: number;
+	name: string;
 }
