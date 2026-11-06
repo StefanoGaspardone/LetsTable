@@ -26,4 +26,8 @@ interface MatchPlayerRepository: JpaRepository<MatchPlayer, UUID> {
     @Modifying(flushAutomatically = true)
     @Query("DELETE FROM MatchPlayer mp WHERE mp.match.id = :matchId")
     fun deleteAllByMatchId(@Param("matchId") matchId: UUID)
+
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE MatchPlayer mp SET mp.guestName = :guestName, mp.user = NULL WHERE mp.user.id = :userId")
+    fun convertUserToGuest(@Param("userId") userId: UUID, @Param("guestName") guestName: String): Int
 }

@@ -50,3 +50,7 @@ export const getUserDefaultWishlistItems = async (userId: string, page: number, 
 
     return data;
 }
+
+export const deleteMe = async (): Promise<void> => {
+	await apiClient.delete('/users/me');
+}

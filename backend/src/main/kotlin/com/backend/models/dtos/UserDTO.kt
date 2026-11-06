@@ -1,6 +1,7 @@
 package com.backend.models.dtos
 
 import com.backend.models.entities.User
+import com.backend.models.enums.AccountStatus
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
@@ -25,16 +26,26 @@ data class UserDTO(
 
     @field:Schema(description = "Whether the user has push/email notifications enabled")
     val notificationsEnabled: Boolean,
+
+    @field:Schema(description = "Whether this account has been deleted")
+    val deleted: Boolean,
 ) {
     companion object {
-        fun from(user: User) = UserDTO(
-            id = user.id!!,
-            username = user.username,
-            email = user.email,
-            role = user.role.name,
-            avatarId = user.avatarId,
-            notificationsEnabled = user.notificationsEnabled,
-        )
+        private const val DELETED_USERNAME = "Utente eliminato"
+
+        fun from(user: User): UserDTO {
+            val deleted = user.accountStatus == AccountStatus.DELETED
+
+            return UserDTO(
+                id = user.id!!,
+                username = if(deleted) DELETED_USERNAME else user.username,
+                email = if(deleted) "" else user.email,
+                role = user.role.name,
+                avatarId = user.avatarId,
+                notificationsEnabled = user.notificationsEnabled,
+                deleted = deleted,
+            )
+        }
     }
 }
 

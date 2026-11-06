@@ -63,4 +63,8 @@ interface UserAchievementRepository: JpaRepository<UserAchievement, UUID> {
         """
     )
     fun countFriends(@Param("userId") userId: UUID, @Param("status") status: FriendRequestStatus): Long
+
+    @Modifying
+    @Query("DELETE FROM UserAchievement ua WHERE ua.userId = :userId")
+    fun deleteAllByUserId(@Param("userId") userId: UUID): Int
 }

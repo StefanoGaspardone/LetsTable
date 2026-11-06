@@ -181,4 +181,29 @@ describe('ConfirmDialogProvider / useConfirmDialog', () => {
 
 		consoleError.mockRestore();
 	});
+
+		it('keeps the confirm button disabled until the confirmation text matches', async () => {
+		const { open } = await renderDialog();
+
+		const { promise } = await open({ title: 'Elimina account', confirmLabel: 'Elimina', confirmText: 'marco' });
+
+		await fireEvent.press(screen.getByText('Elimina'));
+		expect(screen.getByText('Elimina account')).toBeTruthy();
+
+		await fireEvent.changeText(screen.getByPlaceholderText('marco'), '  MARCO ');
+		await fireEvent.press(screen.getByText('Elimina'));
+
+		await expect(promise).resolves.toBe(true);
+	});
+
+	it('clears the typed text when a new confirm is opened', async () => {
+		const { open } = await renderDialog();
+
+		await open({ title: 'Prima', confirmText: 'marco' });
+		await fireEvent.changeText(screen.getByPlaceholderText('marco'), 'marco');
+
+		await open({ title: 'Seconda', confirmText: 'marco' });
+
+		expect(screen.getByPlaceholderText('marco').props.value).toBe('');
+	});
 });

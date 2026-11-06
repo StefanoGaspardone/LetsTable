@@ -1,14 +1,16 @@
 import { apiClient } from '@/api/client';
-import { searchUser, getMe, getById, updateMe, getUserProfile, getUserMatches, getUserFriends, getUserDefaultWishlistItems } from '@/api/user';
+import { searchUser, getMe, getById, updateMe, getUserProfile, getUserMatches, getUserFriends, getUserDefaultWishlistItems, deleteMe } from '@/api/user';
 
 jest.mock('@/api/client', () => ({
 	apiClient: {
 		get: jest.fn(),
 		patch: jest.fn(),
+		delete: jest.fn(),
 	},
 }));
 
 const mockedGet = apiClient.get as jest.MockedFunction<typeof apiClient.get>;
+const mockedDelete = apiClient.delete as jest.MockedFunction<typeof apiClient.delete>;
 const mockedPatch = apiClient.patch as jest.MockedFunction<typeof apiClient.patch>;
 
 describe('user API', () => {
@@ -147,6 +149,16 @@ describe('user API', () => {
 			expect(mockedGet).toHaveBeenCalledWith('/users/user-2/wishlist', {
 				params: { page: 1, size: 5 },
 			});
+		});
+	});
+
+	describe('deleteMe', () => {
+		it('deletes the current account', async () => {
+			mockedDelete.mockResolvedValue({ data: { message: 'Your account has been deleted' } });
+
+			await deleteMe();
+
+			expect(mockedDelete).toHaveBeenCalledWith('/users/me');
 		});
 	});
 });

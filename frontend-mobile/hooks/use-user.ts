@@ -1,6 +1,6 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 
-import { getUserDefaultWishlistItems, getUserFriends, getUserMatches, getUserProfile, searchUser, updateMe } from '@/api/user';
+import { deleteMe, getUserDefaultWishlistItems, getUserFriends, getUserMatches, getUserProfile, searchUser, updateMe } from '@/api/user';
 
 import { UpdateUserPayload, User } from '@/types/user';
 
@@ -55,5 +55,11 @@ export const useUserDefaultWishlistItems = (userId: string, enabled = true) => {
 		initialPageParam: 0,
 		getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.number + 1),
 		enabled: enabled && !!userId,
+	});
+}
+
+export const useDeleteMe = () => {
+	return useMutation({
+		mutationFn: deleteMe,
 	});
 }

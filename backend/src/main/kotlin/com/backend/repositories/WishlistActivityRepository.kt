@@ -31,4 +31,8 @@ interface WishlistActivityRepository: JpaRepository<WishlistActivity, UUID> {
     @Modifying
     @Query("DELETE FROM WishlistActivity a WHERE a.notifiedAt < :cutoff")
     fun deleteNotifiedBefore(@Param("cutoff") cutoff: Instant): Int
+
+    @Modifying
+    @Query("DELETE FROM WishlistActivity a WHERE a.actor.id = :actorId")
+    fun deleteAllByActorId(@Param("actorId") actorId: UUID): Int
 }

@@ -12,14 +12,18 @@ import com.backend.models.entities.User
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.FileOwnerType
 import com.backend.repositories.CollectionItemRepository
+import com.backend.repositories.EmailVerificationRepository
 import com.backend.repositories.FriendRequestRepository
 import com.backend.repositories.MatchPlayerRepository
 import com.backend.repositories.MatchRepository
 import com.backend.repositories.MatchTeamRepository
+import com.backend.repositories.PasswordResetRepository
 import com.backend.repositories.PushTokenRepository
 import com.backend.repositories.RefreshTokenRepository
 import com.backend.repositories.UploadedFileRepository
+import com.backend.repositories.UserAchievementRepository
 import com.backend.repositories.UserRepository
+import com.backend.repositories.WishlistActivityRepository
 import com.backend.repositories.WishlistItemRepository
 import com.backend.repositories.WishlistMemberRepository
 import com.backend.repositories.WishlistRepository
@@ -27,7 +31,12 @@ import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.util.UUID
 
 @Service
@@ -46,9 +55,18 @@ class UserService(
     private val wishlistItemRepository: WishlistItemRepository,
     private val uploadedFileService: UploadedFileService,
     private val friendService: FriendService,
+    private val emailVerificationRepository: EmailVerificationRepository,
+    private val passwordResetRepository: PasswordResetRepository,
+    private val userAchievementRepository: UserAchievementRepository,
+    private val wishlistActivityRepository: WishlistActivityRepository,
+    transactionManager: PlatformTransactionManager,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    private val newTransaction = TransactionTemplate(transactionManager).apply {
+        propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+    }
 
     companion object {
         private const val MIN_SEARCH_LENGTH = 2
@@ -194,21 +212,28 @@ class UserService(
         logger.debug("\n\t[DEBUG] [user_service][delete_account] Deleting account for user {}", userId)
 
         try {
-            val user = findUser(userId)
+            val user = findActiveUser(userId)
+            val formerUsername = user.username
 
             val deletedSoloMatches = deleteSoloMatches(userId)
+            val convertedPlayers = matchPlayerRepository.convertUserToGuest(userId, formerUsername)
 
             refreshTokenRepository.revokeAllByUserId(userId)
             pushTokenRepository.deleteAllByUserId(userId)
+            emailVerificationRepository.deleteAllByUserId(userId)
+            passwordResetRepository.deleteAllByUserId(userId)
+            userAchievementRepository.deleteAllByUserId(userId)
+            wishlistActivityRepository.deleteAllByActorId(userId)
             friendRequestRepository.deleteAllInvolvingUser(userId)
             collectionItemRepository.deleteAllByUserId(userId)
             wishlistItemRepository.deleteAllByWishlistOwnerId(userId)
             wishlistMemberRepository.deleteAllByWishlistOwnerId(userId)
             wishlistMemberRepository.deleteAllByUserId(userId)
             wishlistRepository.deleteAllByOwnerId(userId)
+            uploadedFileRepository.clearUploadedByUser(userId)
 
-            uploadedFileRepository.findAllByOwnerTypeAndOwnerIdOrderByCreatedAtDesc(FileOwnerType.USER_AVATAR, userId)
-                .forEach { uploadedFileService.deleteFile(FileOwnerType.USER_AVATAR, userId, it.id!!) }
+            val avatarIds = uploadedFileRepository.findAllByOwnerTypeAndOwnerIdOrderByCreatedAtDesc(FileOwnerType.USER_AVATAR, userId).map { it.id!! }
+            deleteAvatarsAfterCommit(userId, avatarIds)
 
             user.username = "deleted-user-${user.id}"
             user.email = "deleted-${user.id}@letstable.invalid"
@@ -217,16 +242,39 @@ class UserService(
             user.notificationsEnabled = false
             user.accountStatus = AccountStatus.DELETED
 
-            logger.info("\n\t[INFO] [user_service][delete_account] Account {} deleted, {} solo matches removed", userId, deletedSoloMatches)
+            logger.info("\n\t[INFO] [user_service][delete_account] Account {} deleted\n\tsoloMatches={}\n\tconvertedPlayers={}", userId, deletedSoloMatches, convertedPlayers)
             return DeleteAccountDTO(message = "Your account has been deleted")
         } catch(e: UserNotFoundException) {
             logger.warn("\n\t[WARN] [user_service][delete_account] User {} not found", userId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [user_service][delete_account] Error deleting account {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [user_service][delete_account] Error deleting account {}: {}", userId, e.message, e)
             throw e
         }
     }
+
+    private fun deleteAvatarsAfterCommit(userId: UUID, avatarIds: List<UUID>) {
+        if(avatarIds.isEmpty()) {
+            return
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+            override fun afterCommit() {
+                avatarIds.forEach { fileId ->
+                    try {
+                        newTransaction.executeWithoutResult { uploadedFileService.deleteFile(FileOwnerType.USER_AVATAR, userId, fileId) }
+                    } catch(e: Exception) {
+                        logger.error("\n\t[ERROR] [user_service][delete_avatars_after_commit] Error deleting avatar {} of user {}: {}", fileId, userId, e.message, e)
+                    }
+                }
+            }
+        })
+    }
+
+    private fun findActiveUser(userId: UUID): User =
+        userRepository.findById(userId)
+            .filter { it.accountStatus != AccountStatus.DELETED }
+            .orElseThrow { UserNotFoundException(userId) }
 
     @Transactional(readOnly = true)
     fun getMyStats(userId: UUID): UserStatsDTO {
@@ -262,8 +310,7 @@ class UserService(
         val playersByMatchId = matchPlayerRepository.findAllByMatchIdIn(matches.map { it.id!! }).groupBy { it.match.id }
 
         val soloMatches = matches.filter { match ->
-            val players = playersByMatchId[match.id].orEmpty()
-            players.size == 1 && players.first().user?.id == userId
+            playersByMatchId[match.id].orEmpty().none { player -> player.user != null && player.user!!.id != userId }
         }
 
         if(soloMatches.isEmpty()) {
