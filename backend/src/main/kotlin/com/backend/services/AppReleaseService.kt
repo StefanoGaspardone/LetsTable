@@ -10,6 +10,7 @@ import com.backend.repositories.AppReleaseRepository
 import com.backend.utils.compareVersions
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -20,6 +21,10 @@ class AppReleaseService(
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    companion object {
+        private val VERSION_REGEX = Regex("""^\d+(\.\d+){1,3}$""")
+    }
 
     @Transactional(readOnly = true)
     fun getLatestRelease(): AppVersionDTO {
@@ -35,7 +40,7 @@ class AppReleaseService(
             logger.warn("\n\t[WARN] [app_release_service][get_latest_release] No app release published yet")
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [app_release_service][get_latest_release] Error retrieving latest app release: {}", e.message)
+            logger.error("\n\t[ERROR] [app_release_service][get_latest_release] Error retrieving latest app release: {}", e.message, e)
             throw e
         }
     }
@@ -45,25 +50,36 @@ class AppReleaseService(
         logger.debug("\n\t[DEBUG] [app_release_service][create_release] Publishing app release {}", request.version)
 
         try {
-            val minSupportedVersion = request.minSupportedVersion
-                ?: appReleaseRepository.findFirstByOrderByCreatedAtDesc().map { it.minSupportedVersion }.orElse(request.version)
+            val version = normalizeVersion(request.version)
+                ?: throw InvalidAppReleaseException("version must be in the X.Y.Z format")
 
-            if(compareVersions(minSupportedVersion, request.version) > 0) {
+            val requestedMinSupportedVersion = request.minSupportedVersion?.takeIf { it.isNotBlank() }?.let {
+                normalizeVersion(it) ?: throw InvalidAppReleaseException("minSupportedVersion must be in the X.Y.Z format")
+            }
+
+            val minSupportedVersion = requestedMinSupportedVersion
+                ?: appReleaseRepository.findFirstByOrderByCreatedAtDesc().map { it.minSupportedVersion }.orElse(version)
+
+            if(compareVersions(minSupportedVersion, version) > 0) {
                 throw InvalidAppReleaseException("minSupportedVersion cannot be greater than version")
             }
 
-            if(appReleaseRepository.existsByVersion(request.version)) {
-                throw AppReleaseAlreadyExistsException(request.version)
+            if(appReleaseRepository.existsByVersion(version)) {
+                throw AppReleaseAlreadyExistsException(version)
             }
 
-            val saved = appReleaseRepository.save(
-                AppRelease(
-                    version = request.version,
-                    minSupportedVersion = minSupportedVersion,
-                    downloadUrl = request.downloadUrl?.trim()?.ifBlank { null } ?: buildDownloadUrl(request.version),
-                    releaseNotes = request.releaseNotes?.trim()?.ifBlank { null },
+            val saved = try {
+                appReleaseRepository.saveAndFlush(
+                    AppRelease(
+                        version = version,
+                        minSupportedVersion = minSupportedVersion,
+                        downloadUrl = request.downloadUrl?.trim()?.ifBlank { null } ?: buildDownloadUrl(version),
+                        releaseNotes = request.releaseNotes?.trim()?.ifBlank { null },
+                    )
                 )
-            )
+            } catch(e: DataIntegrityViolationException) {
+                throw AppReleaseAlreadyExistsException(version)
+            }
 
             logger.info("\n\t[INFO] [app_release_service][create_release] App release {} published, min supported {}", saved.version, saved.minSupportedVersion)
             return AppVersionDTO.from(saved)
@@ -74,10 +90,13 @@ class AppReleaseService(
             logger.warn("\n\t[WARN] [app_release_service][create_release] App release {} already exists", request.version)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [app_release_service][create_release] Error publishing app release {}: {}", request.version, e.message)
+            logger.error("\n\t[ERROR] [app_release_service][create_release] Error publishing app release {}: {}", request.version, e.message, e)
             throw e
         }
     }
+
+    private fun normalizeVersion(raw: String): String? =
+        raw.trim().removePrefix("v").removePrefix("V").takeIf { VERSION_REGEX.matches(it) }
 
     private fun buildDownloadUrl(version: String): String =
         downloadUrlTemplate.replace("{version}", version)

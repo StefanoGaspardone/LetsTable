@@ -6,12 +6,15 @@ import com.backend.models.entities.BggRankIndex
 import com.backend.repositories.BggRankIndexRepository
 import jakarta.persistence.EntityManager
 import org.apache.commons.csv.CSVFormat
+import org.apache.commons.csv.CSVRecord
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.multipart.MultipartFile
 import java.io.BufferedReader
+import java.io.IOException
 import java.io.InputStreamReader
+import java.io.UncheckedIOException
 import java.nio.charset.StandardCharsets
 
 @Service
@@ -27,6 +30,7 @@ class BggRankIndexService(
         private const val RANK_COLUMN = "rank"
         private const val CSV_EXTENSION = ".csv"
         private const val INSERT_BATCH_SIZE = 500
+        private const val BYTE_ORDER_MARK = 0xFEFF
     }
 
     @Transactional
@@ -59,7 +63,7 @@ class BggRankIndexService(
             throw e
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [bgg_rank_index_service][upload_rank_index] Error processing rank index file: {}", e.message, e)
-            throw InvalidRankIndexFileException("Could not parse the uploaded file: ${e.message}")
+            throw e
         }
     }
 
@@ -68,23 +72,48 @@ class BggRankIndexService(
         bggRankIndexRepository.count()
 
     private fun parseCsv(file: MultipartFile): List<BggRankIndex> {
-        BufferedReader(InputStreamReader(file.inputStream, StandardCharsets.UTF_8)).use { reader ->
-            val parser = CSVFormat.DEFAULT.builder()
-                .setHeader()
-                .setSkipHeaderRecord(true)
-                .build()
-                .parse(reader)
+        try {
+            BufferedReader(InputStreamReader(file.inputStream, StandardCharsets.UTF_8)).use { reader ->
+                skipByteOrderMark(reader)
 
-            listOf(ID_COLUMN, RANK_COLUMN)
-                .firstOrNull { it !in parser.headerMap }
-                ?.let { throw InvalidRankIndexFileException("Missing required column: $it") }
+                val parser = CSVFormat.DEFAULT.builder()
+                    .setHeader()
+                    .setSkipHeaderRecord(true)
+                    .setIgnoreHeaderCase(true)
+                    .setTrim(true)
+                    .build()
+                    .parse(reader)
 
-            return parser.mapNotNull { record ->
-                val bggId = record.get(ID_COLUMN)?.toLongOrNull()
-                val rank = record.get(RANK_COLUMN)?.toIntOrNull()
+                listOf(ID_COLUMN, RANK_COLUMN)
+                    .firstOrNull { column -> parser.headerMap.keys.none { it.equals(column, ignoreCase = true) } }
+                    ?.let { throw InvalidRankIndexFileException("Missing required column: $it") }
 
-                if(bggId != null && rank != null && rank > 0) BggRankIndex(bggId = bggId, rank = rank) else null
+                return parser
+                    .mapNotNull { record ->
+                        val bggId = record.valueOf(ID_COLUMN)?.toLongOrNull()
+                        val rank = record.valueOf(RANK_COLUMN)?.toIntOrNull()
+
+                        if(bggId != null && bggId > 0 && rank != null && rank > 0) BggRankIndex(bggId = bggId, rank = rank) else null
+                    }
+                    .distinctBy { it.bggId }
             }
+        } catch(e: IOException) {
+            throw InvalidRankIndexFileException("Could not read the uploaded file: ${e.message}")
+        } catch(e: UncheckedIOException) {
+            throw InvalidRankIndexFileException("Could not parse the uploaded file: ${e.message}")
+        } catch(e: IllegalArgumentException) {
+            throw InvalidRankIndexFileException("Could not parse the uploaded file: ${e.message}")
         }
     }
+
+    private fun skipByteOrderMark(reader: BufferedReader) {
+        reader.mark(1)
+
+        if(reader.read() != BYTE_ORDER_MARK) {
+            reader.reset()
+        }
+    }
+
+    private fun CSVRecord.valueOf(column: String): String? =
+        if(isSet(column)) get(column) else null
 }

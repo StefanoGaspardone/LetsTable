@@ -31,7 +31,7 @@ class AdminStatsService(
         logger.debug("\n\t[DEBUG] [admin_stats_service][get_stats] Computing aggregated statistics")
 
         try {
-            val totalUsers = userRepository.count()
+            val totalUsers = userRepository.countByAccountStatusNot(AccountStatus.DELETED)
             val activeUsers = userRepository.countByAccountStatus(AccountStatus.ACTIVE)
             val inactiveUsers = userRepository.countByAccountStatus(AccountStatus.INACTIVE)
 
@@ -61,7 +61,7 @@ class AdminStatsService(
             logger.info("\n\t[INFO] [admin_stats_service][get_stats] Statistics computed successfully")
             return response
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [admin_stats_service][get_stats] Error computing statistics: {}", e.message)
+            logger.error("\n\t[ERROR] [admin_stats_service][get_stats] Error computing statistics: {}", e.message, e)
             throw e
         }
     }

@@ -6,6 +6,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 class StringListConverterTest {
 
@@ -22,41 +24,37 @@ class StringListConverterTest {
 
         @Test
         fun `should return null when attribute is null`() {
-            val result = converter.convertToDatabaseColumn(null)
-            assertNull(result)
+            assertNull(converter.convertToDatabaseColumn(null))
         }
 
         @Test
         fun `should return empty string when attribute is empty list`() {
-            val result = converter.convertToDatabaseColumn(emptyList())
-            assertEquals("", result)
+            assertEquals("", converter.convertToDatabaseColumn(emptyList()))
         }
 
         @Test
         fun `should return single item string when attribute has one element`() {
-            val list = listOf("BoardGameGeek")
-
-            val result = converter.convertToDatabaseColumn(list)
-
-            assertEquals("BoardGameGeek", result)
+            assertEquals("Uwe Rosenberg", converter.convertToDatabaseColumn(listOf("Uwe Rosenberg")))
         }
 
         @Test
         fun `should join multiple items with pipe separator`() {
-            val list = listOf("Strategy", "Family", "Card Game")
-
-            val result = converter.convertToDatabaseColumn(list)
-
-            assertEquals("Strategy|Family|Card Game", result)
+            assertEquals("Strategy|Family|Card Game", converter.convertToDatabaseColumn(listOf("Strategy", "Family", "Card Game")))
         }
 
         @Test
-        fun `should handle empty strings and whitespace inside the list`() {
-            val list = listOf("First", "", "   ", "Last")
+        fun `should keep empty strings and whitespace inside the list`() {
+            assertEquals("First||   |Last", converter.convertToDatabaseColumn(listOf("First", "", "   ", "Last")))
+        }
 
-            val result = converter.convertToDatabaseColumn(list)
+        @Test
+        fun `should escape pipes inside an item`() {
+            assertEquals("Pandemic \\| Legacy|Z-Man", converter.convertToDatabaseColumn(listOf("Pandemic | Legacy", "Z-Man")))
+        }
 
-            assertEquals("First||   |Last", result)
+        @Test
+        fun `should escape backslashes inside an item`() {
+            assertEquals("Back\\\\slash", converter.convertToDatabaseColumn(listOf("Back\\slash")))
         }
     }
 
@@ -66,54 +64,75 @@ class StringListConverterTest {
 
         @Test
         fun `should return empty list when dbData is null`() {
-            val result = converter.convertToEntityAttribute(null)
-            assertTrue(result.isEmpty())
+            assertTrue(converter.convertToEntityAttribute(null).isEmpty())
         }
 
-        @Test
-        fun `should return empty list when dbData is empty string`() {
-            val result = converter.convertToEntityAttribute("")
-            assertTrue(result.isEmpty())
-        }
-
-        @Test
-        fun `should return empty list when dbData is blank string`() {
-            val result = converter.convertToEntityAttribute("     ")
-            assertTrue(result.isEmpty())
+        @ParameterizedTest
+        @ValueSource(strings = ["", "     ", "\n"])
+        fun `should return empty list when dbData is blank`(dbData: String) {
+            assertTrue(converter.convertToEntityAttribute(dbData).isEmpty())
         }
 
         @Test
         fun `should parse single item string into single element list`() {
-            val dbData = "Eurogame"
-
-            val result = converter.convertToEntityAttribute(dbData)
-
-            assertEquals(1, result.size)
-            assertEquals("Eurogame", result[0])
+            assertEquals(listOf("Eurogame"), converter.convertToEntityAttribute("Eurogame"))
         }
 
         @Test
         fun `should split multiple pipe separated items into list`() {
-            val dbData = "Cooperative|Deck Building|Worker Placement"
-
-            val result = converter.convertToEntityAttribute(dbData)
-
-            assertEquals(3, result.size)
-            assertEquals("Cooperative", result[0])
-            assertEquals("Deck Building", result[1])
-            assertEquals("Worker Placement", result[2])
+            assertEquals(
+                listOf("Cooperative", "Deck Building", "Worker Placement"),
+                converter.convertToEntityAttribute("Cooperative|Deck Building|Worker Placement"),
+            )
         }
 
         @Test
         fun `should preserve empty components when present between pipes`() {
-            val dbData = "Tag1||Tag3"
+            assertEquals(listOf("Tag1", "", "Tag3"), converter.convertToEntityAttribute("Tag1||Tag3"))
+        }
 
-            val result = converter.convertToEntityAttribute(dbData)
+        @Test
+        fun `should not split on escaped pipes`() {
+            assertEquals(listOf("Pandemic | Legacy", "Z-Man"), converter.convertToEntityAttribute("Pandemic \\| Legacy|Z-Man"))
+        }
 
-            assertEquals(3, result.size)
-            assertEquals("Tag1", result[0])
-            assertEquals("", result[1])
-            assertEquals("Tag3", result[2])
+        @Test
+        fun `should keep a trailing lone backslash`() {
+            assertEquals(listOf("Broken\\"), converter.convertToEntityAttribute("Broken\\"))
+        }
+
+        @Test
+        fun `should read values stored before escaping was introduced`() {
+            assertEquals(
+                listOf("Mathias Wigge", "Feuerland Spiele"),
+                converter.convertToEntityAttribute("Mathias Wigge|Feuerland Spiele"),
+            )
+        }
+    }
+
+    @Nested
+    @DisplayName("round trip")
+    inner class RoundTripTests {
+
+        @Test
+        fun `should read back exactly what it writes`() {
+            val list = listOf(
+                "Mathias Wigge",
+                "Loïc Billiau",
+                "Pandemic | Legacy",
+                "Back\\slash",
+                "Ends with backslash\\",
+                "\\|",
+                "",
+                "方舟动物园",
+            )
+
+            assertEquals(list, converter.convertToEntityAttribute(converter.convertToDatabaseColumn(list)))
+        }
+
+        @Test
+        fun `should read back an empty list as empty`() {
+            assertTrue(converter.convertToEntityAttribute(converter.convertToDatabaseColumn(emptyList())).isEmpty())
         }
     }
 }

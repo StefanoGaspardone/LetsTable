@@ -10,7 +10,7 @@ fun resolveSort(
     nullsLastFields: Set<String> = emptySet(),
     tieBreaker: Sort = Sort.unsorted(),
 ): Sort {
-    val parts = sort?.split("-") ?: listOf(defaultField, "desc")
+    val parts = sort?.takeIf { it.isNotBlank() }?.trim()?.split("-") ?: listOf(defaultField, "desc")
     val field = parts.getOrNull(0) ?: defaultField
     val direction = parts.getOrNull(1)?.uppercase() ?: "DESC"
 

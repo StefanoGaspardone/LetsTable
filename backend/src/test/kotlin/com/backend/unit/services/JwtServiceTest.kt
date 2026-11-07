@@ -1,11 +1,11 @@
 package com.backend.unit.services
 
 import com.backend.services.JwtService
-import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.io.Decoders
 import io.jsonwebtoken.io.Encoders
 import io.jsonwebtoken.security.Keys
+import io.jsonwebtoken.security.SignatureException
 import io.jsonwebtoken.security.WeakKeyException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -57,6 +57,14 @@ class JwtServiceTest {
 
             assertThatThrownBy { JwtService(shortBase64Secret, defaultTtlMinutes) }
                 .isInstanceOf(WeakKeyException::class.java)
+        }
+
+        @ParameterizedTest
+        @ValueSource(longs = [0L, -5L])
+        fun `should refuse to start with a non-positive TTL`(ttl: Long) {
+            assertThatThrownBy { JwtService(validBase64Secret, ttl) }
+                .isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("access-token-ttl-minutes")
         }
     }
 
@@ -113,44 +121,6 @@ class JwtServiceTest {
         }
 
         @Test
-        fun `should calculate correct expiration date with 0 minutes TTL (edge case)`() {
-            val jwtService = JwtService(validBase64Secret, 0L)
-            val userId = UUID.randomUUID()
-            val role = "ROLE_USER"
-
-            val token = jwtService.generateAccessToken(userId, role)
-
-            val key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(validBase64Secret))
-
-            val claims = Jwts.parser()
-                .clockSkewSeconds(60)
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token)
-                .payload
-
-            assertThat(claims.expiration).isEqualTo(claims.issuedAt)
-        }
-
-        @Test
-        fun `should calculate correct expiration date with negative TTL`() {
-            val jwtService = JwtService(validBase64Secret, -5L)
-            val userId = UUID.randomUUID()
-            val role = "ROLE_USER"
-
-            val token = jwtService.generateAccessToken(userId, role)
-
-            val key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(validBase64Secret))
-
-            assertThatThrownBy {
-                Jwts.parser()
-                    .verifyWith(key)
-                    .build()
-                    .parseSignedClaims(token)
-            }.isInstanceOf(ExpiredJwtException::class.java)
-        }
-
-        @Test
         fun `should produce unique tokens for different user IDs`() {
             val jwtService = JwtService(validBase64Secret, defaultTtlMinutes)
             val userId1 = UUID.randomUUID()
@@ -161,6 +131,36 @@ class JwtServiceTest {
             val token2 = jwtService.generateAccessToken(userId2, role)
 
             assertThat(token1).isNotEqualTo(token2)
+        }
+
+        private fun parserFor(secret: String) =
+            Jwts.parser().verifyWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret))).build()
+
+        @Test
+        fun `should sign the token with HS256`() {
+            val token = JwtService(validBase64Secret, defaultTtlMinutes).generateAccessToken(UUID.randomUUID(), "USER")
+
+            assertThat(parserFor(validBase64Secret).parseSignedClaims(token).header.algorithm).isEqualTo("HS256")
+        }
+
+        @Test
+        fun `should produce a token that another key cannot verify`() {
+            val otherKey = KeyGenerator.getInstance("HmacSHA256").apply { init(256) }.generateKey()
+            val otherSecret = Encoders.BASE64.encode(otherKey.encoded)
+            val token = JwtService(validBase64Secret, defaultTtlMinutes).generateAccessToken(UUID.randomUUID(), "USER")
+
+            assertThatThrownBy { parserFor(otherSecret).parseSignedClaims(token) }
+                .isInstanceOf(SignatureException::class.java)
+        }
+
+        @Test
+        fun `should produce a token that cannot be tampered with`() {
+            val token = JwtService(validBase64Secret, defaultTtlMinutes).generateAccessToken(UUID.randomUUID(), "USER")
+            val (header, _, signature) = token.split(".")
+            val forgedPayload = Encoders.BASE64URL.encode("""{"sub":"${UUID.randomUUID()}","role":"ADMIN"}""".toByteArray())
+
+            assertThatThrownBy { parserFor(validBase64Secret).parseSignedClaims("$header.$forgedPayload.$signature") }
+                .isInstanceOf(SignatureException::class.java)
         }
     }
 }

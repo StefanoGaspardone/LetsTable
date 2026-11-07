@@ -12,6 +12,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
 import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
+import software.amazon.awssdk.services.s3.model.S3Exception
 import java.io.InputStream
 
 @Service
@@ -21,6 +22,10 @@ class StorageService(
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    companion object {
+        private const val NOT_FOUND_STATUS = 404
+    }
 
     fun putObject(objectKey: String, input: InputStream, size: Long, contentType: String) {
         logger.debug("\n\t[DEBUG] [storage_service][put_object] Starting storage\n\tobjectKey={}\n\tsize={}", objectKey, size)
@@ -35,7 +40,7 @@ class StorageService(
                 RequestBody.fromInputStream(input, size)
             )
             logger.info("\n\t[INFO] [storage_service][put_object] Successful storage\n\tobjectKey={}", objectKey)
-        } catch (e: Exception) {
+        } catch(e: Exception) {
             logger.error("\n\t[ERROR] [storage_service][put_object] Failed storage\n\tobjectKey={}", objectKey, e)
             throw StorageWriteException(objectKey)
         }
@@ -57,6 +62,14 @@ class StorageService(
         } catch(e: NoSuchKeyException) {
             logger.warn("\n\t[WARN] [storage_service][get_object] Object not found\n\tobjectKey={}", objectKey)
             throw StorageNotFoundException(objectKey)
+        } catch(e: S3Exception) {
+            if(e.statusCode() == NOT_FOUND_STATUS) {
+                logger.warn("\n\t[WARN] [storage_service][get_object] Object not found\n\tobjectKey={}\n\tstatus={}", objectKey, e.statusCode())
+                throw StorageNotFoundException(objectKey)
+            }
+
+            logger.error("\n\t[ERROR] [storage_service][get_object] Storage responded with an error\n\tobjectKey={}\n\tstatus={}", objectKey, e.statusCode(), e)
+            throw StorageReadException(objectKey)
         } catch(e: Exception) {
             logger.error("\n\t[ERROR] [storage_service][get_object] Failed retrieval\n\tobjectKey={}", objectKey, e)
             throw StorageReadException(objectKey)

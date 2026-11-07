@@ -16,9 +16,7 @@ interface PushTokenRepository: JpaRepository<PushToken, UUID> {
 
     fun findByToken(token: String): Optional<PushToken>
 
-    fun findAllByUserId(userId: UUID): List<PushToken>
-
-    fun deleteByToken(token: String)
+    fun deleteByTokenAndUserId(token: String, userId: UUID)
 
     @Modifying
     @Query("DELETE FROM PushToken pt WHERE pt.user.id = :userId")

@@ -18,6 +18,7 @@ import com.backend.models.entities.Match
 import com.backend.models.entities.MatchPlayer
 import com.backend.models.entities.MatchTeam
 import com.backend.models.entities.User
+import com.backend.models.enums.AccountStatus
 import com.backend.models.mappers.toPageDTO
 import com.backend.models.specifications.MatchSpecification
 import com.backend.repositories.GameRepository
@@ -71,6 +72,7 @@ class MatchService(
 
             val game = findGame(request.gameId)
             val createdBy = userRepository.findById(userId)
+                .filter { it.accountStatus != AccountStatus.DELETED }
                 .orElseThrow { UserNotFoundByIdentifierException(userId.toString()) }
 
             val match = matchRepository.save(
@@ -114,7 +116,7 @@ class MatchService(
             logger.warn("\n\t[WARN] [match_service][create_match] Referenced user not found: {}", e.message)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [match_service][create_match] Error creating match for user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [match_service][create_match] Error creating match for user {}: {}", userId, e.message, e)
             throw e
         }
     }
@@ -181,7 +183,7 @@ class MatchService(
             logger.warn("\n\t[WARN] [match_service][update_match] Referenced user not found: {}", e.message)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [match_service][update_match] Error updating match {}: {}", matchId, e.message)
+            logger.error("\n\t[ERROR] [match_service][update_match] Error updating match {}: {}", matchId, e.message, e)
             throw e
         }
     }
@@ -201,7 +203,7 @@ class MatchService(
             logger.warn("\n\t[WARN] [match_service][delete_match] User {} is not the creator of match {}", userId, matchId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [match_service][delete_match] Error deleting match {}: {}", matchId, e.message)
+            logger.error("\n\t[ERROR] [match_service][delete_match] Error deleting match {}: {}", matchId, e.message, e)
             throw e
         }
     }
@@ -220,7 +222,7 @@ class MatchService(
             logger.warn("\n\t[WARN] [match_service][get_match] Match {} not found", matchId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [match_service][get_match] Error retrieving match {}: {}", matchId, e.message)
+            logger.error("\n\t[ERROR] [match_service][get_match] Error retrieving match {}: {}", matchId, e.message, e)
             throw e
         }
     }
@@ -247,7 +249,7 @@ class MatchService(
             logger.warn("\n\t[WARN] [match_service][list_my_matches] Invalid sort field: {}", sort)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [match_service][list_my_matches] Error listing matches for user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [match_service][list_my_matches] Error listing matches for user {}: {}", userId, e.message, e)
             throw e
         }
     }
@@ -267,7 +269,7 @@ class MatchService(
             logger.info("\n\t[INFO] [match_service][get_match_calendar] Retrieved {} days with matches for user {}", counts.size, userId)
             return counts
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [match_service][get_match_calendar] Error retrieving calendar for user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [match_service][get_match_calendar] Error retrieving calendar for user {}: {}", userId, e.message, e)
             throw e
         }
     }
@@ -283,7 +285,7 @@ class MatchService(
             logger.info("\n\t[INFO] [match_service][get_recent_games] Found {} distinct games in last {} matches for user {}", response.size, recentMatches.size, userId)
             return response
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [match_service][get_recent_games] Error retrieving recent games for user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [match_service][get_recent_games] Error retrieving recent games for user {}: {}", userId, e.message, e)
             throw e
         }
     }
@@ -301,7 +303,7 @@ class MatchService(
             logger.info("\n\t[INFO] [match_service][get_win_stats] User {} has {} wins out of {} matches", userId, response.totalWins, response.totalMatches)
             return response
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [match_service][get_win_stats] Error retrieving win stats for user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [match_service][get_win_stats] Error retrieving win stats for user {}: {}", userId, e.message, e)
             throw e
         }
     }
@@ -316,7 +318,7 @@ class MatchService(
             logger.info("\n\t[INFO] [match_service][get_recent_matches_for_user] Retrieved {} matches for user {}", response.size, userId)
             return response
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [match_service][get_recent_matches_for_user] Error retrieving matches for user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [match_service][get_recent_matches_for_user] Error retrieving matches for user {}: {}", userId, e.message, e)
             throw e
         }
     }
@@ -341,7 +343,7 @@ class MatchService(
             logger.warn("\n\t[WARN] [match_service][list_game_stats] Invalid sort field: {}", sort)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [match_service][list_game_stats] Error listing game stats for user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [match_service][list_game_stats] Error listing game stats for user {}: {}", userId, e.message, e)
             throw e
         }
     }
@@ -372,6 +374,10 @@ class MatchService(
 
             if(!players.isNullOrEmpty()) {
                 throw InvalidMatchPlayersException("Individual players must not be provided when isTeamBased is true")
+            }
+
+            if(teams.any { it.players.isEmpty() }) {
+                throw InvalidMatchTeamsException("Every team must have at least one player")
             }
 
             teams.forEach { team -> team.players.forEach { validateIdentity(it.userId, it.guestName) } }
@@ -457,7 +463,9 @@ class MatchService(
             return emptyMap()
         }
 
-        val usersById = userRepository.findAllById(userIds).associateBy { it.id!! }
+        val usersById = userRepository.findAllById(userIds)
+            .filter { it.accountStatus != AccountStatus.DELETED }
+            .associateBy { it.id!! }
 
         userIds.firstOrNull { it !in usersById }?.let { throw UserNotFoundByIdentifierException(it.toString()) }
 

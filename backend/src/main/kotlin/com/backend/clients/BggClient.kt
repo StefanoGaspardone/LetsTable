@@ -21,6 +21,7 @@ import java.time.Duration
 class BggClient(
     private val bggWebClient: WebClient,
     @Value($$"${bgg.api-token}") private val apiToken: String,
+    @Value($$"${bgg.request-timeout}") private val requestTimeout: Duration,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -29,7 +30,6 @@ class BggClient(
     private val jsonMapper = JsonMapper.builder().addModule(KotlinModule.Builder().build()).build()
 
     companion object {
-        private val REQUEST_TIMEOUT: Duration = Duration.ofSeconds(30)
         private const val BATCH_SIZE = 20
         private const val CARD_SETS_URL = "https://api.geekdo.com/api/cardsetsbygame"
     }
@@ -104,7 +104,7 @@ class BggClient(
                 .uri(URI.create("$CARD_SETS_URL?objectid=$bggId&nosession=1"))
                 .retrieve()
                 .bodyToMono<String>()
-                .timeout(REQUEST_TIMEOUT)
+                .timeout(requestTimeout)
                 .block()
                 ?: return CardSetsByGameResponse()
 
@@ -128,7 +128,7 @@ class BggClient(
             .header(HttpHeaders.AUTHORIZATION, "Bearer $apiToken")
             .retrieve()
             .bodyToMono<String>()
-            .timeout(REQUEST_TIMEOUT)
+            .timeout(requestTimeout)
             .block()
             ?: throw IllegalStateException("Empty response from BGG $path")
 

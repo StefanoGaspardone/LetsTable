@@ -244,29 +244,18 @@ class GameSleevePersistenceServiceTest {
     }
 
     @Test
-    fun `should set sleevesSyncedAt only during persistence operation`() {
-        assertThat(game.sleevesSyncedAt)
-            .isNull()
+    fun `should set the sync time before saving the game`() {
+        every { gameSleeveRepository.deleteAllByGameId(gameId) } just Runs
+        every { gameSleeveRepository.saveAll(emptyList()) } returns emptyList()
 
-        every {
-            gameSleeveRepository.deleteAllByGameId(gameId)
-        } just Runs
+        var syncedAtWhenSaved: Instant? = null
+        every { gameRepository.save(game) } answers {
+            syncedAtWhenSaved = firstArg<Game>().sleevesSyncedAt
+            game
+        }
 
-        every {
-            gameSleeveRepository.saveAll(emptyList())
-        } returns emptyList()
+        service.replaceSleeves(gameId = gameId, game = game, sleeves = emptyList())
 
-        every {
-            gameRepository.save(game)
-        } returns game
-
-        service.replaceSleeves(
-            gameId = gameId,
-            game = game,
-            sleeves = emptyList()
-        )
-
-        assertThat(game.sleevesSyncedAt)
-            .isNotNull
+        assertThat(syncedAtWhenSaved).isNotNull
     }
 }

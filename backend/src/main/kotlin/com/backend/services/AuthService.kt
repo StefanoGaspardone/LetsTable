@@ -381,7 +381,7 @@ class AuthService(
             userRepository.findByUsernameIgnoreCase(normalized)
         }
 
-        return result.orElse(null)
+        return result.orElse(null)?.takeIf { it.accountStatus != AccountStatus.DELETED }
     }
 
     private fun verifyOtp(expired: Boolean, attemptsExceeded: Boolean, storedHash: String, rawOtp: String, onMismatch: () -> Unit) {

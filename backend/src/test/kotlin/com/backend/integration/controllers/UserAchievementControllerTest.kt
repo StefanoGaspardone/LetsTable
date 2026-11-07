@@ -1,12 +1,22 @@
 package com.backend.integration.controllers
 
-import com.backend.models.entities.*
+import com.backend.models.entities.Game
+import com.backend.models.entities.Match
+import com.backend.models.entities.MatchPlayer
+import com.backend.models.entities.User
+import com.backend.models.entities.UserAchievement
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.AchievementType
 import com.backend.models.enums.UserRole
-import com.backend.repositories.*
+import com.backend.repositories.GameRepository
+import com.backend.repositories.MatchPlayerRepository
+import com.backend.repositories.MatchRepository
+import com.backend.repositories.UserAchievementRepository
+import com.backend.repositories.UserRepository
 import com.backend.services.JwtService
 import org.assertj.core.api.Assertions.assertThat
+import org.hamcrest.Matchers.contains
+import org.hamcrest.Matchers.containsInAnyOrder
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -16,13 +26,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.ResultActions
+import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.*
 
 @AutoConfigureMockMvc
 class UserAchievementControllerTest : AbstractIntegrationTest() {
@@ -48,45 +59,11 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
     @Autowired
     private lateinit var jwtService: JwtService
 
-    private fun persistUser(username: String = "stefano"): User =
-        userRepository.saveAndFlush(
-            User(
-                username = username,
-                email = "$username@example.com",
-                passwordHash = "irrelevant-hash",
-                role = UserRole.USER,
-                accountStatus = AccountStatus.ACTIVE,
-            )
-        )
+    private var nextBggId = 1L
 
-    private fun authHeader(user: User): String =
-        "Bearer ${jwtService.generateAccessToken(user.id!!, user.role.name)}"
-
-    private fun persistGame(bggId: Long = (1..1_000_000).random().toLong()): Game =
-        gameRepository.saveAndFlush(Game(bggId = bggId, name = "Test Game", lastSyncedAt = Instant.now()))
-
-    private fun persistFinishedMatchFor(user: User): Match {
-        val match = matchRepository.saveAndFlush(
-            Match(game = persistGame(), createdBy = user, playedAt = Instant.now(), durationMinutes = 30)
-        )
-        matchPlayerRepository.saveAndFlush(MatchPlayer(match = match, user = user))
-        return match
+    companion object {
+        private const val BASE_URL = "/api/v1/achievements"
     }
-
-    private fun persistUserAchievement(
-        user: User,
-        type: AchievementType,
-        unlockedAt: Instant = Instant.now(),
-        seenAt: Instant? = null,
-    ): UserAchievement =
-        userAchievementRepository.saveAndFlush(
-            UserAchievement(
-                userId = user.id!!,
-                achievementCode = type.name,
-                unlockedAt = unlockedAt,
-                seenAt = seenAt,
-            )
-        )
 
     @AfterEach
     fun cleanUp() {
@@ -97,9 +74,44 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
         userRepository.deleteAll()
     }
 
-    // ---------------------------------------------------------------------
-    // GET /api/v1/achievements/me
-    // ---------------------------------------------------------------------
+    private fun persistUser(username: String = "stefano", role: UserRole = UserRole.USER): User =
+        userRepository.saveAndFlush(
+            User(
+                username = username,
+                email = "$username@example.com",
+                passwordHash = "irrelevant-hash",
+                role = role,
+                accountStatus = AccountStatus.ACTIVE,
+            )
+        )
+
+    private fun authHeader(user: User): String =
+        "Bearer ${jwtService.generateAccessToken(user.id!!, user.role.name)}"
+
+    private fun persistGame(): Game =
+        gameRepository.saveAndFlush(Game(bggId = nextBggId++, name = "Test Game", lastSyncedAt = Instant.now()))
+
+    private fun persistFinishedMatchFor(user: User): Match {
+        val match = matchRepository.saveAndFlush(Match(game = persistGame(), createdBy = user, playedAt = Instant.now(), durationMinutes = 30))
+        matchPlayerRepository.saveAndFlush(MatchPlayer(match = match, user = user))
+        return match
+    }
+
+    private fun persistUserAchievement(user: User, type: AchievementType, unlockedAt: Instant = Instant.now(), seenAt: Instant? = null): UserAchievement =
+        userAchievementRepository.saveAndFlush(UserAchievement(userId = user.id!!, achievementCode = type.name, unlockedAt = unlockedAt, seenAt = seenAt))
+
+    private fun perform(request: AbstractMockHttpServletRequestBuilder<*>, user: User?): ResultActions =
+        mockMvc.perform(request.apply { user?.let { header(HttpHeaders.AUTHORIZATION, authHeader(it)) } })
+
+    private fun getMine(user: User?) = perform(get("$BASE_URL/me"), user)
+
+    private fun getUnseen(user: User?) = perform(get("$BASE_URL/unseen"), user)
+
+    private fun markSeen(user: User?, body: String) =
+        perform(post("$BASE_URL/seen").contentType(MediaType.APPLICATION_JSON).content(body), user)
+
+    private fun rowsOf(user: User, type: AchievementType): List<UserAchievement> =
+        userAchievementRepository.findAllByUserId(user.id!!).filter { it.achievementCode == type.name }
 
     @Nested
     @DisplayName("GET /api/v1/achievements/me")
@@ -107,15 +119,20 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
 
         @Test
         fun `should return the whole catalog with nothing unlocked for a new user`() {
-            val user = persistUser()
-
-            mockMvc.perform(
-                get("/api/v1/achievements/me")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            )
+            getMine(persistUser())
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.length()").value(AchievementType.entries.size))
                 .andExpect(jsonPath("$[?(@.unlocked == true)]").isEmpty)
+        }
+
+        @Test
+        fun `should return every catalog code exactly once`() {
+            val user = persistUser()
+            persistUserAchievement(user, AchievementType.FIRST_FRIEND)
+
+            getMine(user)
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$[*].code").value(containsInAnyOrder(*AchievementType.entries.map { it.name }.toTypedArray())))
         }
 
         @Test
@@ -123,29 +140,49 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
             val user = persistUser()
             persistUserAchievement(user, AchievementType.FIRST_FRIEND)
 
-            mockMvc.perform(
-                get("/api/v1/achievements/me")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            )
+            getMine(user)
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$[?(@.code == 'FIRST_FRIEND')].unlocked").value(true))
                 .andExpect(jsonPath("$[?(@.code == 'FIRST_WIN')].unlocked").value(false))
         }
 
         @Test
-        fun `should unlock achievements reached by the user's current activity`() {
+        fun `should unlock achievements reached by the user's current activity and leave them unseen`() {
             val user = persistUser()
             persistFinishedMatchFor(user)
 
-            mockMvc.perform(
-                get("/api/v1/achievements/me")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            )
+            getMine(user)
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$[?(@.code == 'FIRST_MATCH')].unlocked").value(true))
 
-            assertThat(userAchievementRepository.findCodesByUserId(user.id!!))
-                .contains(AchievementType.FIRST_MATCH.name)
+            val saved = rowsOf(user, AchievementType.FIRST_MATCH).single()
+            assertThat(saved.seenAt).isNull()
+
+            getUnseen(user).andExpect(jsonPath("$[*].code").value(contains("FIRST_MATCH")))
+        }
+
+        @Test
+        fun `should not unlock the same achievement twice on repeated calls`() {
+            val user = persistUser()
+            persistFinishedMatchFor(user)
+
+            getMine(user).andExpect(status().isOk)
+            val firstUnlock = rowsOf(user, AchievementType.FIRST_MATCH).single().unlockedAt
+
+            getMine(user).andExpect(status().isOk)
+            getUnseen(user).andExpect(status().isOk)
+
+            val rows = rowsOf(user, AchievementType.FIRST_MATCH)
+            assertThat(rows).hasSize(1)
+            assertThat(rows.single().unlockedAt).isEqualTo(firstUnlock)
+        }
+
+        @Test
+        fun `should keep an achievement unlocked after it has been seen`() {
+            val user = persistUser()
+            persistUserAchievement(user, AchievementType.FIRST_FRIEND, seenAt = Instant.now())
+
+            getMine(user).andExpect(jsonPath("$[?(@.code == 'FIRST_FRIEND')].unlocked").value(true))
         }
 
         @Test
@@ -153,10 +190,7 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
             val user = persistUser()
             persistFinishedMatchFor(user)
 
-            mockMvc.perform(
-                get("/api/v1/achievements/me")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            )
+            getMine(user)
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$[?(@.code == 'MATCHES_10')].progress").value(1))
                 .andExpect(jsonPath("$[?(@.code == 'MATCHES_10')].unlocked").value(false))
@@ -167,26 +201,20 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
             val user = persistUser(username = "me")
             val other = persistUser(username = "other")
             persistUserAchievement(other, AchievementType.FIRST_FRIEND)
+            persistFinishedMatchFor(other)
 
-            mockMvc.perform(
-                get("/api/v1/achievements/me")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            )
+            getMine(user)
                 .andExpect(status().isOk)
-                .andExpect(jsonPath("$[?(@.code == 'FIRST_FRIEND')].unlocked").value(false))
+                .andExpect(jsonPath("$[?(@.unlocked == true)]").isEmpty)
+
+            assertThat(userAchievementRepository.findAllByUserId(user.id!!)).isEmpty()
         }
 
         @Test
         fun `should return 403 when no auth header is provided`() {
-            mockMvc.perform(
-                get("/api/v1/achievements/me")
-            ).andExpect(status().isForbidden)
+            getMine(null).andExpect(status().isForbidden)
         }
     }
-
-    // ---------------------------------------------------------------------
-    // GET /api/v1/achievements/unseen
-    // ---------------------------------------------------------------------
 
     @Nested
     @DisplayName("GET /api/v1/achievements/unseen")
@@ -194,12 +222,7 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
 
         @Test
         fun `should return an empty list when there is nothing unseen`() {
-            val user = persistUser()
-
-            mockMvc.perform(
-                get("/api/v1/achievements/unseen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            )
+            getUnseen(persistUser())
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.length()").value(0))
         }
@@ -210,10 +233,7 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
             persistUserAchievement(user, AchievementType.FIRST_FRIEND)
             persistUserAchievement(user, AchievementType.FIRST_WIN, seenAt = Instant.now())
 
-            mockMvc.perform(
-                get("/api/v1/achievements/unseen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            )
+            getUnseen(user)
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].code").value("FIRST_FRIEND"))
@@ -227,14 +247,9 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
             persistUserAchievement(user, AchievementType.FIRST_WIN, unlockedAt = now.minus(1, ChronoUnit.MINUTES))
             persistUserAchievement(user, AchievementType.FIRST_FRIEND, unlockedAt = now.minus(1, ChronoUnit.HOURS))
 
-            mockMvc.perform(
-                get("/api/v1/achievements/unseen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            )
+            getUnseen(user)
                 .andExpect(status().isOk)
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].code").value("FIRST_FRIEND"))
-                .andExpect(jsonPath("$[1].code").value("FIRST_WIN"))
+                .andExpect(jsonPath("$[*].code").value(contains("FIRST_FRIEND", "FIRST_WIN")))
         }
 
         @Test
@@ -242,43 +257,28 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
             val user = persistUser()
             persistFinishedMatchFor(user)
 
-            mockMvc.perform(
-                get("/api/v1/achievements/unseen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            )
+            getUnseen(user)
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$[?(@.code == 'FIRST_MATCH')].unlocked").value(true))
 
-            val saved = userAchievementRepository.findAllByUserId(user.id!!)
-            assertThat(saved.map { it.achievementCode }).contains(AchievementType.FIRST_MATCH.name)
-            assertThat(saved.first { it.achievementCode == AchievementType.FIRST_MATCH.name }.seenAt).isNull()
+            assertThat(rowsOf(user, AchievementType.FIRST_MATCH).single().seenAt).isNull()
         }
 
         @Test
         fun `should not return another user's unseen achievements`() {
             val user = persistUser(username = "me")
-            val other = persistUser(username = "other")
-            persistUserAchievement(other, AchievementType.FIRST_FRIEND)
+            persistUserAchievement(persistUser(username = "other"), AchievementType.FIRST_FRIEND)
 
-            mockMvc.perform(
-                get("/api/v1/achievements/unseen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            )
+            getUnseen(user)
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.length()").value(0))
         }
 
         @Test
         fun `should return 403 when no auth header is provided`() {
-            mockMvc.perform(
-                get("/api/v1/achievements/unseen")
-            ).andExpect(status().isForbidden)
+            getUnseen(null).andExpect(status().isForbidden)
         }
     }
-
-    // ---------------------------------------------------------------------
-    // POST /api/v1/achievements/seen
-    // ---------------------------------------------------------------------
 
     @Nested
     @DisplayName("POST /api/v1/achievements/seen")
@@ -289,15 +289,20 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
             val user = persistUser()
             persistUserAchievement(user, AchievementType.FIRST_FRIEND)
 
-            mockMvc.perform(
-                post("/api/v1/achievements/seen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"codes": ["FIRST_FRIEND"]}""")
-            ).andExpect(status().isNoContent)
+            markSeen(user, """{"codes":["FIRST_FRIEND"]}""").andExpect(status().isNoContent)
 
-            val saved = userAchievementRepository.findAllByUserId(user.id!!).single()
-            assertThat(saved.seenAt).isNotNull()
+            assertThat(rowsOf(user, AchievementType.FIRST_FRIEND).single().seenAt).isNotNull()
+        }
+
+        @Test
+        fun `should mark many codes at once`() {
+            val user = persistUser()
+            persistUserAchievement(user, AchievementType.FIRST_FRIEND)
+            persistUserAchievement(user, AchievementType.FIRST_WIN)
+
+            markSeen(user, """{"codes":["FIRST_FRIEND","FIRST_WIN"]}""").andExpect(status().isNoContent)
+
+            assertThat(userAchievementRepository.findAllByUserId(user.id!!)).allMatch { it.seenAt != null }
         }
 
         @Test
@@ -305,17 +310,9 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
             val user = persistUser()
             persistUserAchievement(user, AchievementType.FIRST_FRIEND)
 
-            mockMvc.perform(
-                post("/api/v1/achievements/seen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"codes": ["FIRST_FRIEND"]}""")
-            ).andExpect(status().isNoContent)
+            markSeen(user, """{"codes":["FIRST_FRIEND"]}""").andExpect(status().isNoContent)
 
-            mockMvc.perform(
-                get("/api/v1/achievements/unseen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            )
+            getUnseen(user)
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.length()").value(0))
         }
@@ -325,24 +322,14 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
             val user = persistUser()
             persistFinishedMatchFor(user)
 
-            mockMvc.perform(
-                get("/api/v1/achievements/unseen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            ).andExpect(status().isOk)
+            getUnseen(user).andExpect(jsonPath("$[*].code").value(contains("FIRST_MATCH")))
 
-            mockMvc.perform(
-                post("/api/v1/achievements/seen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"codes": ["FIRST_MATCH"]}""")
-            ).andExpect(status().isNoContent)
+            markSeen(user, """{"codes":["FIRST_MATCH"]}""").andExpect(status().isNoContent)
 
-            mockMvc.perform(
-                get("/api/v1/achievements/unseen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            )
+            getUnseen(user)
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$[?(@.code == 'FIRST_MATCH')]").isEmpty)
+            assertThat(rowsOf(user, AchievementType.FIRST_MATCH)).hasSize(1)
         }
 
         @Test
@@ -351,16 +338,20 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
             persistUserAchievement(user, AchievementType.FIRST_FRIEND)
             persistUserAchievement(user, AchievementType.FIRST_WIN)
 
-            mockMvc.perform(
-                post("/api/v1/achievements/seen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"codes": ["FIRST_FRIEND"]}""")
-            ).andExpect(status().isNoContent)
+            markSeen(user, """{"codes":["FIRST_FRIEND"]}""").andExpect(status().isNoContent)
 
-            val byCode = userAchievementRepository.findAllByUserId(user.id!!).associateBy { it.achievementCode }
-            assertThat(byCode.getValue("FIRST_FRIEND").seenAt).isNotNull()
-            assertThat(byCode.getValue("FIRST_WIN").seenAt).isNull()
+            assertThat(rowsOf(user, AchievementType.FIRST_FRIEND).single().seenAt).isNotNull()
+            assertThat(rowsOf(user, AchievementType.FIRST_WIN).single().seenAt).isNull()
+        }
+
+        @Test
+        fun `should not unlock a locked achievement when its code is marked as seen`() {
+            val user = persistUser()
+
+            markSeen(user, """{"codes":["FIRST_WIN"]}""").andExpect(status().isNoContent)
+
+            assertThat(userAchievementRepository.findAllByUserId(user.id!!)).isEmpty()
+            getMine(user).andExpect(jsonPath("$[?(@.code == 'FIRST_WIN')].unlocked").value(false))
         }
 
         @Test
@@ -369,27 +360,29 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
             val other = persistUser(username = "other")
             persistUserAchievement(other, AchievementType.FIRST_FRIEND)
 
-            mockMvc.perform(
-                post("/api/v1/achievements/seen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"codes": ["FIRST_FRIEND"]}""")
-            ).andExpect(status().isNoContent)
+            markSeen(user, """{"codes":["FIRST_FRIEND"]}""").andExpect(status().isNoContent)
 
-            val saved = userAchievementRepository.findAllByUserId(other.id!!).single()
-            assertThat(saved.seenAt).isNull()
+            assertThat(rowsOf(other, AchievementType.FIRST_FRIEND).single().seenAt).isNull()
         }
 
         @Test
-        fun `should ignore unknown codes and return 204`() {
+        fun `should ignore unknown codes and still mark the known ones`() {
             val user = persistUser()
+            persistUserAchievement(user, AchievementType.FIRST_FRIEND)
 
-            mockMvc.perform(
-                post("/api/v1/achievements/seen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"codes": ["NOT_AN_ACHIEVEMENT"]}""")
-            ).andExpect(status().isNoContent)
+            markSeen(user, """{"codes":["NOT_AN_ACHIEVEMENT","FIRST_FRIEND"]}""").andExpect(status().isNoContent)
+
+            assertThat(rowsOf(user, AchievementType.FIRST_FRIEND).single().seenAt).isNotNull()
+        }
+
+        @Test
+        fun `should accept duplicated codes`() {
+            val user = persistUser()
+            persistUserAchievement(user, AchievementType.FIRST_FRIEND)
+
+            markSeen(user, """{"codes":["FIRST_FRIEND","FIRST_FRIEND"]}""").andExpect(status().isNoContent)
+
+            assertThat(rowsOf(user, AchievementType.FIRST_FRIEND).single().seenAt).isNotNull()
         }
 
         @Test
@@ -398,48 +391,39 @@ class UserAchievementControllerTest : AbstractIntegrationTest() {
             val seenAt = Instant.now().minus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MILLIS)
             persistUserAchievement(user, AchievementType.FIRST_FRIEND, seenAt = seenAt)
 
-            mockMvc.perform(
-                post("/api/v1/achievements/seen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"codes": ["FIRST_FRIEND"]}""")
-            ).andExpect(status().isNoContent)
+            markSeen(user, """{"codes":["FIRST_FRIEND"]}""").andExpect(status().isNoContent)
 
-            val saved = userAchievementRepository.findAllByUserId(user.id!!).single()
-            assertThat(saved.seenAt).isEqualTo(seenAt)
+            assertThat(rowsOf(user, AchievementType.FIRST_FRIEND).single().seenAt).isEqualTo(seenAt)
         }
 
         @Test
         fun `should return 400 when the list of codes is empty`() {
-            val user = persistUser()
-
-            mockMvc.perform(
-                post("/api/v1/achievements/seen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"codes": []}""")
-            ).andExpect(status().isBadRequest)
+            markSeen(persistUser(), """{"codes":[]}""").andExpect(status().isBadRequest)
         }
 
         @Test
-        fun `should return 400 when the body is empty`() {
-            val user = persistUser()
+        fun `should return 400 when codes are missing`() {
+            markSeen(persistUser(), """{}""").andExpect(status().isBadRequest)
+        }
 
-            mockMvc.perform(
-                post("/api/v1/achievements/seen")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{}""")
-            ).andExpect(status().isBadRequest)
+        @Test
+        fun `should return 400 when codes is not a list`() {
+            markSeen(persistUser(), """{"codes":"FIRST_FRIEND"}""").andExpect(status().isBadRequest)
+        }
+
+        @Test
+        fun `should return 400 when the body is malformed`() {
+            markSeen(persistUser(), """{"codes":[""").andExpect(status().isBadRequest)
+        }
+
+        @Test
+        fun `should return 400 when the body is missing`() {
+            perform(post("$BASE_URL/seen").contentType(MediaType.APPLICATION_JSON), persistUser()).andExpect(status().isBadRequest)
         }
 
         @Test
         fun `should return 403 when no auth header is provided`() {
-            mockMvc.perform(
-                post("/api/v1/achievements/seen")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"codes": ["FIRST_FRIEND"]}""")
-            ).andExpect(status().isForbidden)
+            markSeen(null, """{"codes":["FIRST_FRIEND"]}""").andExpect(status().isForbidden)
         }
     }
 }

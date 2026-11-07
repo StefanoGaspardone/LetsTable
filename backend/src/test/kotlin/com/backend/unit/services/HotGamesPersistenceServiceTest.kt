@@ -59,24 +59,11 @@ class HotGamesPersistenceServiceTest {
     }
 
     @Test
-    fun `should handle empty hot games list`() {
-        every {
-            gameRepository.clearAllRanks()
-        } just Runs
-
-        every {
-            gameRepository.saveAll(emptyList())
-        } returns emptyList()
-
+    fun `should keep the current ranks when the hot games list is empty`() {
         service.saveHotGames(emptyList())
 
-        verify(exactly = 1) {
-            gameRepository.clearAllRanks()
-        }
-
-        verify(exactly = 1) {
-            gameRepository.saveAll(emptyList())
-        }
+        verify(exactly = 0) { gameRepository.clearAllRanks() }
+        verify(exactly = 0) { gameRepository.saveAll(any<List<Game>>()) }
     }
 
     @Test
@@ -134,5 +121,17 @@ class HotGamesPersistenceServiceTest {
         }
             .isInstanceOf(RuntimeException::class.java)
             .hasMessage("Save games failed")
+    }
+
+    @Test
+    fun `should not save the hot games when clearing the ranks fails`() {
+        val game = Game(id = UUID.randomUUID(), bggId = 1L, name = "Game 1", rank = 1, lastSyncedAt = Instant.now())
+        every { gameRepository.clearAllRanks() } throws RuntimeException("Clear failed")
+
+        assertThatThrownBy { service.saveHotGames(listOf(game)) }
+            .isInstanceOf(RuntimeException::class.java)
+            .hasMessage("Clear failed")
+
+        verify(exactly = 0) { gameRepository.saveAll(any<List<Game>>()) }
     }
 }

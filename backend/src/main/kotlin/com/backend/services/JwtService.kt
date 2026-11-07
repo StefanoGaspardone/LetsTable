@@ -20,6 +20,10 @@ class JwtService(
     private val logger = LoggerFactory.getLogger(javaClass)
     private val key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret))
 
+    init {
+        require(ttlMinutes > 0) { "jwt.access-token-ttl-minutes must be greater than zero" }
+    }
+
     fun generateAccessToken(userId: UUID, role: String): String {
         val now = Instant.now()
         val expiration = now.plus(ttlMinutes, ChronoUnit.MINUTES)

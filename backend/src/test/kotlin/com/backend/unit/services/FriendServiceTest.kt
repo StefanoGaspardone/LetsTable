@@ -7,6 +7,7 @@ import com.backend.models.entities.User
 import com.backend.models.enums.AccountStatus
 import com.backend.models.enums.FriendRequestStatus
 import com.backend.models.enums.FriendshipStatus
+import com.backend.models.enums.NotificationType
 import com.backend.models.enums.UserRole
 import com.backend.repositories.FriendRequestRepository
 import com.backend.repositories.UserRepository
@@ -14,231 +15,216 @@ import com.backend.services.FriendService
 import com.backend.services.PushNotificationService
 import com.backend.services.UserAchievementService
 import io.mockk.*
-import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.junit5.MockKExtension
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
+import org.springframework.dao.DataIntegrityViolationException
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class FriendServiceTest {
 
-    @MockK
+    @MockK(relaxUnitFun = true)
     private lateinit var friendRequestRepository: FriendRequestRepository
 
     @MockK
     private lateinit var userRepository: UserRepository
 
-    @MockK
+    @RelaxedMockK
     private lateinit var pushNotificationService: PushNotificationService
 
     @RelaxedMockK
     private lateinit var userAchievementService: UserAchievementService
 
-    @InjectMockKs
     private lateinit var friendService: FriendService
 
     private val senderId: UUID = UUID.randomUUID()
     private val receiverId: UUID = UUID.randomUUID()
     private val requestId: UUID = UUID.randomUUID()
 
-    private val mockSender = User(
-        id = senderId,
-        username = "senderUser",
-        email = "sender@test.com",
-        passwordHash = "hash",
-        role = UserRole.USER,
-        accountStatus = AccountStatus.ACTIVE
-    )
+    private val sender = user(senderId, "senderUser")
+    private val receiver = user(receiverId, "receiverUser")
 
-    private val mockReceiver = User(
-        id = receiverId,
-        username = "receiverUser",
-        email = "receiver@test.com",
-        passwordHash = "hash",
-        role = UserRole.USER,
-        accountStatus = AccountStatus.ACTIVE
-    )
+    @BeforeEach
+    fun setUp() {
+        friendService = FriendService(friendRequestRepository, userRepository, pushNotificationService, userAchievementService)
+    }
 
-    private val mockFriendRequest = FriendRequest(
-        id = requestId,
-        sender = mockSender,
-        receiver = mockReceiver,
-        status = FriendRequestStatus.PENDING
-    )
+    private fun user(id: UUID = UUID.randomUUID(), username: String = "user-$id", status: AccountStatus = AccountStatus.ACTIVE) =
+        User(id = id, username = username, email = "$username@test.com", passwordHash = "hash", role = UserRole.USER, accountStatus = status)
+
+    private fun friendRequest(
+        from: User = sender,
+        to: User = receiver,
+        status: FriendRequestStatus = FriendRequestStatus.PENDING,
+        id: UUID = requestId,
+    ) = FriendRequest(id = id, sender = from, receiver = to, status = status)
+
+    private fun verifyNoSideEffects() {
+        verify(exactly = 0) { pushNotificationService.sendToUser(any(), any(), any(), any(), any()) }
+        verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+    }
 
     @Nested
     @DisplayName("sendRequest")
     inner class SendRequest {
 
-        @Test
-        fun `should successfully send friend request when no prior request exists`() {
-            val request = SendFriendRequestRequest(receiverId = receiverId)
-            val slotRequest = slot<FriendRequest>()
+        private val request = SendFriendRequestRequest(receiverId = receiverId)
+        private val savedRequest = slot<FriendRequest>()
 
-            every { userRepository.findById(senderId) } returns Optional.of(mockSender)
-            every { userRepository.findById(receiverId) } returns Optional.of(mockReceiver)
-            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.empty()
-            every { friendRequestRepository.findBySenderIdAndReceiverId(senderId, receiverId) } returns Optional.empty()
-            every { friendRequestRepository.findBySenderIdAndReceiverId(receiverId, senderId) } returns Optional.empty()
-            every { friendRequestRepository.save(capture(slotRequest)) } returns mockFriendRequest
-            every { pushNotificationService.sendToUser(any(), any(), any(), any()) } just Runs
+        private fun stubUsers(receiverUser: User? = receiver) {
+            every { userRepository.findById(senderId) } returns Optional.of(sender)
+            every { userRepository.findById(receiverId) } returns Optional.ofNullable(receiverUser)
+        }
+
+        private fun stubExisting(vararg requests: FriendRequest) {
+            every { friendRequestRepository.findAllBetween(senderId, receiverId) } returns requests.toList()
+            every { friendRequestRepository.saveAndFlush(capture(savedRequest)) } answers { savedRequest.captured.apply { id = requestId } }
+        }
+
+        @Test
+        fun `should create a pending request and notify the receiver`() {
+            stubUsers()
+            stubExisting()
 
             val result = friendService.sendRequest(senderId, request)
 
-            assertThat(result).isNotNull
             assertThat(result.id).isEqualTo(requestId)
-            assertThat(slotRequest.captured.sender).isEqualTo(mockSender)
-            assertThat(slotRequest.captured.receiver).isEqualTo(mockReceiver)
-            assertThat(slotRequest.captured.status).isEqualTo(FriendRequestStatus.PENDING)
+            assertThat(savedRequest.captured.sender).isSameAs(sender)
+            assertThat(savedRequest.captured.receiver).isSameAs(receiver)
+            assertThat(savedRequest.captured.status).isEqualTo(FriendRequestStatus.PENDING)
 
             verify(exactly = 1) {
                 pushNotificationService.sendToUser(
                     userId = receiverId,
+                    type = NotificationType.FRIEND_REQUEST,
                     title = "Nuova richiesta di amicizia",
                     body = "senderUser ti ha inviato una richiesta di amicizia",
-                    data = mapOf("type" to "FRIEND_REQUEST", "requestId" to requestId.toString())
+                    data = mapOf("requestId" to requestId.toString()),
                 )
             }
             verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
         }
 
         @Test
-        fun `should auto-accept friendship when a reverse request exists`() {
-            val request = SendFriendRequestRequest(receiverId = receiverId)
-            val reverseRequest = FriendRequest(
-                id = requestId,
-                sender = mockReceiver,
-                receiver = mockSender,
-                status = FriendRequestStatus.PENDING
-            )
-            val slotRequest = slot<FriendRequest>()
-
-            every { userRepository.findById(senderId) } returns Optional.of(mockSender)
-            every { userRepository.findById(receiverId) } returns Optional.of(mockReceiver)
-            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.empty()
-            every { friendRequestRepository.findBySenderIdAndReceiverId(senderId, receiverId) } returns Optional.empty()
-            every { friendRequestRepository.findBySenderIdAndReceiverId(receiverId, senderId) } returns Optional.of(reverseRequest)
-            every { friendRequestRepository.save(capture(slotRequest)) } answers { slotRequest.captured }
-            every { pushNotificationService.sendToUser(any(), any(), any(), any()) } just Runs
+        fun `should accept a pending request in the opposite direction instead of creating a new one`() {
+            val reverse = friendRequest(from = receiver, to = sender)
+            stubUsers()
+            stubExisting(reverse)
 
             val result = friendService.sendRequest(senderId, request)
 
-            assertThat(result).isNotNull
-            assertThat(slotRequest.captured.status).isEqualTo(FriendRequestStatus.ACCEPTED)
-
+            assertThat(result.id).isEqualTo(requestId)
+            assertThat(reverse.status).isEqualTo(FriendRequestStatus.ACCEPTED)
+            verify(exactly = 0) { friendRequestRepository.saveAndFlush(any()) }
             verify(exactly = 1) {
                 pushNotificationService.sendToUser(
                     userId = receiverId,
+                    type = NotificationType.FRIEND_ACCEPTED,
                     title = "Richiesta accettata",
                     body = "senderUser ha accettato la tua richiesta di amicizia",
-                    data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to requestId.toString())
+                    data = mapOf("requestId" to requestId.toString()),
                 )
             }
             verify(exactly = 1) { userAchievementService.evaluateAfterCommit(setOf(senderId, receiverId)) }
         }
 
         @Test
-        fun `should throw CannotFriendSelfException when sender and receiver are the same`() {
-            val request = SendFriendRequestRequest(receiverId = senderId)
-
-            assertThatThrownBy { friendService.sendRequest(senderId, request) }
+        fun `should refuse to send a request to yourself without any lookup`() {
+            assertThatThrownBy { friendService.sendRequest(senderId, SendFriendRequestRequest(receiverId = senderId)) }
                 .isInstanceOf(CannotFriendSelfException::class.java)
 
             verify(exactly = 0) { userRepository.findById(any()) }
-            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+            verifyNoSideEffects()
         }
 
         @Test
-        fun `should throw UserNotFoundByIdentifierException when sender does not exist`() {
-            val request = SendFriendRequestRequest(receiverId = receiverId)
+        fun `should throw UserNotFoundException when the sender does not exist`() {
             every { userRepository.findById(senderId) } returns Optional.empty()
 
             assertThatThrownBy { friendService.sendRequest(senderId, request) }
-                .isInstanceOf(UserNotFoundByIdentifierException::class.java)
+                .isInstanceOf(UserNotFoundException::class.java)
 
-            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+            verifyNoSideEffects()
         }
 
         @Test
-        fun `should throw UserNotFoundByIdentifierException when receiver does not exist`() {
-            val request = SendFriendRequestRequest(receiverId = receiverId)
-            every { userRepository.findById(senderId) } returns Optional.of(mockSender)
-            every { userRepository.findById(receiverId) } returns Optional.empty()
+        fun `should throw UserNotFoundException when the receiver does not exist`() {
+            stubUsers(receiverUser = null)
 
             assertThatThrownBy { friendService.sendRequest(senderId, request) }
-                .isInstanceOf(UserNotFoundByIdentifierException::class.java)
+                .isInstanceOf(UserNotFoundException::class.java)
 
-            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+            verify(exactly = 0) { friendRequestRepository.findAllBetween(any(), any()) }
+            verifyNoSideEffects()
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = AccountStatus::class, names = ["ACTIVE"], mode = EnumSource.Mode.EXCLUDE)
+        fun `should treat a receiver that is not active as not found`(status: AccountStatus) {
+            stubUsers(receiverUser = user(receiverId, "receiverUser", status))
+
+            assertThatThrownBy { friendService.sendRequest(senderId, request) }
+                .isInstanceOf(UserNotFoundException::class.java)
+
+            verify(exactly = 0) { friendRequestRepository.saveAndFlush(any()) }
+            verifyNoSideEffects()
         }
 
         @Test
-        fun `should throw AlreadyFriendsException when friendship already exists`() {
-            val request = SendFriendRequestRequest(receiverId = receiverId)
-            every { userRepository.findById(senderId) } returns Optional.of(mockSender)
-            every { userRepository.findById(receiverId) } returns Optional.of(mockReceiver)
-            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.of(mockFriendRequest)
+        fun `should throw AlreadyFriendsException when the users are already friends`() {
+            stubUsers()
+            stubExisting(friendRequest(from = receiver, to = sender, status = FriendRequestStatus.ACCEPTED))
 
             assertThatThrownBy { friendService.sendRequest(senderId, request) }
                 .isInstanceOf(AlreadyFriendsException::class.java)
 
-            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+            verify(exactly = 0) { friendRequestRepository.saveAndFlush(any()) }
+            verifyNoSideEffects()
         }
 
         @Test
-        fun `should throw FriendRequestAlreadyExistsException when identical pending request exists`() {
-            val request = SendFriendRequestRequest(receiverId = receiverId)
-            every { userRepository.findById(senderId) } returns Optional.of(mockSender)
-            every { userRepository.findById(receiverId) } returns Optional.of(mockReceiver)
-            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.empty()
-            every { friendRequestRepository.findBySenderIdAndReceiverId(senderId, receiverId) } returns Optional.of(mockFriendRequest)
+        fun `should throw FriendRequestAlreadyExistsException when the request was already sent`() {
+            stubUsers()
+            stubExisting(friendRequest())
 
             assertThatThrownBy { friendService.sendRequest(senderId, request) }
                 .isInstanceOf(FriendRequestAlreadyExistsException::class.java)
 
-            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+            verify(exactly = 0) { friendRequestRepository.saveAndFlush(any()) }
+            verifyNoSideEffects()
         }
 
         @Test
-        fun `should rethrow unexpected exception during sendRequest`() {
-            val request = SendFriendRequestRequest(receiverId = receiverId)
+        fun `should map a concurrent duplicate request to FriendRequestAlreadyExistsException`() {
+            stubUsers()
+            stubExisting()
+            every { friendRequestRepository.saveAndFlush(any()) } throws DataIntegrityViolationException("duplicate key value violates unique constraint")
+
+            assertThatThrownBy { friendService.sendRequest(senderId, request) }
+                .isInstanceOf(FriendRequestAlreadyExistsException::class.java)
+
+            verifyNoSideEffects()
+        }
+
+        @Test
+        fun `should rethrow unexpected errors`() {
             every { userRepository.findById(senderId) } throws RuntimeException("DB Connection error")
 
             assertThatThrownBy { friendService.sendRequest(senderId, request) }
                 .isInstanceOf(RuntimeException::class.java)
                 .hasMessage("DB Connection error")
 
-            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
-        }
-
-        @Test
-        fun `should not evaluate achievements when auto-accept save fails`() {
-            val request = SendFriendRequestRequest(receiverId = receiverId)
-            val reverseRequest = FriendRequest(
-                id = requestId,
-                sender = mockReceiver,
-                receiver = mockSender,
-                status = FriendRequestStatus.PENDING
-            )
-
-            every { userRepository.findById(senderId) } returns Optional.of(mockSender)
-            every { userRepository.findById(receiverId) } returns Optional.of(mockReceiver)
-            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.empty()
-            every { friendRequestRepository.findBySenderIdAndReceiverId(senderId, receiverId) } returns Optional.empty()
-            every { friendRequestRepository.findBySenderIdAndReceiverId(receiverId, senderId) } returns Optional.of(reverseRequest)
-            every { friendRequestRepository.save(any()) } throws RuntimeException("Save failed")
-
-            assertThatThrownBy { friendService.sendRequest(senderId, request) }
-                .isInstanceOf(RuntimeException::class.java)
-                .hasMessage("Save failed")
-
-            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+            verifyNoSideEffects()
         }
     }
 
@@ -247,58 +233,68 @@ class FriendServiceTest {
     inner class AcceptRequest {
 
         @Test
-        fun `should successfully accept pending request`() {
-            val slotRequest = slot<FriendRequest>()
-            every { friendRequestRepository.findById(requestId) } returns Optional.of(mockFriendRequest)
-            every { friendRequestRepository.save(capture(slotRequest)) } answers { slotRequest.captured }
-            every { pushNotificationService.sendToUser(any(), any(), any(), any()) } just Runs
+        fun `should accept the request, notify the sender and evaluate achievements`() {
+            val pending = friendRequest()
+            every { friendRequestRepository.findWithUsersById(requestId) } returns Optional.of(pending)
 
             val result = friendService.acceptRequest(receiverId, requestId)
 
-            assertThat(result).isNotNull
-            assertThat(slotRequest.captured.status).isEqualTo(FriendRequestStatus.ACCEPTED)
-
+            assertThat(result.id).isEqualTo(requestId)
+            assertThat(pending.status).isEqualTo(FriendRequestStatus.ACCEPTED)
             verify(exactly = 1) {
                 pushNotificationService.sendToUser(
                     userId = senderId,
+                    type = NotificationType.FRIEND_ACCEPTED,
                     title = "Richiesta accettata",
                     body = "receiverUser ha accettato la tua richiesta di amicizia",
-                    data = mapOf("type" to "FRIEND_ACCEPTED", "requestId" to requestId.toString())
+                    data = mapOf("requestId" to requestId.toString()),
                 )
             }
             verify(exactly = 1) { userAchievementService.evaluateAfterCommit(setOf(senderId, receiverId)) }
         }
 
         @Test
-        fun `should throw FriendRequestNotFoundException when request does not exist`() {
-            every { friendRequestRepository.findById(requestId) } returns Optional.empty()
+        fun `should throw FriendRequestNotFoundException when the request does not exist`() {
+            every { friendRequestRepository.findWithUsersById(requestId) } returns Optional.empty()
 
             assertThatThrownBy { friendService.acceptRequest(receiverId, requestId) }
                 .isInstanceOf(FriendRequestNotFoundException::class.java)
 
-            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+            verifyNoSideEffects()
         }
 
         @Test
-        fun `should throw NotFriendRequestReceiverException when current user is not receiver`() {
-            val otherUserId = UUID.randomUUID()
-            every { friendRequestRepository.findById(requestId) } returns Optional.of(mockFriendRequest)
-
-            assertThatThrownBy { friendService.acceptRequest(otherUserId, requestId) }
-                .isInstanceOf(NotFriendRequestReceiverException::class.java)
-
-            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
-        }
-
-        @Test
-        fun `should rethrow generic exception in acceptRequest`() {
-            every { friendRequestRepository.findById(requestId) } throws RuntimeException("Unexpected DB Fail")
+        fun `should treat an already accepted request as not found`() {
+            every { friendRequestRepository.findWithUsersById(requestId) } returns Optional.of(friendRequest(status = FriendRequestStatus.ACCEPTED))
 
             assertThatThrownBy { friendService.acceptRequest(receiverId, requestId) }
-                .isInstanceOf(RuntimeException::class.java)
-                .hasMessage("Unexpected DB Fail")
+                .isInstanceOf(FriendRequestNotFoundException::class.java)
 
-            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+            verifyNoSideEffects()
+        }
+
+        @Test
+        fun `should not let the sender accept their own request`() {
+            val pending = friendRequest()
+            every { friendRequestRepository.findWithUsersById(requestId) } returns Optional.of(pending)
+
+            assertThatThrownBy { friendService.acceptRequest(senderId, requestId) }
+                .isInstanceOf(NotFriendRequestReceiverException::class.java)
+
+            assertThat(pending.status).isEqualTo(FriendRequestStatus.PENDING)
+            verifyNoSideEffects()
+        }
+
+        @Test
+        fun `should not let a third user accept the request`() {
+            val pending = friendRequest()
+            every { friendRequestRepository.findWithUsersById(requestId) } returns Optional.of(pending)
+
+            assertThatThrownBy { friendService.acceptRequest(UUID.randomUUID(), requestId) }
+                .isInstanceOf(NotFriendRequestReceiverException::class.java)
+
+            assertThat(pending.status).isEqualTo(FriendRequestStatus.PENDING)
+            verifyNoSideEffects()
         }
     }
 
@@ -307,40 +303,34 @@ class FriendServiceTest {
     inner class RejectRequest {
 
         @Test
-        fun `should successfully reject and delete friend request`() {
-            every { friendRequestRepository.findById(requestId) } returns Optional.of(mockFriendRequest)
-            every { friendRequestRepository.delete(mockFriendRequest) } just Runs
+        fun `should delete the request without notifying anyone`() {
+            val pending = friendRequest()
+            every { friendRequestRepository.findWithUsersById(requestId) } returns Optional.of(pending)
 
             friendService.rejectRequest(receiverId, requestId)
 
-            verify(exactly = 1) { friendRequestRepository.delete(mockFriendRequest) }
-            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+            verify(exactly = 1) { friendRequestRepository.delete(pending) }
+            verifyNoSideEffects()
         }
 
         @Test
-        fun `should throw FriendRequestNotFoundException when request to reject is not found`() {
-            every { friendRequestRepository.findById(requestId) } returns Optional.empty()
+        fun `should not let the sender reject their own request`() {
+            every { friendRequestRepository.findWithUsersById(requestId) } returns Optional.of(friendRequest())
+
+            assertThatThrownBy { friendService.rejectRequest(senderId, requestId) }
+                .isInstanceOf(NotFriendRequestReceiverException::class.java)
+
+            verify(exactly = 0) { friendRequestRepository.delete(any()) }
+        }
+
+        @Test
+        fun `should not reject a friendship through the request endpoint`() {
+            every { friendRequestRepository.findWithUsersById(requestId) } returns Optional.of(friendRequest(status = FriendRequestStatus.ACCEPTED))
 
             assertThatThrownBy { friendService.rejectRequest(receiverId, requestId) }
                 .isInstanceOf(FriendRequestNotFoundException::class.java)
-        }
 
-        @Test
-        fun `should throw NotFriendRequestReceiverException when user rejecting is not receiver`() {
-            val wrongUserId = UUID.randomUUID()
-            every { friendRequestRepository.findById(requestId) } returns Optional.of(mockFriendRequest)
-
-            assertThatThrownBy { friendService.rejectRequest(wrongUserId, requestId) }
-                .isInstanceOf(NotFriendRequestReceiverException::class.java)
-        }
-
-        @Test
-        fun `should rethrow generic exception in rejectRequest`() {
-            every { friendRequestRepository.findById(requestId) } throws RuntimeException("Delete failed")
-
-            assertThatThrownBy { friendService.rejectRequest(receiverId, requestId) }
-                .isInstanceOf(RuntimeException::class.java)
-                .hasMessage("Delete failed")
+            verify(exactly = 0) { friendRequestRepository.delete(any()) }
         }
     }
 
@@ -349,40 +339,34 @@ class FriendServiceTest {
     inner class CancelRequest {
 
         @Test
-        fun `should successfully cancel sent friend request`() {
-            every { friendRequestRepository.findById(requestId) } returns Optional.of(mockFriendRequest)
-            every { friendRequestRepository.delete(mockFriendRequest) } just Runs
+        fun `should delete the request sent by the user`() {
+            val pending = friendRequest()
+            every { friendRequestRepository.findWithUsersById(requestId) } returns Optional.of(pending)
 
             friendService.cancelRequest(senderId, requestId)
 
-            verify(exactly = 1) { friendRequestRepository.delete(mockFriendRequest) }
-            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+            verify(exactly = 1) { friendRequestRepository.delete(pending) }
+            verifyNoSideEffects()
         }
 
         @Test
-        fun `should throw FriendRequestNotFoundException when request to cancel is not found`() {
-            every { friendRequestRepository.findById(requestId) } returns Optional.empty()
+        fun `should not let the receiver cancel the request`() {
+            every { friendRequestRepository.findWithUsersById(requestId) } returns Optional.of(friendRequest())
+
+            assertThatThrownBy { friendService.cancelRequest(receiverId, requestId) }
+                .isInstanceOf(NotFriendRequestSenderException::class.java)
+
+            verify(exactly = 0) { friendRequestRepository.delete(any()) }
+        }
+
+        @Test
+        fun `should not cancel a friendship through the request endpoint`() {
+            every { friendRequestRepository.findWithUsersById(requestId) } returns Optional.of(friendRequest(status = FriendRequestStatus.ACCEPTED))
 
             assertThatThrownBy { friendService.cancelRequest(senderId, requestId) }
                 .isInstanceOf(FriendRequestNotFoundException::class.java)
-        }
 
-        @Test
-        fun `should throw NotFriendRequestSenderException when user cancelling is not sender`() {
-            val wrongUserId = UUID.randomUUID()
-            every { friendRequestRepository.findById(requestId) } returns Optional.of(mockFriendRequest)
-
-            assertThatThrownBy { friendService.cancelRequest(wrongUserId, requestId) }
-                .isInstanceOf(NotFriendRequestSenderException::class.java)
-        }
-
-        @Test
-        fun `should rethrow generic exception in cancelRequest`() {
-            every { friendRequestRepository.findById(requestId) } throws RuntimeException("Database error")
-
-            assertThatThrownBy { friendService.cancelRequest(senderId, requestId) }
-                .isInstanceOf(RuntimeException::class.java)
-                .hasMessage("Database error")
+            verify(exactly = 0) { friendRequestRepository.delete(any()) }
         }
     }
 
@@ -391,67 +375,74 @@ class FriendServiceTest {
     inner class RemoveFriend {
 
         @Test
-        fun `should successfully remove existing friendship`() {
-            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.of(mockFriendRequest)
-            every { friendRequestRepository.delete(mockFriendRequest) } just Runs
+        fun `should delete the friendship`() {
+            val friendship = friendRequest(status = FriendRequestStatus.ACCEPTED)
+            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.of(friendship)
 
             friendService.removeFriend(senderId, receiverId)
 
-            verify(exactly = 1) { friendRequestRepository.delete(mockFriendRequest) }
-            verify(exactly = 0) { userAchievementService.evaluateAfterCommit(any()) }
+            verify(exactly = 1) { friendRequestRepository.delete(friendship) }
+            verifyNoSideEffects()
         }
 
         @Test
-        fun `should throw FriendshipNotFoundException when friendship does not exist`() {
+        fun `should throw FriendshipNotFoundException when they are not friends`() {
             every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.empty()
 
             assertThatThrownBy { friendService.removeFriend(senderId, receiverId) }
                 .isInstanceOf(FriendshipNotFoundException::class.java)
-        }
 
-        @Test
-        fun `should rethrow generic exception in removeFriend`() {
-            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } throws RuntimeException("Fatal DB Error")
-
-            assertThatThrownBy { friendService.removeFriend(senderId, receiverId) }
-                .isInstanceOf(RuntimeException::class.java)
-                .hasMessage("Fatal DB Error")
+            verify(exactly = 0) { friendRequestRepository.delete(any()) }
         }
     }
 
     @Nested
-    @DisplayName("listFriends")
-    inner class ListFriends {
+    @DisplayName("lists")
+    inner class ListTests {
 
         @Test
-        fun `should correctly map and return friend user DTOs when current user is sender or receiver`() {
-            val user3Id = UUID.randomUUID()
-            val mockUser3 = User(
-                id = user3Id,
-                username = "user3",
-                email = "user3@test.com",
-                passwordHash = "hash",
-                role = UserRole.USER,
-                accountStatus = AccountStatus.ACTIVE
+        fun `should return the other user of each friendship`() {
+            val third = user(username = "user3")
+            every { friendRequestRepository.findAllFriendshipsForUser(senderId) } returns listOf(
+                friendRequest(from = sender, to = receiver, status = FriendRequestStatus.ACCEPTED, id = UUID.randomUUID()),
+                friendRequest(from = third, to = sender, status = FriendRequestStatus.ACCEPTED, id = UUID.randomUUID()),
             )
-
-            // Current user (senderId) is sender in request 1, and receiver in request 2
-            val friendship1 = FriendRequest(id = UUID.randomUUID(), sender = mockSender, receiver = mockReceiver, status = FriendRequestStatus.ACCEPTED)
-            val friendship2 = FriendRequest(id = UUID.randomUUID(), sender = mockUser3, receiver = mockSender, status = FriendRequestStatus.ACCEPTED)
-
-            every { friendRequestRepository.findAllFriendshipsForUser(senderId) } returns listOf(friendship1, friendship2)
 
             val friends = friendService.listFriends(senderId)
 
-            assertThat(friends).hasSize(2)
-            assertThat(friends[0].id).isEqualTo(receiverId)
-            assertThat(friends[0].username).isEqualTo("receiverUser")
-            assertThat(friends[1].id).isEqualTo(user3Id)
-            assertThat(friends[1].username).isEqualTo("user3")
+            assertThat(friends.map { it.id }).containsExactly(receiverId, third.id)
+            assertThat(friends.map { it.username }).containsExactly("receiverUser", "user3")
         }
 
         @Test
-        fun `should rethrow generic exception in listFriends`() {
+        fun `should return an empty list when the user has no friends`() {
+            every { friendRequestRepository.findAllFriendshipsForUser(senderId) } returns emptyList()
+
+            assertThat(friendService.listFriends(senderId)).isEmpty()
+        }
+
+        @Test
+        fun `should list the pending requests received`() {
+            every { friendRequestRepository.findByReceiverIdAndStatus(receiverId, FriendRequestStatus.PENDING) } returns listOf(friendRequest())
+
+            val results = friendService.listPendingReceived(receiverId)
+
+            assertThat(results.map { it.id }).containsExactly(requestId)
+            assertThat(results[0].sender.id).isEqualTo(senderId)
+        }
+
+        @Test
+        fun `should list the pending requests sent`() {
+            every { friendRequestRepository.findBySenderIdAndStatus(senderId, FriendRequestStatus.PENDING) } returns listOf(friendRequest())
+
+            val results = friendService.listPendingSent(senderId)
+
+            assertThat(results.map { it.id }).containsExactly(requestId)
+            assertThat(results[0].receiver.id).isEqualTo(receiverId)
+        }
+
+        @Test
+        fun `should rethrow query errors`() {
             every { friendRequestRepository.findAllFriendshipsForUser(senderId) } throws RuntimeException("Query error")
 
             assertThatThrownBy { friendService.listFriends(senderId) }
@@ -461,119 +452,56 @@ class FriendServiceTest {
     }
 
     @Nested
-    @DisplayName("listPendingReceived")
-    inner class ListPendingReceived {
-
-        @Test
-        fun `should return mapped DTOs of pending received requests`() {
-            every {
-                friendRequestRepository.findByReceiverIdAndStatus(receiverId, FriendRequestStatus.PENDING)
-            } returns listOf(mockFriendRequest)
-
-            val results = friendService.listPendingReceived(receiverId)
-
-            assertThat(results).hasSize(1)
-            assertThat(results[0].id).isEqualTo(requestId)
-            assertThat(results[0].sender.id).isEqualTo(senderId)
-        }
-
-        @Test
-        fun `should rethrow generic exception in listPendingReceived`() {
-            every {
-                friendRequestRepository.findByReceiverIdAndStatus(receiverId, FriendRequestStatus.PENDING)
-            } throws RuntimeException("Query error")
-
-            assertThatThrownBy { friendService.listPendingReceived(receiverId) }
-                .isInstanceOf(RuntimeException::class.java)
-                .hasMessage("Query error")
-        }
-    }
-
-    @Nested
-    @DisplayName("listPendingSent")
-    inner class ListPendingSent {
-
-        @Test
-        fun `should return mapped DTOs of pending sent requests`() {
-            every {
-                friendRequestRepository.findBySenderIdAndStatus(senderId, FriendRequestStatus.PENDING)
-            } returns listOf(mockFriendRequest)
-
-            val results = friendService.listPendingSent(senderId)
-
-            assertThat(results).hasSize(1)
-            assertThat(results[0].id).isEqualTo(requestId)
-            assertThat(results[0].receiver.id).isEqualTo(receiverId)
-        }
-
-        @Test
-        fun `should rethrow generic exception in listPendingSent`() {
-            every {
-                friendRequestRepository.findBySenderIdAndStatus(senderId, FriendRequestStatus.PENDING)
-            } throws RuntimeException("Query error")
-
-            assertThatThrownBy { friendService.listPendingSent(senderId) }
-                .isInstanceOf(RuntimeException::class.java)
-                .hasMessage("Query error")
-        }
-    }
-
-    @Nested
     @DisplayName("getFriendshipStatus")
     inner class GetFriendshipStatus {
 
-        @Test
-        fun `should return SELF when checking status against yourself`() {
-            val result = friendService.getFriendshipStatus(senderId, senderId)
-
-            assertThat(result).isEqualTo(FriendshipStatus.SELF)
-
-            verify(exactly = 0) { friendRequestRepository.findFriendshipBetween(any(), any()) }
+        private fun stubBetween(vararg requests: FriendRequest) {
+            every { friendRequestRepository.findAllBetween(senderId, receiverId) } returns requests.toList()
         }
 
         @Test
-        fun `should return FRIENDS when a friendship already exists`() {
-            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.of(mockFriendRequest)
+        fun `should return SELF without querying when checking yourself`() {
+            assertThat(friendService.getFriendshipStatus(senderId, senderId)).isEqualTo(FriendshipStatus.SELF)
 
-            val result = friendService.getFriendshipStatus(senderId, receiverId)
-
-            assertThat(result).isEqualTo(FriendshipStatus.FRIENDS)
-
-            verify(exactly = 0) { friendRequestRepository.findBySenderIdAndReceiverId(any(), any()) }
+            verify(exactly = 0) { friendRequestRepository.findAllBetween(any(), any()) }
         }
 
         @Test
-        fun `should return REQUEST_SENT when the current user has sent a pending request`() {
-            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.empty()
-            every { friendRequestRepository.findBySenderIdAndReceiverId(senderId, receiverId) } returns Optional.of(mockFriendRequest)
+        fun `should return FRIENDS whoever sent the original request`() {
+            stubBetween(friendRequest(from = receiver, to = sender, status = FriendRequestStatus.ACCEPTED))
 
-            val result = friendService.getFriendshipStatus(senderId, receiverId)
-
-            assertThat(result).isEqualTo(FriendshipStatus.REQUEST_SENT)
-
-            verify(exactly = 0) { friendRequestRepository.findBySenderIdAndReceiverId(receiverId, senderId) }
+            assertThat(friendService.getFriendshipStatus(senderId, receiverId)).isEqualTo(FriendshipStatus.FRIENDS)
         }
 
         @Test
-        fun `should return REQUEST_RECEIVED when the other user has sent a pending request`() {
-            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.empty()
-            every { friendRequestRepository.findBySenderIdAndReceiverId(senderId, receiverId) } returns Optional.empty()
-            every { friendRequestRepository.findBySenderIdAndReceiverId(receiverId, senderId) } returns Optional.of(mockFriendRequest)
+        fun `should prefer FRIENDS over a leftover pending request`() {
+            stubBetween(
+                friendRequest(status = FriendRequestStatus.ACCEPTED),
+                friendRequest(from = receiver, to = sender, id = UUID.randomUUID()),
+            )
 
-            val result = friendService.getFriendshipStatus(senderId, receiverId)
-
-            assertThat(result).isEqualTo(FriendshipStatus.REQUEST_RECEIVED)
+            assertThat(friendService.getFriendshipStatus(senderId, receiverId)).isEqualTo(FriendshipStatus.FRIENDS)
         }
 
         @Test
-        fun `should return NONE when there is no relationship at all`() {
-            every { friendRequestRepository.findFriendshipBetween(senderId, receiverId) } returns Optional.empty()
-            every { friendRequestRepository.findBySenderIdAndReceiverId(senderId, receiverId) } returns Optional.empty()
-            every { friendRequestRepository.findBySenderIdAndReceiverId(receiverId, senderId) } returns Optional.empty()
+        fun `should return REQUEST_SENT when the current user sent a pending request`() {
+            stubBetween(friendRequest())
 
-            val result = friendService.getFriendshipStatus(senderId, receiverId)
+            assertThat(friendService.getFriendshipStatus(senderId, receiverId)).isEqualTo(FriendshipStatus.REQUEST_SENT)
+        }
 
-            assertThat(result).isEqualTo(FriendshipStatus.NONE)
+        @Test
+        fun `should return REQUEST_RECEIVED when the other user sent a pending request`() {
+            stubBetween(friendRequest(from = receiver, to = sender))
+
+            assertThat(friendService.getFriendshipStatus(senderId, receiverId)).isEqualTo(FriendshipStatus.REQUEST_RECEIVED)
+        }
+
+        @Test
+        fun `should return NONE when there is no relationship`() {
+            stubBetween()
+
+            assertThat(friendService.getFriendshipStatus(senderId, receiverId)).isEqualTo(FriendshipStatus.NONE)
         }
     }
 }

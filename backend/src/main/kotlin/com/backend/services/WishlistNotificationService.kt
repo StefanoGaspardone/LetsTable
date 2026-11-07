@@ -38,6 +38,7 @@ class WishlistNotificationService(
             val quietCutoff = now.minus(QUIET_PERIOD)
 
             val readyGroups = wishlistActivityRepository.findAllPending()
+                .sortedBy { it.createdAt }
                 .groupBy { it.wishlist.id!! to it.actor.id!! }
                 .filterValues { group -> group.maxOf { it.createdAt } <= quietCutoff }
 
@@ -58,7 +59,7 @@ class WishlistNotificationService(
             logger.info("\n\t[INFO] [wishlist_notification_service][flush_pending_notifications] Sent {} notification(s) for {} group(s), purged {} old activities", sent, readyGroups.size, purged)
             return sent
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_notification_service][flush_pending_notifications] Error flushing wishlist activities: {}", e.message)
+            logger.error("\n\t[ERROR] [wishlist_notification_service][flush_pending_notifications] Error flushing wishlist activities: {}", e.message, e)
             throw e
         }
     }

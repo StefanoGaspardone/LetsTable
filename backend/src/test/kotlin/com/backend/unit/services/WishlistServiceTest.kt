@@ -5,1260 +5,911 @@ import com.backend.models.dtos.AddWishlistItemRequest
 import com.backend.models.dtos.AddWishlistMemberRequest
 import com.backend.models.dtos.CreateWishlistRequest
 import com.backend.models.dtos.UpdateWishlistRequest
-import com.backend.models.entities.*
+import com.backend.models.entities.Game
+import com.backend.models.entities.User
+import com.backend.models.entities.Wishlist
+import com.backend.models.entities.WishlistActivity
+import com.backend.models.entities.WishlistItem
+import com.backend.models.entities.WishlistMember
 import com.backend.models.enums.AccountStatus
-import com.backend.models.enums.UserRole
+import com.backend.models.enums.NotificationType
+import com.backend.models.enums.WishlistActivityAction
 import com.backend.models.specifications.WishlistFilterType
+import com.backend.models.specifications.WishlistItemSpecification
+import com.backend.models.specifications.WishlistSpecification
 import com.backend.repositories.*
 import com.backend.services.PushNotificationService
 import com.backend.services.WishlistService
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.slot
+import io.mockk.unmockkObject
+import io.mockk.verify
+import io.mockk.verifyOrder
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.InjectMocks
-import org.mockito.Mock
-import org.mockito.Mockito.never
-import org.mockito.Mockito.verify
-import org.mockito.junit.jupiter.MockitoExtension
-import org.mockito.kotlin.any
-import org.mockito.kotlin.eq
-import org.mockito.kotlin.whenever
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageImpl
-import org.springframework.data.domain.PageRequest
-import java.time.Instant
+import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Sort
+import org.springframework.data.jpa.domain.Specification
 import java.util.Optional
 import java.util.UUID
 
-@ExtendWith(MockitoExtension::class)
 class WishlistServiceTest {
 
-    @Mock
     private lateinit var wishlistRepository: WishlistRepository
-
-    @Mock
     private lateinit var wishlistMemberRepository: WishlistMemberRepository
-
-    @Mock
     private lateinit var wishlistItemRepository: WishlistItemRepository
-
-    @Mock
     private lateinit var userRepository: UserRepository
-
-    @Mock
     private lateinit var gameRepository: GameRepository
-
-    @Mock
     private lateinit var pushNotificationService: PushNotificationService
+    private lateinit var wishlistActivityRepository: WishlistActivityRepository
+    private lateinit var service: WishlistService
 
-    @InjectMocks
-    private lateinit var wishlistService: WishlistService
+    private val ownerId = UUID.randomUUID()
+    private val memberId = UUID.randomUUID()
+    private val strangerId = UUID.randomUUID()
+    private val wishlistId = UUID.randomUUID()
+    private val gameId = UUID.randomUUID()
+    private val itemId = UUID.randomUUID()
 
-    private val ownerId: UUID = UUID.randomUUID()
-    private val wishlistId: UUID = UUID.randomUUID()
+    private val owner = User(id = ownerId, username = "stefano", email = "stefano@example.com", passwordHash = "hash", accountStatus = AccountStatus.ACTIVE)
+    private val member = User(id = memberId, username = "marco", email = "marco@example.com", passwordHash = "hash", accountStatus = AccountStatus.ACTIVE)
+    private val stranger = User(id = strangerId, username = "anna", email = "anna@example.com", passwordHash = "hash", accountStatus = AccountStatus.ACTIVE)
+    private val game = Game(id = gameId, bggId = 13L, name = "Catan")
 
-    private fun buildUser(id: UUID = UUID.randomUUID(), username: String = "user-${UUID.randomUUID()}") = User(
-        id = id,
-        username = username,
-        email = "$username@example.com",
-        passwordHash = "hash",
-        role = UserRole.USER,
-        accountStatus = AccountStatus.ACTIVE,
-    )
+    private val pageableSlot = slot<Pageable>()
+    private val activitySlot = slot<WishlistActivity>()
 
-    private fun buildGame(id: UUID = UUID.randomUUID()) = Game(
-        id = id,
-        bggId = 1L,
-        name = "Test Game",
-        lastSyncedAt = Instant.now(),
-    )
+    @BeforeEach
+    fun setUp() {
+        wishlistRepository = mockk(relaxUnitFun = true)
+        wishlistMemberRepository = mockk(relaxUnitFun = true)
+        wishlistItemRepository = mockk(relaxUnitFun = true)
+        userRepository = mockk()
+        gameRepository = mockk()
+        pushNotificationService = mockk(relaxUnitFun = true)
+        wishlistActivityRepository = mockk()
 
-    private fun buildWishlist(
-        id: UUID = wishlistId,
-        owner: User,
-        isShared: Boolean = false,
-        isDefault: Boolean = false,
-    ) = Wishlist(id = id, name = "My Wishlist", owner = owner, isShared = isShared, isDefault = isDefault)
+        mockkObject(WishlistSpecification, WishlistItemSpecification)
 
-    // ---------------------------------------------------------------------
-    // createWishlist
-    // ---------------------------------------------------------------------
+        listOf(owner, member, stranger).forEach { user ->
+            every { userRepository.findById(user.id!!) } returns Optional.of(user)
+            every { userRepository.getReferenceById(user.id!!) } returns user
+        }
+        every { gameRepository.findById(gameId) } returns Optional.of(game)
+
+        every { wishlistRepository.findById(any()) } returns Optional.empty()
+        every { wishlistRepository.save(any<Wishlist>()) } answers { firstArg<Wishlist>().apply { if(id == null) id = UUID.randomUUID() } }
+        every { wishlistRepository.saveAndFlush(any<Wishlist>()) } answers { firstArg() }
+        every { wishlistMemberRepository.existsByWishlistIdAndUserId(any(), any()) } returns false
+        every { wishlistMemberRepository.existsByWishlistId(any()) } returns false
+        every { wishlistMemberRepository.saveAndFlush(any<WishlistMember>()) } answers { firstArg<WishlistMember>().apply { id = UUID.randomUUID() } }
+        every { wishlistItemRepository.existsByWishlistIdAndGameId(any(), any()) } returns false
+        every { wishlistItemRepository.saveAndFlush(any<WishlistItem>()) } answers { firstArg<WishlistItem>().apply { id = itemId } }
+        every { wishlistActivityRepository.save(capture(activitySlot)) } answers { firstArg() }
+
+        service = WishlistService(wishlistRepository, wishlistMemberRepository, wishlistItemRepository, userRepository, gameRepository, pushNotificationService, wishlistActivityRepository)
+    }
+
+    @AfterEach
+    fun tearDown() {
+        unmockkObject(WishlistSpecification, WishlistItemSpecification)
+    }
+
+    private fun wishlist(isShared: Boolean = false, isDefault: Boolean = false, by: User = owner, id: UUID = wishlistId): Wishlist =
+        Wishlist(id = id, name = "Da comprare", owner = by, isShared = isShared, isDefault = isDefault)
+            .also { every { wishlistRepository.findById(id) } returns Optional.of(it) }
+
+    private fun joined(userId: UUID = memberId) {
+        every { wishlistMemberRepository.existsByWishlistIdAndUserId(wishlistId, userId) } returns true
+        every { wishlistMemberRepository.existsByWishlistId(wishlistId) } returns true
+    }
+
+    private fun item(target: Wishlist) = WishlistItem(id = itemId, wishlist = target, game = game, addedBy = owner)
+        .also { every { wishlistItemRepository.findByIdAndWishlistId(itemId, wishlistId) } returns Optional.of(it) }
+
+    private fun stubWishlistPage(content: List<Wishlist> = emptyList()) {
+        every { wishlistRepository.findAll(any<Specification<Wishlist>>(), capture(pageableSlot)) } answers { PageImpl(content, secondArg(), content.size.toLong()) }
+    }
+
+    private fun stubItemPage(content: List<WishlistItem> = emptyList()) {
+        every { wishlistItemRepository.findAll(any<Specification<WishlistItem>>(), capture(pageableSlot)) } answers { PageImpl(content, secondArg(), content.size.toLong()) }
+    }
+
+    private fun orders(): List<Pair<String, Sort.Direction>> = pageableSlot.captured.sort.map { it.property to it.direction }.toList()
+
+    private fun verifyNoActivity() = verify(exactly = 0) { wishlistActivityRepository.save(any()) }
 
     @Nested
     @DisplayName("createWishlist")
     inner class CreateWishlistTests {
 
         @Test
-        fun `should create wishlist for existing user`() {
-            val owner = buildUser(id = ownerId)
-            val request = CreateWishlistRequest(name = "Games I want", isShared = true)
-            val savedWishlist = buildWishlist(owner = owner, isShared = true)
+        fun `should create a wishlist owned by the user with a trimmed name`() {
+            val result = service.createWishlist(ownerId, CreateWishlistRequest(name = "  Natale  ", isShared = true))
 
-            whenever(userRepository.findById(ownerId)).thenReturn(Optional.of(owner))
-            whenever(wishlistRepository.save(any())).thenReturn(savedWishlist)
-
-            val result = wishlistService.createWishlist(ownerId, request)
-
-            assertThat(result.name).isEqualTo(savedWishlist.name)
-            assertThat(result.isShared).isTrue()
+            val saved = slot<Wishlist>()
+            verify { wishlistRepository.save(capture(saved)) }
+            assertThat(saved.captured.name).isEqualTo("Natale")
+            assertThat(saved.captured.owner).isSameAs(owner)
+            assertThat(saved.captured.isShared).isTrue()
+            assertThat(saved.captured.isDefault).isFalse()
+            assertThat(result.name).isEqualTo("Natale")
             assertThat(result.owner.id).isEqualTo(ownerId)
         }
 
         @Test
-        fun `should throw UserNotFoundByIdentifierException when owner does not exist`() {
-            val request = CreateWishlistRequest(name = "Games I want", isShared = false)
-            whenever(userRepository.findById(ownerId)).thenReturn(Optional.empty())
+        fun `should throw UserNotFoundByIdentifierException without saving`() {
+            every { userRepository.findById(ownerId) } returns Optional.empty()
 
-            assertThatThrownBy {
-                wishlistService.createWishlist(ownerId, request)
-            }.isInstanceOf(UserNotFoundByIdentifierException::class.java)
+            assertThatThrownBy { service.createWishlist(ownerId, CreateWishlistRequest(name = "Natale", isShared = false)) }
+                .isInstanceOf(UserNotFoundByIdentifierException::class.java)
 
-            verify(wishlistRepository, never()).save(any())
+            verify(exactly = 0) { wishlistRepository.save(any<Wishlist>()) }
         }
 
         @Test
-        fun `should rethrow generic exception when repository fails`() {
-            val owner = buildUser(id = ownerId)
-            val request = CreateWishlistRequest(name = "Games I want", isShared = false)
-            whenever(userRepository.findById(ownerId)).thenReturn(Optional.of(owner))
-            whenever(wishlistRepository.save(any())).thenThrow(RuntimeException("Database error"))
+        fun `should propagate a repository failure`() {
+            every { wishlistRepository.save(any<Wishlist>()) } throws RuntimeException("Database error")
 
-            assertThatThrownBy {
-                wishlistService.createWishlist(ownerId, request)
-            }.isInstanceOf(RuntimeException::class.java)
+            assertThatThrownBy { service.createWishlist(ownerId, CreateWishlistRequest(name = "Natale", isShared = false)) }
+                .isInstanceOf(RuntimeException::class.java)
         }
     }
-
-    // ---------------------------------------------------------------------
-    // updateWishlist
-    // ---------------------------------------------------------------------
 
     @Nested
     @DisplayName("updateWishlist")
     inner class UpdateWishlistTests {
 
         @Test
-        fun `should rename the wishlist when user is the owner and it is not default`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner, isDefault = false)
-            val request = UpdateWishlistRequest(name = "Nuovo nome")
+        fun `should rename the wishlist with a trimmed name`() {
+            val target = wishlist(isShared = true)
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistRepository.save(any())).thenAnswer { it.getArgument<Wishlist>(0) }
+            val result = service.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "  Compleanno  "))
 
-            val result = wishlistService.updateWishlist(ownerId, wishlistId, request)
-
-            assertThat(result.name).isEqualTo("Nuovo nome")
-            assertThat(result.id).isEqualTo(wishlistId)
-            verify(wishlistRepository).save(wishlist)
-        }
-
-        @Test
-        fun `should trim whitespace from the new name`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner)
-            val request = UpdateWishlistRequest(name = "  Spazi  ")
-
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistRepository.save(any())).thenAnswer { it.getArgument<Wishlist>(0) }
-
-            val result = wishlistService.updateWishlist(ownerId, wishlistId, request)
-
-            assertThat(result.name).isEqualTo("Spazi")
-            assertThat(wishlist.name).isEqualTo("Spazi")
-        }
-
-        @Test
-        fun `should not change sharing or default flags`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner, isShared = true, isDefault = false)
-            val request = UpdateWishlistRequest(name = "Rinominata")
-
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistRepository.save(any())).thenAnswer { it.getArgument<Wishlist>(0) }
-
-            val result = wishlistService.updateWishlist(ownerId, wishlistId, request)
-
+            assertThat(target.name).isEqualTo("Compleanno")
+            assertThat(result.name).isEqualTo("Compleanno")
             assertThat(result.isShared).isTrue()
             assertThat(result.isDefault).isFalse()
+            verify(exactly = 1) { wishlistRepository.saveAndFlush(target) }
         }
 
         @Test
-        fun `should throw WishlistNotFoundException when wishlist does not exist`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.empty())
-
-            assertThatThrownBy {
-                wishlistService.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Nuovo nome"))
-            }.isInstanceOf(WishlistNotFoundException::class.java)
-
-            verify(wishlistRepository, never()).save(any())
+        fun `should throw WishlistNotFoundException when the wishlist does not exist`() {
+            assertThatThrownBy { service.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Compleanno")) }
+                .isInstanceOf(WishlistNotFoundException::class.java)
         }
 
         @Test
-        fun `should throw CannotModifyDefaultWishlistException when wishlist is default`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner, isDefault = true)
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+        fun `should throw NotWishlistOwnerException when the user is a member but not the owner`() {
+            val target = wishlist(isShared = true)
+            joined()
 
-            assertThatThrownBy {
-                wishlistService.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Nuovo nome"))
-            }.isInstanceOf(CannotModifyDefaultWishlistException::class.java)
+            assertThatThrownBy { service.updateWishlist(memberId, wishlistId, UpdateWishlistRequest(name = "Compleanno")) }
+                .isInstanceOf(NotWishlistOwnerException::class.java)
 
-            assertThat(wishlist.name).isEqualTo("My Wishlist")
-            verify(wishlistRepository, never()).save(any())
+            assertThat(target.name).isEqualTo("Da comprare")
+            verify(exactly = 0) { wishlistRepository.saveAndFlush(any<Wishlist>()) }
         }
 
         @Test
-        fun `should check default status before ownership status`() {
-            val differentOwner = buildUser()
-            val wishlist = buildWishlist(owner = differentOwner, isDefault = true)
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+        fun `should check the ownership before the default flag`() {
+            wishlist(isDefault = true)
 
-            assertThatThrownBy {
-                wishlistService.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Nuovo nome"))
-            }.isInstanceOf(CannotModifyDefaultWishlistException::class.java)
+            assertThatThrownBy { service.updateWishlist(strangerId, wishlistId, UpdateWishlistRequest(name = "Compleanno")) }
+                .isInstanceOf(NotWishlistOwnerException::class.java)
         }
 
         @Test
-        fun `should throw NotWishlistOwnerException when user is not the owner`() {
-            val differentOwner = buildUser()
-            val wishlist = buildWishlist(owner = differentOwner, isDefault = false)
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+        fun `should refuse to rename the default wishlist`() {
+            val target = wishlist(isDefault = true)
 
-            assertThatThrownBy {
-                wishlistService.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Nuovo nome"))
-            }.isInstanceOf(NotWishlistOwnerException::class.java)
+            assertThatThrownBy { service.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Compleanno")) }
+                .isInstanceOf(CannotModifyDefaultWishlistException::class.java)
 
-            assertThat(wishlist.name).isEqualTo("My Wishlist")
-            verify(wishlistRepository, never()).save(any())
+            assertThat(target.name).isEqualTo("Da comprare")
+            verify(exactly = 0) { wishlistRepository.saveAndFlush(any<Wishlist>()) }
         }
 
         @Test
-        fun `should rethrow generic exception when findById fails unexpectedly`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenThrow(RuntimeException("Database error"))
+        fun `should propagate a repository failure`() {
+            wishlist()
+            every { wishlistRepository.saveAndFlush(any<Wishlist>()) } throws RuntimeException("Database error")
 
-            assertThatThrownBy {
-                wishlistService.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Nuovo nome"))
-            }.isInstanceOf(RuntimeException::class.java)
-        }
-
-        @Test
-        fun `should rethrow generic exception when save fails unexpectedly`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner)
-
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistRepository.save(any())).thenThrow(RuntimeException("Database error"))
-
-            assertThatThrownBy {
-                wishlistService.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Nuovo nome"))
-            }.isInstanceOf(RuntimeException::class.java)
+            assertThatThrownBy { service.updateWishlist(ownerId, wishlistId, UpdateWishlistRequest(name = "Compleanno")) }
+                .isInstanceOf(RuntimeException::class.java)
         }
     }
-
-    // ---------------------------------------------------------------------
-    // deleteWishlist
-    // ---------------------------------------------------------------------
 
     @Nested
     @DisplayName("deleteWishlist")
     inner class DeleteWishlistTests {
 
         @Test
-        fun `should delete wishlist when user is the owner and it is not default`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner, isDefault = false)
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+        fun `should delete the wishlist of the owner`() {
+            val target = wishlist(isShared = true)
 
-            wishlistService.deleteWishlist(ownerId, wishlistId)
+            service.deleteWishlist(ownerId, wishlistId)
 
-            verify(wishlistRepository).delete(wishlist)
+            verify(exactly = 1) { wishlistRepository.delete(target) }
         }
 
         @Test
-        fun `should throw WishlistNotFoundException when wishlist does not exist`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.empty())
-
-            assertThatThrownBy {
-                wishlistService.deleteWishlist(ownerId, wishlistId)
-            }.isInstanceOf(WishlistNotFoundException::class.java)
-
-            verify(wishlistRepository, never()).delete(any<Wishlist>())
+        fun `should throw WishlistNotFoundException when the wishlist does not exist`() {
+            assertThatThrownBy { service.deleteWishlist(ownerId, wishlistId) }
+                .isInstanceOf(WishlistNotFoundException::class.java)
         }
 
         @Test
-        fun `should throw CannotModifyDefaultWishlistException when wishlist is default`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner, isDefault = true)
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+        fun `should throw NotWishlistOwnerException for a member`() {
+            wishlist(isShared = true)
+            joined()
 
-            assertThatThrownBy {
-                wishlistService.deleteWishlist(ownerId, wishlistId)
-            }.isInstanceOf(CannotModifyDefaultWishlistException::class.java)
+            assertThatThrownBy { service.deleteWishlist(memberId, wishlistId) }
+                .isInstanceOf(NotWishlistOwnerException::class.java)
 
-            verify(wishlistRepository, never()).delete(any<Wishlist>())
+            verify(exactly = 0) { wishlistRepository.delete(any<Wishlist>()) }
         }
 
         @Test
-        fun `should check default status before ownership status`() {
-            val differentOwner = buildUser()
-            val wishlist = buildWishlist(owner = differentOwner, isDefault = true)
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+        fun `should refuse to delete the default wishlist`() {
+            wishlist(isDefault = true)
 
-            assertThatThrownBy {
-                wishlistService.deleteWishlist(ownerId, wishlistId)
-            }.isInstanceOf(CannotModifyDefaultWishlistException::class.java)
-        }
+            assertThatThrownBy { service.deleteWishlist(ownerId, wishlistId) }
+                .isInstanceOf(CannotModifyDefaultWishlistException::class.java)
 
-        @Test
-        fun `should throw NotWishlistOwnerException when user is not the owner`() {
-            val differentOwner = buildUser()
-            val wishlist = buildWishlist(owner = differentOwner, isDefault = false)
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-
-            assertThatThrownBy {
-                wishlistService.deleteWishlist(ownerId, wishlistId)
-            }.isInstanceOf(NotWishlistOwnerException::class.java)
-
-            verify(wishlistRepository, never()).delete(any<Wishlist>())
-        }
-
-        @Test
-        fun `should rethrow generic exception when repository fails unexpectedly`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenThrow(RuntimeException("Database error"))
-
-            assertThatThrownBy {
-                wishlistService.deleteWishlist(ownerId, wishlistId)
-            }.isInstanceOf(RuntimeException::class.java)
+            verify(exactly = 0) { wishlistRepository.delete(any<Wishlist>()) }
         }
     }
-
-    // ---------------------------------------------------------------------
-    // listAccessibleWishlists
-    // ---------------------------------------------------------------------
 
     @Nested
     @DisplayName("listAccessibleWishlists")
     inner class ListAccessibleWishlistsTests {
 
         @Test
-        fun `should return accessible wishlists for user`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner)
-            val page = PageImpl(listOf(wishlist), PageRequest.of(0, 20), 1)
+        fun `should map the accessible wishlists`() {
+            stubWishlistPage(listOf(wishlist(isShared = true)))
 
-            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>()))
-                .thenReturn(page)
+            val result = service.listAccessibleWishlists(ownerId, 0, 20, null, null)
 
-            val result = wishlistService.listAccessibleWishlists(ownerId, 0, 20, null, null)
-
-            assertThat(result.content).hasSize(1)
+            assertThat(result.content.map { it.id }).containsExactly(wishlistId)
         }
 
         @Test
-        fun `should return empty page when user has no accessible wishlists`() {
-            val page = PageImpl<Wishlist>(emptyList(), PageRequest.of(0, 20), 0)
+        fun `should filter by user and type`() {
+            stubWishlistPage()
 
-            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>()))
-                .thenReturn(page)
+            service.listAccessibleWishlists(ownerId, 0, 20, WishlistFilterType.SHARED, null)
 
-            val result = wishlistService.listAccessibleWishlists(ownerId, 0, 20, null, null)
-
-            assertThat(result.content).isEmpty()
+            verify(exactly = 1) { WishlistSpecification.withFilters(ownerId, WishlistFilterType.SHARED) }
         }
 
         @Test
-        fun `should clamp negative page number to zero`() {
-            val page = PageImpl<Wishlist>(emptyList(), PageRequest.of(0, 20), 0)
+        fun `should sort by the last update with the id as tie-breaker by default`() {
+            stubWishlistPage()
 
-            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>()))
-                .thenReturn(page)
+            service.listAccessibleWishlists(ownerId, 0, 20, null, null)
 
-            val result = wishlistService.listAccessibleWishlists(ownerId, -5, 20, null, null)
-
-            assertThat(result.number).isEqualTo(0)
+            assertThat(orders().map { it.first }).containsExactly("updatedAt", "id")
+            assertThat(orders()[0].second).isEqualTo(Sort.Direction.DESC)
         }
 
         @Test
-        fun `should clamp oversized page size to 100`() {
-            val page = PageImpl<Wishlist>(emptyList(), PageRequest.of(0, 100), 0)
+        fun `should sort by the requested field`() {
+            stubWishlistPage()
 
-            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>()))
-                .thenReturn(page)
+            service.listAccessibleWishlists(ownerId, 0, 20, null, "name-asc")
 
-            wishlistService.listAccessibleWishlists(ownerId, 0, 500, null, null)
-
-            verify(wishlistRepository).findAll(
-                any<org.springframework.data.jpa.domain.Specification<Wishlist>>(),
-                eq(PageRequest.of(0, 100, org.springframework.data.domain.Sort.by("updatedAt").descending())),
-            )
+            assertThat(orders()[0]).isEqualTo("name" to Sort.Direction.ASC)
+            assertThat(orders().last().first).isEqualTo("id")
         }
 
         @Test
-        fun `should pass the filter type through to the specification query`() {
-            val page = PageImpl<Wishlist>(emptyList(), PageRequest.of(0, 20), 0)
+        fun `should clamp the page and the size`() {
+            stubWishlistPage()
 
-            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>()))
-                .thenReturn(page)
+            service.listAccessibleWishlists(ownerId, -5, 500, null, null)
 
-            wishlistService.listAccessibleWishlists(ownerId, 0, 20, WishlistFilterType.SHARED, null)
-
-            verify(wishlistRepository).findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>())
+            assertThat(pageableSlot.captured.pageNumber).isZero()
+            assertThat(pageableSlot.captured.pageSize).isEqualTo(100)
         }
 
         @Test
-        fun `should throw InvalidSortException when sort field is not allowed`() {
-            assertThatThrownBy {
-                wishlistService.listAccessibleWishlists(ownerId, 0, 20, null, "notAllowedField-asc")
-            }.isInstanceOf(InvalidSortException::class.java)
+        fun `should throw InvalidSortException without querying`() {
+            assertThatThrownBy { service.listAccessibleWishlists(ownerId, 0, 20, null, "owner-asc") }
+                .isInstanceOf(InvalidSortException::class.java)
 
-            verify(wishlistRepository, never())
-                .findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>())
+            verify(exactly = 0) { wishlistRepository.findAll(any<Specification<Wishlist>>(), any<Pageable>()) }
         }
 
         @Test
-        fun `should rethrow generic exception when repository fails`() {
-            whenever(wishlistRepository.findAll(any<org.springframework.data.jpa.domain.Specification<Wishlist>>(), any<PageRequest>()))
-                .thenThrow(RuntimeException("Database error"))
+        fun `should propagate a repository failure`() {
+            every { wishlistRepository.findAll(any<Specification<Wishlist>>(), any<Pageable>()) } throws RuntimeException("Database error")
 
-            assertThatThrownBy {
-                wishlistService.listAccessibleWishlists(ownerId, 0, 20, null, null)
-            }.isInstanceOf(RuntimeException::class.java)
+            assertThatThrownBy { service.listAccessibleWishlists(ownerId, 0, 20, null, null) }
+                .isInstanceOf(RuntimeException::class.java)
         }
     }
 
-    // ---------------------------------------------------------------------
-    // addMember
-    // ---------------------------------------------------------------------
+    @Nested
+    @DisplayName("access rules")
+    inner class AccessTests {
+
+        @Test
+        fun `should let the owner see a private wishlist`() {
+            wishlist()
+
+            assertThat(service.getWishlist(ownerId, wishlistId).id).isEqualTo(wishlistId)
+        }
+
+        @Test
+        fun `should let a member see a shared wishlist`() {
+            wishlist(isShared = true)
+            joined()
+
+            assertThat(service.getWishlist(memberId, wishlistId).id).isEqualTo(wishlistId)
+        }
+
+        @Test
+        fun `should hide a shared wishlist from a user who is not a member`() {
+            wishlist(isShared = true)
+
+            assertThatThrownBy { service.getWishlist(strangerId, wishlistId) }
+                .isInstanceOf(NotWishlistOwnerOrMemberException::class.java)
+        }
+
+        @Test
+        fun `should ignore a membership on a wishlist that is not shared`() {
+            wishlist(isShared = false)
+            joined()
+
+            assertThatThrownBy { service.getWishlist(memberId, wishlistId) }
+                .isInstanceOf(NotWishlistOwnerOrMemberException::class.java)
+
+            verify(exactly = 0) { wishlistMemberRepository.existsByWishlistIdAndUserId(any(), any()) }
+        }
+
+        @Test
+        fun `should let anyone see a default wishlist`() {
+            wishlist(isDefault = true)
+
+            assertThat(service.getWishlist(strangerId, wishlistId).isDefault).isTrue()
+        }
+
+        @Test
+        fun `should not let anyone else write into a default wishlist`() {
+            wishlist(isDefault = true)
+
+            assertThatThrownBy { service.addItem(strangerId, wishlistId, AddWishlistItemRequest(gameId = gameId)) }
+                .isInstanceOf(NotWishlistOwnerOrMemberException::class.java)
+        }
+
+        @Test
+        fun `should throw WishlistNotFoundException when the wishlist does not exist`() {
+            assertThatThrownBy { service.getWishlist(ownerId, wishlistId) }
+                .isInstanceOf(WishlistNotFoundException::class.java)
+        }
+    }
 
     @Nested
     @DisplayName("addMember")
     inner class AddMemberTests {
 
+        private fun add(userId: UUID = memberId) = service.addMember(ownerId, wishlistId, AddWishlistMemberRequest(userId = userId))
+
         @Test
-        fun `should add member to a shared wishlist and send push notification`() {
-            val owner = buildUser(id = ownerId)
-            val newMemberId = UUID.randomUUID()
-            val newMember = buildUser(id = newMemberId, username = "newmember")
-            val wishlist = buildWishlist(owner = owner, isShared = true)
-            val request = AddWishlistMemberRequest(userId = newMemberId)
-            val savedMember = WishlistMember(id = UUID.randomUUID(), wishlist = wishlist, user = newMember)
+        fun `should add the member and notify them`() {
+            wishlist(isShared = true)
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistMemberRepository.existsByWishlistIdAndUserId(wishlistId, newMemberId)).thenReturn(false)
-            whenever(userRepository.findById(newMemberId)).thenReturn(Optional.of(newMember))
-            whenever(wishlistMemberRepository.save(any())).thenReturn(savedMember)
+            val result = add()
 
-            val result = wishlistService.addMember(ownerId, wishlistId, request)
-
-            assertThat(result.user.id).isEqualTo(newMemberId)
-            verify(pushNotificationService).sendToUser(
-                userId = eq(newMemberId),
-                title = any(),
-                body = any(),
-                data = any(),
-            )
+            val saved = slot<WishlistMember>()
+            verify { wishlistMemberRepository.saveAndFlush(capture(saved)) }
+            assertThat(saved.captured.user).isSameAs(member)
+            assertThat(saved.captured.wishlist.id).isEqualTo(wishlistId)
+            assertThat(result.user.id).isEqualTo(memberId)
+            verify(exactly = 1) {
+                pushNotificationService.sendToUser(
+                    userId = memberId,
+                    type = NotificationType.WISHLIST_MEMBER_ADDED,
+                    title = "Aggiunto a una wishlist",
+                    body = "Sei stato aggiunto alla wishlist \"Da comprare\"",
+                    data = mapOf("wishlistId" to wishlistId.toString()),
+                )
+            }
         }
 
         @Test
-        fun `should throw WishlistNotFoundException when wishlist does not exist`() {
-            val request = AddWishlistMemberRequest(userId = UUID.randomUUID())
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.empty())
-
-            assertThatThrownBy {
-                wishlistService.addMember(ownerId, wishlistId, request)
-            }.isInstanceOf(WishlistNotFoundException::class.java)
+        fun `should throw WishlistNotFoundException when the wishlist does not exist`() {
+            assertThatThrownBy { add() }.isInstanceOf(WishlistNotFoundException::class.java)
         }
 
         @Test
-        fun `should throw NotWishlistOwnerException when user is not the owner`() {
-            val differentOwner = buildUser()
-            val wishlist = buildWishlist(owner = differentOwner, isShared = true)
-            val request = AddWishlistMemberRequest(userId = UUID.randomUUID())
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+        fun `should throw NotWishlistOwnerException when a member tries to add someone`() {
+            wishlist(isShared = true)
+            joined()
 
-            assertThatThrownBy {
-                wishlistService.addMember(ownerId, wishlistId, request)
-            }.isInstanceOf(NotWishlistOwnerException::class.java)
+            assertThatThrownBy { service.addMember(memberId, wishlistId, AddWishlistMemberRequest(userId = strangerId)) }
+                .isInstanceOf(NotWishlistOwnerException::class.java)
         }
 
         @Test
-        fun `should throw WishlistNotSharedException when wishlist is not shared`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner, isShared = false)
-            val request = AddWishlistMemberRequest(userId = UUID.randomUUID())
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+        fun `should throw WishlistNotSharedException for a private wishlist`() {
+            wishlist(isShared = false)
 
-            assertThatThrownBy {
-                wishlistService.addMember(ownerId, wishlistId, request)
-            }.isInstanceOf(WishlistNotSharedException::class.java)
+            assertThatThrownBy { add() }.isInstanceOf(WishlistNotSharedException::class.java)
         }
 
         @Test
-        fun `should throw CannotAddOwnerAsMemberException when trying to add the owner as member`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner, isShared = true)
-            val request = AddWishlistMemberRequest(userId = ownerId)
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+        fun `should throw CannotAddOwnerAsMemberException when adding the owner`() {
+            wishlist(isShared = true)
 
-            assertThatThrownBy {
-                wishlistService.addMember(ownerId, wishlistId, request)
-            }.isInstanceOf(CannotAddOwnerAsMemberException::class.java)
+            assertThatThrownBy { add(ownerId) }.isInstanceOf(CannotAddOwnerAsMemberException::class.java)
         }
 
         @Test
-        fun `should throw UserAlreadyWishlistMemberException when user is already a member`() {
-            val owner = buildUser(id = ownerId)
-            val existingMemberId = UUID.randomUUID()
-            val wishlist = buildWishlist(owner = owner, isShared = true)
-            val request = AddWishlistMemberRequest(userId = existingMemberId)
+        fun `should throw UserAlreadyWishlistMemberException without looking up the user`() {
+            wishlist(isShared = true)
+            joined()
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistMemberRepository.existsByWishlistIdAndUserId(wishlistId, existingMemberId)).thenReturn(true)
+            assertThatThrownBy { add() }.isInstanceOf(UserAlreadyWishlistMemberException::class.java)
 
-            assertThatThrownBy {
-                wishlistService.addMember(ownerId, wishlistId, request)
-            }.isInstanceOf(UserAlreadyWishlistMemberException::class.java)
+            verify(exactly = 0) { userRepository.findById(memberId) }
         }
 
         @Test
-        fun `should throw UserNotFoundByIdentifierException when new member user does not exist`() {
-            val owner = buildUser(id = ownerId)
-            val newMemberId = UUID.randomUUID()
-            val wishlist = buildWishlist(owner = owner, isShared = true)
-            val request = AddWishlistMemberRequest(userId = newMemberId)
+        fun `should throw UserNotFoundByIdentifierException when the user does not exist`() {
+            wishlist(isShared = true)
+            val ghostId = UUID.randomUUID()
+            every { userRepository.findById(ghostId) } returns Optional.empty()
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistMemberRepository.existsByWishlistIdAndUserId(wishlistId, newMemberId)).thenReturn(false)
-            whenever(userRepository.findById(newMemberId)).thenReturn(Optional.empty())
+            assertThatThrownBy { add(ghostId) }.isInstanceOf(UserNotFoundByIdentifierException::class.java)
 
-            assertThatThrownBy {
-                wishlistService.addMember(ownerId, wishlistId, request)
-            }.isInstanceOf(UserNotFoundByIdentifierException::class.java)
+            verify(exactly = 0) { wishlistMemberRepository.saveAndFlush(any<WishlistMember>()) }
+        }
 
-            verify(wishlistMemberRepository, never()).save(any())
+        @ParameterizedTest
+        @EnumSource(value = AccountStatus::class, names = ["ACTIVE"], mode = EnumSource.Mode.EXCLUDE)
+        fun `should refuse a user whose account is not active`(status: AccountStatus) {
+            wishlist(isShared = true)
+            member.accountStatus = status
+
+            assertThatThrownBy { add() }.isInstanceOf(UserNotFoundByIdentifierException::class.java)
+
+            verify(exactly = 0) { wishlistMemberRepository.saveAndFlush(any<WishlistMember>()) }
         }
 
         @Test
-        fun `should rethrow generic exception when repository fails unexpectedly`() {
-            val owner = buildUser(id = ownerId)
-            buildWishlist(owner = owner, isShared = true)
+        fun `should throw UserAlreadyWishlistMemberException when the user is added twice at the same time`() {
+            wishlist(isShared = true)
+            every { wishlistMemberRepository.saveAndFlush(any<WishlistMember>()) } throws DataIntegrityViolationException("duplicate key")
 
-            val request = AddWishlistMemberRequest(userId = UUID.randomUUID())
-            whenever(wishlistRepository.findById(wishlistId)).thenThrow(RuntimeException("Database error"))
+            assertThatThrownBy { add() }.isInstanceOf(UserAlreadyWishlistMemberException::class.java)
 
-            assertThatThrownBy {
-                wishlistService.addMember(ownerId, wishlistId, request)
-            }.isInstanceOf(RuntimeException::class.java)
+            verify(exactly = 0) { pushNotificationService.sendToUser(any(), any(), any(), any(), any()) }
         }
     }
-
-    // ---------------------------------------------------------------------
-    // removeMember
-    // ---------------------------------------------------------------------
 
     @Nested
-    @DisplayName("removeMember")
-    inner class RemoveMemberTests {
+    @DisplayName("members")
+    inner class MemberTests {
 
         @Test
-        fun `should remove member from wishlist when user is the owner`() {
-            val owner = buildUser(id = ownerId)
-            val memberUserId = UUID.randomUUID()
-            val wishlist = buildWishlist(owner = owner, isShared = true)
-            val member = WishlistMember(id = UUID.randomUUID(), wishlist = wishlist, user = buildUser(id = memberUserId))
+        fun `should remove a member`() {
+            val target = wishlist(isShared = true)
+            val membership = WishlistMember(id = UUID.randomUUID(), wishlist = target, user = member)
+            every { wishlistMemberRepository.findByWishlistIdAndUserId(wishlistId, memberId) } returns Optional.of(membership)
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistMemberRepository.findByWishlistIdAndUserId(wishlistId, memberUserId))
-                .thenReturn(Optional.of(member))
+            service.removeMember(ownerId, wishlistId, memberId)
 
-            wishlistService.removeMember(ownerId, wishlistId, memberUserId)
-
-            verify(wishlistMemberRepository).delete(member)
+            verify(exactly = 1) { wishlistMemberRepository.delete(membership) }
         }
 
         @Test
-        fun `should throw WishlistNotFoundException when wishlist does not exist`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.empty())
+        fun `should not let a member remove someone else`() {
+            wishlist(isShared = true)
+            joined()
 
-            assertThatThrownBy {
-                wishlistService.removeMember(ownerId, wishlistId, UUID.randomUUID())
-            }.isInstanceOf(WishlistNotFoundException::class.java)
+            assertThatThrownBy { service.removeMember(memberId, wishlistId, strangerId) }
+                .isInstanceOf(NotWishlistOwnerException::class.java)
+
+            verify(exactly = 0) { wishlistMemberRepository.delete(any<WishlistMember>()) }
         }
 
         @Test
-        fun `should throw NotWishlistOwnerException when user is not the owner`() {
-            val differentOwner = buildUser()
-            val wishlist = buildWishlist(owner = differentOwner, isShared = true)
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+        fun `should throw UserNotWishlistMemberException when removing someone who is not a member`() {
+            wishlist(isShared = true)
+            every { wishlistMemberRepository.findByWishlistIdAndUserId(wishlistId, strangerId) } returns Optional.empty()
 
-            assertThatThrownBy {
-                wishlistService.removeMember(ownerId, wishlistId, UUID.randomUUID())
-            }.isInstanceOf(NotWishlistOwnerException::class.java)
+            assertThatThrownBy { service.removeMember(ownerId, wishlistId, strangerId) }
+                .isInstanceOf(UserNotWishlistMemberException::class.java)
         }
 
         @Test
-        fun `should throw UserNotWishlistMemberException when target user is not a member`() {
-            val owner = buildUser(id = ownerId)
-            val memberUserId = UUID.randomUUID()
-            val wishlist = buildWishlist(owner = owner, isShared = true)
+        fun `should let a member leave`() {
+            val membership = WishlistMember(id = UUID.randomUUID(), wishlist = wishlist(isShared = true), user = member)
+            every { wishlistMemberRepository.findByWishlistIdAndUserId(wishlistId, memberId) } returns Optional.of(membership)
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistMemberRepository.findByWishlistIdAndUserId(wishlistId, memberUserId))
-                .thenReturn(Optional.empty())
+            service.leaveWishlist(memberId, wishlistId)
 
-            assertThatThrownBy {
-                wishlistService.removeMember(ownerId, wishlistId, memberUserId)
-            }.isInstanceOf(UserNotWishlistMemberException::class.java)
-
-            verify(wishlistMemberRepository, never()).delete(any())
+            verify(exactly = 1) { wishlistMemberRepository.delete(membership) }
         }
 
         @Test
-        fun `should rethrow generic exception when repository fails unexpectedly`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenThrow(RuntimeException("Database error"))
+        fun `should throw UserNotWishlistMemberException when leaving a wishlist you are not in`() {
+            every { wishlistMemberRepository.findByWishlistIdAndUserId(wishlistId, ownerId) } returns Optional.empty()
 
-            assertThatThrownBy {
-                wishlistService.removeMember(ownerId, wishlistId, UUID.randomUUID())
-            }.isInstanceOf(RuntimeException::class.java)
-        }
-    }
+            assertThatThrownBy { service.leaveWishlist(ownerId, wishlistId) }
+                .isInstanceOf(UserNotWishlistMemberException::class.java)
 
-    // ---------------------------------------------------------------------
-    // leaveWishlist
-    // ---------------------------------------------------------------------
-
-    @Nested
-    @DisplayName("leaveWishlist")
-    inner class LeaveWishlistTests {
-
-        @Test
-        fun `should remove membership when user is a member`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner, isShared = true)
-            val member = WishlistMember(id = UUID.randomUUID(), wishlist = wishlist, user = buildUser(id = ownerId))
-
-            whenever(wishlistMemberRepository.findByWishlistIdAndUserId(wishlistId, ownerId))
-                .thenReturn(Optional.of(member))
-
-            wishlistService.leaveWishlist(ownerId, wishlistId)
-
-            verify(wishlistMemberRepository).delete(member)
+            verify(exactly = 0) { wishlistMemberRepository.delete(any<WishlistMember>()) }
         }
 
         @Test
-        fun `should throw UserNotWishlistMemberException when user is not a member`() {
-            whenever(wishlistMemberRepository.findByWishlistIdAndUserId(wishlistId, ownerId))
-                .thenReturn(Optional.empty())
+        fun `should list the members of a viewable wishlist`() {
+            val target = wishlist(isShared = true)
+            joined()
+            every { wishlistMemberRepository.findAllByWishlistId(wishlistId) } returns listOf(WishlistMember(id = UUID.randomUUID(), wishlist = target, user = member))
 
-            assertThatThrownBy {
-                wishlistService.leaveWishlist(ownerId, wishlistId)
-            }.isInstanceOf(UserNotWishlistMemberException::class.java)
+            val result = service.listMembers(memberId, wishlistId)
 
-            verify(wishlistMemberRepository, never()).delete(any())
+            assertThat(result.map { it.user.id }).containsExactly(memberId)
         }
 
         @Test
-        fun `should rethrow generic exception when repository fails unexpectedly`() {
-            whenever(wishlistMemberRepository.findByWishlistIdAndUserId(wishlistId, ownerId))
-                .thenThrow(RuntimeException("Database error"))
+        fun `should not list the members to someone without access`() {
+            wishlist(isShared = true)
 
-            assertThatThrownBy {
-                wishlistService.leaveWishlist(ownerId, wishlistId)
-            }.isInstanceOf(RuntimeException::class.java)
+            assertThatThrownBy { service.listMembers(strangerId, wishlistId) }
+                .isInstanceOf(NotWishlistOwnerOrMemberException::class.java)
+
+            verify(exactly = 0) { wishlistMemberRepository.findAllByWishlistId(any()) }
         }
     }
-
-    // ---------------------------------------------------------------------
-    // listMembers
-    // ---------------------------------------------------------------------
-
-    @Nested
-    @DisplayName("listMembers")
-    inner class ListMembersTests {
-
-        @Test
-        fun `should return list of members when wishlist exists`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner, isShared = true)
-            val member = WishlistMember(id = UUID.randomUUID(), wishlist = wishlist, user = buildUser())
-
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistMemberRepository.findAllByWishlistId(wishlistId)).thenReturn(listOf(member))
-
-            val result = wishlistService.listMembers(wishlistId)
-
-            assertThat(result).hasSize(1)
-        }
-
-        @Test
-        fun `should return empty list when wishlist has no members`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner, isShared = true)
-
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistMemberRepository.findAllByWishlistId(wishlistId)).thenReturn(emptyList())
-
-            val result = wishlistService.listMembers(wishlistId)
-
-            assertThat(result).isEmpty()
-        }
-
-        @Test
-        fun `should throw WishlistNotFoundException when wishlist does not exist`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.empty())
-
-            assertThatThrownBy {
-                wishlistService.listMembers(wishlistId)
-            }.isInstanceOf(WishlistNotFoundException::class.java)
-
-            verify(wishlistMemberRepository, never()).findAllByWishlistId(any())
-        }
-
-        @Test
-        fun `should rethrow generic exception when repository fails unexpectedly`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenThrow(RuntimeException("Database error"))
-
-            assertThatThrownBy {
-                wishlistService.listMembers(wishlistId)
-            }.isInstanceOf(RuntimeException::class.java)
-        }
-    }
-
-    // ---------------------------------------------------------------------
-    // addItem
-    // ---------------------------------------------------------------------
 
     @Nested
     @DisplayName("addItem")
     inner class AddItemTests {
 
+        private fun add(userId: UUID = ownerId) = service.addItem(userId, wishlistId, AddWishlistItemRequest(gameId = gameId))
+
         @Test
-        fun `should add game to wishlist when user is the owner`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner, isShared = false)
-            val gameId = UUID.randomUUID()
-            val game = buildGame(id = gameId)
-            val request = AddWishlistItemRequest(gameId = gameId)
-            val savedItem = WishlistItem(id = UUID.randomUUID(), wishlist = wishlist, game = game, addedBy = owner)
+        fun `should save the game added by the user`() {
+            wishlist()
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistItemRepository.existsByWishlistIdAndGameId(wishlistId, gameId)).thenReturn(false)
-            whenever(gameRepository.findById(gameId)).thenReturn(Optional.of(game))
-            whenever(userRepository.findById(ownerId)).thenReturn(Optional.of(owner))
-            whenever(wishlistItemRepository.save(any())).thenReturn(savedItem)
+            val result = add()
 
-            val result = wishlistService.addItem(ownerId, wishlistId, request)
-
+            val saved = slot<WishlistItem>()
+            verify { wishlistItemRepository.saveAndFlush(capture(saved)) }
+            assertThat(saved.captured.game).isSameAs(game)
+            assertThat(saved.captured.addedBy).isSameAs(owner)
             assertThat(result.game.id).isEqualTo(gameId)
         }
 
         @Test
-        fun `should add game to wishlist when user is a member of a shared wishlist`() {
-            val owner = buildUser()
-            val memberId = UUID.randomUUID()
-            val member = buildUser(id = memberId)
-            val wishlist = buildWishlist(owner = owner, isShared = true)
-            val gameId = UUID.randomUUID()
-            val game = buildGame(id = gameId)
-            val request = AddWishlistItemRequest(gameId = gameId)
-            val savedItem = WishlistItem(id = UUID.randomUUID(), wishlist = wishlist, game = game, addedBy = member)
+        fun `should not record activity on a private wishlist`() {
+            wishlist()
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistMemberRepository.existsByWishlistIdAndUserId(wishlistId, memberId)).thenReturn(true)
-            whenever(wishlistItemRepository.existsByWishlistIdAndGameId(wishlistId, gameId)).thenReturn(false)
-            whenever(gameRepository.findById(gameId)).thenReturn(Optional.of(game))
-            whenever(userRepository.findById(memberId)).thenReturn(Optional.of(member))
-            whenever(wishlistItemRepository.save(any())).thenReturn(savedItem)
+            add()
 
-            val result = wishlistService.addItem(memberId, wishlistId, request)
+            verifyNoActivity()
+        }
+
+        @Test
+        fun `should not record activity on a shared wishlist without members`() {
+            wishlist(isShared = true)
+
+            add()
+
+            verifyNoActivity()
+        }
+
+        @Test
+        fun `should record the activity when the owner changes a shared wishlist with members`() {
+            wishlist(isShared = true)
+            joined()
+
+            add()
+
+            assertThat(activitySlot.captured.actor).isSameAs(owner)
+            assertThat(activitySlot.captured.game).isSameAs(game)
+            assertThat(activitySlot.captured.action).isEqualTo(WishlistActivityAction.ADDED)
+        }
+
+        @Test
+        fun `should record the activity when a member adds a game`() {
+            wishlist(isShared = true)
+            joined()
+
+            val result = add(memberId)
 
             assertThat(result.addedBy.id).isEqualTo(memberId)
+            assertThat(activitySlot.captured.actor).isSameAs(member)
         }
 
         @Test
-        fun `should throw WishlistNotFoundException when wishlist does not exist`() {
-            val request = AddWishlistItemRequest(gameId = UUID.randomUUID())
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.empty())
+        fun `should refuse a user without access`() {
+            wishlist(isShared = true)
 
-            assertThatThrownBy {
-                wishlistService.addItem(ownerId, wishlistId, request)
-            }.isInstanceOf(WishlistNotFoundException::class.java)
+            assertThatThrownBy { add(strangerId) }.isInstanceOf(NotWishlistOwnerOrMemberException::class.java)
+
+            verify(exactly = 0) { wishlistItemRepository.saveAndFlush(any<WishlistItem>()) }
         }
 
         @Test
-        fun `should throw NotWishlistOwnerOrMemberException when user has no access to a private wishlist`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner, isShared = false)
-            val request = AddWishlistItemRequest(gameId = UUID.randomUUID())
+        fun `should throw GameAlreadyInWishlistException without looking up the game`() {
+            wishlist()
+            every { wishlistItemRepository.existsByWishlistIdAndGameId(wishlistId, gameId) } returns true
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+            assertThatThrownBy { add() }.isInstanceOf(GameAlreadyInWishlistException::class.java)
 
-            assertThatThrownBy {
-                wishlistService.addItem(ownerId, wishlistId, request)
-            }.isInstanceOf(NotWishlistOwnerOrMemberException::class.java)
+            verify(exactly = 0) { gameRepository.findById(any()) }
         }
 
         @Test
-        fun `should throw NotWishlistOwnerOrMemberException when user is not a member of a shared wishlist`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner, isShared = true)
-            val request = AddWishlistItemRequest(gameId = UUID.randomUUID())
+        fun `should throw GameNotFoundException without saving`() {
+            wishlist()
+            every { gameRepository.findById(gameId) } returns Optional.empty()
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistMemberRepository.existsByWishlistIdAndUserId(wishlistId, ownerId)).thenReturn(false)
+            assertThatThrownBy { add() }.isInstanceOf(GameNotFoundException::class.java)
 
-            assertThatThrownBy {
-                wishlistService.addItem(ownerId, wishlistId, request)
-            }.isInstanceOf(NotWishlistOwnerOrMemberException::class.java)
+            verify(exactly = 0) { wishlistItemRepository.saveAndFlush(any<WishlistItem>()) }
         }
 
         @Test
-        fun `should throw GameAlreadyInWishlistException when game already present`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner, isShared = false)
-            val gameId = UUID.randomUUID()
-            val request = AddWishlistItemRequest(gameId = gameId)
+        fun `should throw GameAlreadyInWishlistException when the game is added twice at the same time`() {
+            wishlist(isShared = true)
+            joined()
+            every { wishlistItemRepository.saveAndFlush(any<WishlistItem>()) } throws DataIntegrityViolationException("duplicate key")
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistItemRepository.existsByWishlistIdAndGameId(wishlistId, gameId)).thenReturn(true)
+            assertThatThrownBy { add() }.isInstanceOf(GameAlreadyInWishlistException::class.java)
 
-            assertThatThrownBy {
-                wishlistService.addItem(ownerId, wishlistId, request)
-            }.isInstanceOf(GameAlreadyInWishlistException::class.java)
+            verifyNoActivity()
         }
 
         @Test
-        fun `should throw GameNotFoundException when game does not exist`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner, isShared = false)
-            val gameId = UUID.randomUUID()
-            val request = AddWishlistItemRequest(gameId = gameId)
-
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistItemRepository.existsByWishlistIdAndGameId(wishlistId, gameId)).thenReturn(false)
-            whenever(gameRepository.findById(gameId)).thenReturn(Optional.empty())
-
-            assertThatThrownBy {
-                wishlistService.addItem(ownerId, wishlistId, request)
-            }.isInstanceOf(GameNotFoundException::class.java)
-
-            verify(wishlistItemRepository, never()).save(any())
-        }
-
-        @Test
-        fun `should throw UserNotFoundByIdentifierException when adding user does not exist`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner, isShared = false)
-            val gameId = UUID.randomUUID()
-            val game = buildGame(id = gameId)
-            val request = AddWishlistItemRequest(gameId = gameId)
-
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistItemRepository.existsByWishlistIdAndGameId(wishlistId, gameId)).thenReturn(false)
-            whenever(gameRepository.findById(gameId)).thenReturn(Optional.of(game))
-            whenever(userRepository.findById(ownerId)).thenReturn(Optional.empty())
-
-            assertThatThrownBy {
-                wishlistService.addItem(ownerId, wishlistId, request)
-            }.isInstanceOf(UserNotFoundByIdentifierException::class.java)
-
-            verify(wishlistItemRepository, never()).save(any())
-        }
-
-        @Test
-        fun `should rethrow generic exception when repository fails unexpectedly`() {
-            val request = AddWishlistItemRequest(gameId = UUID.randomUUID())
-            whenever(wishlistRepository.findById(wishlistId)).thenThrow(RuntimeException("Database error"))
-
-            assertThatThrownBy {
-                wishlistService.addItem(ownerId, wishlistId, request)
-            }.isInstanceOf(RuntimeException::class.java)
+        fun `should throw WishlistNotFoundException when the wishlist does not exist`() {
+            assertThatThrownBy { add() }.isInstanceOf(WishlistNotFoundException::class.java)
         }
     }
-
-    // ---------------------------------------------------------------------
-    // removeItem
-    // ---------------------------------------------------------------------
 
     @Nested
     @DisplayName("removeItem")
     inner class RemoveItemTests {
 
         @Test
-        fun `should remove item when user is the owner`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner, isShared = false)
-            val itemId = UUID.randomUUID()
-            val item = WishlistItem(id = itemId, wishlist = wishlist, game = buildGame(), addedBy = owner)
+        fun `should delete the item without activity on a private wishlist`() {
+            val target = item(wishlist())
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistItemRepository.findByIdAndWishlistId(itemId, wishlistId)).thenReturn(Optional.of(item))
+            service.removeItem(ownerId, wishlistId, itemId)
 
-            wishlistService.removeItem(ownerId, wishlistId, itemId)
-
-            verify(wishlistItemRepository).delete(item)
+            verify(exactly = 1) { wishlistItemRepository.delete(target) }
+            verifyNoActivity()
         }
 
         @Test
-        fun `should remove item when user is a member of a shared wishlist`() {
-            val owner = buildUser()
-            val memberId = UUID.randomUUID()
-            val wishlist = buildWishlist(owner = owner, isShared = true)
-            val itemId = UUID.randomUUID()
-            val item = WishlistItem(id = itemId, wishlist = wishlist, game = buildGame(), addedBy = owner)
+        fun `should record the removal before deleting the item`() {
+            val target = item(wishlist(isShared = true))
+            joined()
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistMemberRepository.existsByWishlistIdAndUserId(wishlistId, memberId)).thenReturn(true)
-            whenever(wishlistItemRepository.findByIdAndWishlistId(itemId, wishlistId)).thenReturn(Optional.of(item))
+            service.removeItem(memberId, wishlistId, itemId)
 
-            wishlistService.removeItem(memberId, wishlistId, itemId)
-
-            verify(wishlistItemRepository).delete(item)
+            assertThat(activitySlot.captured.action).isEqualTo(WishlistActivityAction.REMOVED)
+            assertThat(activitySlot.captured.actor).isSameAs(member)
+            verifyOrder {
+                wishlistActivityRepository.save(any())
+                wishlistItemRepository.delete(target)
+            }
         }
 
         @Test
-        fun `should throw WishlistNotFoundException when wishlist does not exist`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.empty())
+        fun `should throw WishlistItemNotFoundException when the item is not in the wishlist`() {
+            wishlist()
+            every { wishlistItemRepository.findByIdAndWishlistId(itemId, wishlistId) } returns Optional.empty()
 
-            assertThatThrownBy {
-                wishlistService.removeItem(ownerId, wishlistId, UUID.randomUUID())
-            }.isInstanceOf(WishlistNotFoundException::class.java)
+            assertThatThrownBy { service.removeItem(ownerId, wishlistId, itemId) }
+                .isInstanceOf(WishlistItemNotFoundException::class.java)
+
+            verify(exactly = 0) { wishlistItemRepository.delete(any<WishlistItem>()) }
         }
 
         @Test
-        fun `should throw NotWishlistOwnerOrMemberException when user has no access`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner, isShared = false)
+        fun `should refuse a user without access`() {
+            wishlist(isShared = true)
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+            assertThatThrownBy { service.removeItem(strangerId, wishlistId, itemId) }
+                .isInstanceOf(NotWishlistOwnerOrMemberException::class.java)
 
-            assertThatThrownBy {
-                wishlistService.removeItem(ownerId, wishlistId, UUID.randomUUID())
-            }.isInstanceOf(NotWishlistOwnerOrMemberException::class.java)
-        }
-
-        @Test
-        fun `should throw WishlistItemNotFoundException when item does not exist in wishlist`() {
-            val owner = buildUser(id = ownerId)
-            val wishlist = buildWishlist(owner = owner, isShared = false)
-            val itemId = UUID.randomUUID()
-
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistItemRepository.findByIdAndWishlistId(itemId, wishlistId)).thenReturn(Optional.empty())
-
-            assertThatThrownBy {
-                wishlistService.removeItem(ownerId, wishlistId, itemId)
-            }.isInstanceOf(WishlistItemNotFoundException::class.java)
-
-            verify(wishlistItemRepository, never()).delete(any<WishlistItem>())
-        }
-
-        @Test
-        fun `should rethrow generic exception when repository fails unexpectedly`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenThrow(RuntimeException("Database error"))
-
-            assertThatThrownBy {
-                wishlistService.removeItem(ownerId, wishlistId, UUID.randomUUID())
-            }.isInstanceOf(RuntimeException::class.java)
+            verify(exactly = 0) { wishlistItemRepository.findByIdAndWishlistId(any(), any()) }
         }
     }
-
-    // ---------------------------------------------------------------------
-    // listItems
-    // ---------------------------------------------------------------------
 
     @Nested
     @DisplayName("listItems")
     inner class ListItemsTests {
 
         @Test
-        fun `should return paged items with default sort when wishlist exists`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner)
-            val item = WishlistItem(id = UUID.randomUUID(), wishlist = wishlist, game = buildGame(), addedBy = owner)
-            val page = PageImpl(listOf(item), PageRequest.of(0, 20), 1)
+        fun `should map the items of a viewable wishlist`() {
+            stubItemPage(listOf(WishlistItem(id = itemId, wishlist = wishlist(), game = game, addedBy = owner)))
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistItemRepository.findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), any<PageRequest>()))
-                .thenReturn(page)
+            val result = service.listItems(ownerId, wishlistId, 0, 20, null, null)
 
-            val result = wishlistService.listItems(wishlistId, 0, 20, null, null)
-
-            assertThat(result.content).hasSize(1)
+            assertThat(result.content.map { it.game.id }).containsExactly(gameId)
         }
 
         @Test
-        fun `should clamp negative page number to zero`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner)
-            val page = PageImpl<WishlistItem>(emptyList(), PageRequest.of(0, 20), 0)
+        fun `should filter by wishlist and game name`() {
+            wishlist()
+            stubItemPage()
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistItemRepository.findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), any<PageRequest>()))
-                .thenReturn(page)
+            service.listItems(ownerId, wishlistId, 0, 20, "cat", null)
 
-            val result = wishlistService.listItems(wishlistId, -5, 20, null, null)
-
-            assertThat(result.number).isEqualTo(0)
+            verify(exactly = 1) { WishlistItemSpecification.withFilters(wishlistId, "cat") }
         }
 
         @Test
-        fun `should clamp oversized page size to 100`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner)
-            val page = PageImpl<WishlistItem>(emptyList(), PageRequest.of(0, 100), 0)
+        fun `should sort by the newest items with the id as tie-breaker by default`() {
+            wishlist()
+            stubItemPage()
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistItemRepository.findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), any<PageRequest>()))
-                .thenReturn(page)
+            service.listItems(ownerId, wishlistId, 0, 20, null, null)
 
-            wishlistService.listItems(wishlistId, 0, 500, null, null)
-
-            verify(wishlistItemRepository).findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), eq(PageRequest.of(0, 100, org.springframework.data.domain.Sort.by("createdAt").descending())))
+            assertThat(orders().map { it.first }).containsExactly("createdAt", "id")
+            assertThat(orders()[0].second).isEqualTo(Sort.Direction.DESC)
         }
 
         @Test
-        fun `should clamp zero or negative page size to minimum of 1`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner)
-            val page = PageImpl<WishlistItem>(emptyList(), PageRequest.of(0, 1), 0)
+        fun `should sort by game name`() {
+            wishlist()
+            stubItemPage()
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistItemRepository.findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), any<PageRequest>()))
-                .thenReturn(page)
+            service.listItems(ownerId, wishlistId, 0, 20, null, "game.name-asc")
 
-            wishlistService.listItems(wishlistId, 0, 0, null, null)
-
-            verify(wishlistItemRepository).findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), eq(PageRequest.of(0, 1, org.springframework.data.domain.Sort.by("createdAt").descending())))
+            assertThat(orders()[0]).isEqualTo("game.name" to Sort.Direction.ASC)
         }
 
         @Test
-        fun `should throw WishlistNotFoundException when wishlist does not exist`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.empty())
+        fun `should clamp the size between 1 and 100`() {
+            wishlist()
+            stubItemPage()
 
-            assertThatThrownBy {
-                wishlistService.listItems(wishlistId, 0, 20, null, null)
-            }.isInstanceOf(WishlistNotFoundException::class.java)
+            service.listItems(ownerId, wishlistId, 0, 0, null, null)
+            assertThat(pageableSlot.captured.pageSize).isEqualTo(1)
+
+            service.listItems(ownerId, wishlistId, 0, 500, null, null)
+            assertThat(pageableSlot.captured.pageSize).isEqualTo(100)
         }
 
         @Test
-        fun `should throw InvalidSortException when sort field is not allowed`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner)
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
+        fun `should throw InvalidSortException without querying`() {
+            wishlist()
 
-            assertThatThrownBy {
-                wishlistService.listItems(wishlistId, 0, 20, null, "notAllowedField-asc")
-            }.isInstanceOf(InvalidSortException::class.java)
+            assertThatThrownBy { service.listItems(ownerId, wishlistId, 0, 20, null, "addedBy-asc") }
+                .isInstanceOf(InvalidSortException::class.java)
 
-            verify(wishlistItemRepository, never())
-                .findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), any<PageRequest>())
+            verify(exactly = 0) { wishlistItemRepository.findAll(any<Specification<WishlistItem>>(), any<Pageable>()) }
         }
 
         @Test
-        fun `should rethrow generic exception when repository fails unexpectedly`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenThrow(RuntimeException("Database error"))
+        fun `should not list the items to someone without access`() {
+            wishlist(isShared = true)
 
-            assertThatThrownBy {
-                wishlistService.listItems(wishlistId, 0, 20, null, null)
-            }.isInstanceOf(RuntimeException::class.java)
+            assertThatThrownBy { service.listItems(strangerId, wishlistId, 0, 20, null, null) }
+                .isInstanceOf(NotWishlistOwnerOrMemberException::class.java)
+
+            verify(exactly = 0) { wishlistItemRepository.findAll(any<Specification<WishlistItem>>(), any<Pageable>()) }
         }
     }
-
-    // ---------------------------------------------------------------------
-    // getWishlist
-    // ---------------------------------------------------------------------
-
-    @Nested
-    @DisplayName("getWishlist")
-    inner class GetWishlistTests {
-
-        @Test
-        fun `should return wishlist DTO when wishlist exists`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner)
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-
-            val result = wishlistService.getWishlist(wishlistId)
-
-            assertThat(result.id).isEqualTo(wishlistId)
-        }
-
-        @Test
-        fun `should throw WishlistNotFoundException when wishlist does not exist`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.empty())
-
-            assertThatThrownBy {
-                wishlistService.getWishlist(wishlistId)
-            }.isInstanceOf(WishlistNotFoundException::class.java)
-        }
-
-        @Test
-        fun `should rethrow generic exception when repository fails unexpectedly`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenThrow(RuntimeException("Database error"))
-
-            assertThatThrownBy {
-                wishlistService.getWishlist(wishlistId)
-            }.isInstanceOf(RuntimeException::class.java)
-        }
-    }
-
-    // ---------------------------------------------------------------------
-    // createDefaultWishlistForUser
-    // ---------------------------------------------------------------------
-
-    @Nested
-    @DisplayName("createDefaultWishlistForUser")
-    inner class CreateDefaultWishlistForUserTests {
-
-        @Test
-        fun `should create a default and non-shared wishlist named La mia wishlist`() {
-            val user = buildUser(id = ownerId)
-            whenever(wishlistRepository.save(any())).thenAnswer { it.getArgument<Wishlist>(0) }
-
-            wishlistService.createDefaultWishlistForUser(user)
-
-            val captor = org.mockito.kotlin.argumentCaptor<Wishlist>()
-            verify(wishlistRepository).save(captor.capture())
-            val saved = captor.firstValue
-
-            assertThat(saved.name).isEqualTo("La mia wishlist")
-            assertThat(saved.isDefault).isTrue()
-            assertThat(saved.isShared).isFalse()
-            assertThat(saved.owner).isEqualTo(user)
-        }
-
-        @Test
-        fun `should rethrow generic exception when repository fails unexpectedly`() {
-            val user = buildUser(id = ownerId)
-            whenever(wishlistRepository.save(any())).thenThrow(RuntimeException("Database error"))
-
-            assertThatThrownBy {
-                wishlistService.createDefaultWishlistForUser(user)
-            }.isInstanceOf(RuntimeException::class.java)
-        }
-    }
-
-    // ---------------------------------------------------------------------
-    // getItemStatus
-    // ---------------------------------------------------------------------
 
     @Nested
     @DisplayName("getItemStatus")
     inner class GetItemStatusTests {
 
         @Test
-        fun `should return inWishlist true with item id when game is present`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner)
-            val gameId = UUID.randomUUID()
-            val itemId = UUID.randomUUID()
-            val item = WishlistItem(id = itemId, wishlist = wishlist, game = buildGame(id = gameId), addedBy = owner)
+        fun `should report a game in the wishlist with its item id`() {
+            wishlist()
+            every { wishlistItemRepository.findIdByWishlistIdAndGameId(wishlistId, gameId) } returns itemId
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistItemRepository.findByWishlistIdAndGameId(wishlistId, gameId)).thenReturn(Optional.of(item))
-
-            val result = wishlistService.getItemStatus(wishlistId, gameId)
+            val result = service.getItemStatus(ownerId, wishlistId, gameId)
 
             assertThat(result.inWishlist).isTrue()
             assertThat(result.itemId).isEqualTo(itemId)
         }
 
         @Test
-        fun `should return inWishlist false with null item id when game is absent`() {
-            val owner = buildUser()
-            val wishlist = buildWishlist(owner = owner)
-            val gameId = UUID.randomUUID()
+        fun `should report a game not in the wishlist`() {
+            wishlist()
+            every { wishlistItemRepository.findIdByWishlistIdAndGameId(wishlistId, gameId) } returns null
 
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.of(wishlist))
-            whenever(wishlistItemRepository.findByWishlistIdAndGameId(wishlistId, gameId)).thenReturn(Optional.empty())
-
-            val result = wishlistService.getItemStatus(wishlistId, gameId)
+            val result = service.getItemStatus(ownerId, wishlistId, gameId)
 
             assertThat(result.inWishlist).isFalse()
             assertThat(result.itemId).isNull()
         }
 
         @Test
-        fun `should throw WishlistNotFoundException when wishlist does not exist`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenReturn(Optional.empty())
+        fun `should not reveal the status to someone without access`() {
+            wishlist(isShared = true)
 
-            assertThatThrownBy {
-                wishlistService.getItemStatus(wishlistId, UUID.randomUUID())
-            }.isInstanceOf(WishlistNotFoundException::class.java)
-        }
-
-        @Test
-        fun `should rethrow generic exception when repository fails unexpectedly`() {
-            whenever(wishlistRepository.findById(wishlistId)).thenThrow(RuntimeException("Database error"))
-
-            assertThatThrownBy {
-                wishlistService.getItemStatus(wishlistId, UUID.randomUUID())
-            }.isInstanceOf(RuntimeException::class.java)
+            assertThatThrownBy { service.getItemStatus(strangerId, wishlistId, gameId) }
+                .isInstanceOf(NotWishlistOwnerOrMemberException::class.java)
         }
     }
 
-    // ---------------------------------------------------------------------
-    // getDefaultWishlistForUser
-    // ---------------------------------------------------------------------
-
     @Nested
-    @DisplayName("getDefaultWishlistForUser")
-    inner class GetDefaultWishlistForUserTests {
+    @DisplayName("default wishlist")
+    inner class DefaultWishlistTests {
 
         @Test
-        fun `should return paged items of the user's default wishlist`() {
-            val owner = buildUser(id = ownerId)
-            val defaultWishlist = buildWishlist(owner = owner, isDefault = true)
-            val item = WishlistItem(id = UUID.randomUUID(), wishlist = defaultWishlist, game = buildGame(), addedBy = owner)
-            val itemsPage = PageImpl(listOf(item), PageRequest.of(0, 20), 1)
+        fun `should create a private default wishlist for a new user`() {
+            service.createDefaultWishlistForUser(owner)
 
-            whenever(wishlistRepository.findDefaultByOwnerId(ownerId)).thenReturn(Optional.of(defaultWishlist))
-            whenever(wishlistItemRepository.findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), any<PageRequest>()))
-                .thenReturn(itemsPage)
+            val saved = slot<Wishlist>()
+            verify { wishlistRepository.save(capture(saved)) }
+            assertThat(saved.captured.name).isEqualTo("La mia wishlist")
+            assertThat(saved.captured.owner).isSameAs(owner)
+            assertThat(saved.captured.isDefault).isTrue()
+            assertThat(saved.captured.isShared).isFalse()
+        }
 
-            val result = wishlistService.getDefaultWishlistForUser(ownerId, 0, 20)
+        @Test
+        fun `should propagate a failure while creating the default wishlist`() {
+            every { wishlistRepository.save(any<Wishlist>()) } throws RuntimeException("Database error")
+
+            assertThatThrownBy { service.createDefaultWishlistForUser(owner) }
+                .isInstanceOf(RuntimeException::class.java)
+        }
+
+        @Test
+        fun `should list the items of the default wishlist of a user`() {
+            val target = wishlist(isDefault = true)
+            every { wishlistRepository.findDefaultByOwnerId(ownerId) } returns Optional.of(target)
+            stubItemPage(listOf(WishlistItem(id = itemId, wishlist = target, game = game, addedBy = owner)))
+
+            val result = service.getDefaultWishlistForUser(ownerId, -1, 20)
 
             assertThat(result.content).hasSize(1)
+            assertThat(pageableSlot.captured.pageNumber).isZero()
+            assertThat(orders().map { it.first }).containsExactly("createdAt", "id")
+            verify(exactly = 1) { WishlistItemSpecification.withFilters(wishlistId, null) }
         }
 
         @Test
-        fun `should throw DefaultWishlistNotFoundException when user has no default wishlist`() {
-            whenever(wishlistRepository.findDefaultByOwnerId(ownerId)).thenReturn(Optional.empty())
+        fun `should throw DefaultWishlistNotFoundException without querying the items`() {
+            every { wishlistRepository.findDefaultByOwnerId(ownerId) } returns Optional.empty()
 
-            assertThatThrownBy {
-                wishlistService.getDefaultWishlistForUser(ownerId, 0, 20)
-            }.isInstanceOf(DefaultWishlistNotFoundException::class.java)
+            assertThatThrownBy { service.getDefaultWishlistForUser(ownerId, 0, 20) }
+                .isInstanceOf(DefaultWishlistNotFoundException::class.java)
 
-            verify(wishlistItemRepository, never())
-                .findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), any<PageRequest>())
+            verify(exactly = 0) { wishlistItemRepository.findAll(any<Specification<WishlistItem>>(), any<Pageable>()) }
         }
 
         @Test
-        fun `should clamp negative page number to zero`() {
-            val owner = buildUser(id = ownerId)
-            val defaultWishlist = buildWishlist(owner = owner, isDefault = true)
-            val itemsPage = PageImpl<WishlistItem>(emptyList(), PageRequest.of(0, 20), 0)
+        fun `should return my default wishlist`() {
+            every { wishlistRepository.findDefaultByOwnerId(ownerId) } returns Optional.of(wishlist(isDefault = true))
 
-            whenever(wishlistRepository.findDefaultByOwnerId(ownerId)).thenReturn(Optional.of(defaultWishlist))
-            whenever(wishlistItemRepository.findAll(any<org.springframework.data.jpa.domain.Specification<WishlistItem>>(), any<PageRequest>()))
-                .thenReturn(itemsPage)
+            val result = service.getMyDefaultWishlist(ownerId)
 
-            val result = wishlistService.getDefaultWishlistForUser(ownerId, -5, 20)
-
-            assertThat(result.number).isEqualTo(0)
+            assertThat(result.id).isEqualTo(wishlistId)
+            assertThat(result.isDefault).isTrue()
         }
 
         @Test
-        fun `should rethrow generic exception when repository fails unexpectedly`() {
-            whenever(wishlistRepository.findDefaultByOwnerId(ownerId)).thenThrow(RuntimeException("Database error"))
+        fun `should throw DefaultWishlistNotFoundException when I have no default wishlist`() {
+            every { wishlistRepository.findDefaultByOwnerId(ownerId) } returns Optional.empty()
 
-            assertThatThrownBy {
-                wishlistService.getDefaultWishlistForUser(ownerId, 0, 20)
-            }.isInstanceOf(RuntimeException::class.java)
+            assertThatThrownBy { service.getMyDefaultWishlist(ownerId) }
+                .isInstanceOf(DefaultWishlistNotFoundException::class.java)
         }
     }
 }

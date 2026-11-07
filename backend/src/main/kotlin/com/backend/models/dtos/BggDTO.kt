@@ -109,7 +109,7 @@ data class BggThingItemXml(
         names.firstOrNull { it.type == "primary" }?.value ?: names.firstOrNull()?.value
 
     fun expansionRefs(): List<ExpansionRef> =
-        links.filter { it.type == "boardgameexpansion" }
+        links.filter { it.type == "boardgameexpansion" && it.inbound != true }
             .mapNotNull { link ->
                 link.id.toLongOrNull()?.let { id -> ExpansionRef(id, link.value) }
             }

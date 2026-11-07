@@ -31,7 +31,7 @@ import java.security.MessageDigest
 @Tag(name = "Internal Jobs", description = "REST APIs triggered by Cloud Scheduler to run periodic maintenance jobs. Protected by a shared scheduler token.")
 @RestController
 @RequestMapping("/api/v1/internal/jobs")
-class InternalJobsController(
+class InternalJobController(
     private val hotGamesScheduler: HotGamesScheduler,
     private val userCleanupScheduler: UserCleanupScheduler,
     private val wishlistNotificationScheduler: WishlistNotificationScheduler,

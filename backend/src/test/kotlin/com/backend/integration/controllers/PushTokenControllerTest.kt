@@ -17,9 +17,12 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.ResultActions
+import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.util.UUID
 
 @AutoConfigureMockMvc
 class PushTokenControllerTest : AbstractIntegrationTest() {
@@ -36,22 +39,9 @@ class PushTokenControllerTest : AbstractIntegrationTest() {
     @Autowired
     private lateinit var jwtService: JwtService
 
-    private fun persistUser(username: String = "stefano"): User =
-        userRepository.saveAndFlush(
-            User(
-                username = username,
-                email = "$username@example.com",
-                passwordHash = "irrelevant-hash",
-                role = UserRole.USER,
-                accountStatus = AccountStatus.ACTIVE,
-            )
-        )
-
-    private fun authHeader(user: User): String =
-        "Bearer ${jwtService.generateAccessToken(user.id!!, user.role.name)}"
-
-    private fun persistPushToken(user: User, token: String, deviceName: String? = null): PushToken =
-        pushTokenRepository.saveAndFlush(PushToken(user = user, token = token, deviceName = deviceName))
+    companion object {
+        private const val BASE_URL = "/api/v1/push-tokens"
+    }
 
     @AfterEach
     fun cleanUp() {
@@ -59,9 +49,34 @@ class PushTokenControllerTest : AbstractIntegrationTest() {
         userRepository.deleteAll()
     }
 
-    // ---------------------------------------------------------------------
-    // POST /api/v1/push-tokens
-    // ---------------------------------------------------------------------
+    private fun persistUser(username: String = "stefano", role: UserRole = UserRole.USER): User =
+        userRepository.saveAndFlush(
+            User(
+                username = username,
+                email = "$username@example.com",
+                passwordHash = "irrelevant-hash",
+                role = role,
+                accountStatus = AccountStatus.ACTIVE,
+            )
+        )
+
+    private fun authHeader(userId: UUID, role: UserRole = UserRole.USER): String =
+        "Bearer ${jwtService.generateAccessToken(userId, role.name)}"
+
+    private fun persistPushToken(user: User, token: String, deviceName: String? = null): PushToken =
+        pushTokenRepository.saveAndFlush(PushToken(user = user, token = token, deviceName = deviceName))
+
+    private fun perform(request: AbstractMockHttpServletRequestBuilder<*>, user: User?): ResultActions =
+        mockMvc.perform(request.apply { user?.let { header(HttpHeaders.AUTHORIZATION, authHeader(it.id!!, it.role)) } })
+
+    private fun register(user: User?, body: String): ResultActions =
+        perform(post(BASE_URL).contentType(MediaType.APPLICATION_JSON).content(body), user)
+
+    private fun unregister(user: User?, token: String?): ResultActions =
+        perform(delete(BASE_URL).apply { token?.let { param("token", it) } }, user)
+
+    private fun tokensOf(user: User): List<String> =
+        pushTokenRepository.findAll().filter { it.user.id == user.id }.map { it.token }
 
     @Nested
     @DisplayName("POST /api/v1/push-tokens")
@@ -70,19 +85,43 @@ class PushTokenControllerTest : AbstractIntegrationTest() {
         @Test
         fun `should register a new push token for the current user`() {
             val user = persistUser()
-            val payload = """{"token":"ExponentPushToken[abc123]","deviceName":"Mario's Pixel 8"}"""
 
-            mockMvc.perform(
-                post("/api/v1/push-tokens")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(payload)
-            ).andExpect(status().isCreated)
+            register(user, """{"token":"ExponentPushToken[abc123]","deviceName":"Mario's Pixel 8"}""")
+                .andExpect(status().isCreated)
 
-            val saved = pushTokenRepository.findByToken("ExponentPushToken[abc123]")
-            assertThat(saved).isPresent
-            assertThat(saved.get().user.id).isEqualTo(user.id)
-            assertThat(saved.get().deviceName).isEqualTo("Mario's Pixel 8")
+            val saved = pushTokenRepository.findByToken("ExponentPushToken[abc123]").orElseThrow()
+            assertThat(saved.user.id).isEqualTo(user.id)
+            assertThat(saved.deviceName).isEqualTo("Mario's Pixel 8")
+        }
+
+        @Test
+        fun `should register without a deviceName since it is optional`() {
+            val user = persistUser()
+
+            register(user, """{"token":"ExponentPushToken[noname]"}""").andExpect(status().isCreated)
+
+            assertThat(pushTokenRepository.findByToken("ExponentPushToken[noname]").orElseThrow().deviceName).isNull()
+        }
+
+        @Test
+        fun `should keep a single row when the same user registers the same token again`() {
+            val user = persistUser()
+            persistPushToken(user, token = "ExponentPushToken[same]", deviceName = "Old Name")
+
+            register(user, """{"token":"ExponentPushToken[same]","deviceName":"New Name"}""").andExpect(status().isCreated)
+
+            assertThat(pushTokenRepository.findAll()).hasSize(1)
+            assertThat(pushTokenRepository.findByToken("ExponentPushToken[same]").orElseThrow().deviceName).isEqualTo("New Name")
+        }
+
+        @Test
+        fun `should keep one token per device when a user has many devices`() {
+            val user = persistUser()
+
+            register(user, """{"token":"ExponentPushToken[phone]"}""").andExpect(status().isCreated)
+            register(user, """{"token":"ExponentPushToken[tablet]"}""").andExpect(status().isCreated)
+
+            assertThat(tokensOf(user)).containsExactlyInAnyOrder("ExponentPushToken[phone]", "ExponentPushToken[tablet]")
         }
 
         @Test
@@ -91,80 +130,55 @@ class PushTokenControllerTest : AbstractIntegrationTest() {
             val newOwner = persistUser(username = "new-owner")
             persistPushToken(originalOwner, token = "shared-device-token", deviceName = "Old Device Name")
 
-            val payload = """{"token":"shared-device-token","deviceName":"New Device Name"}"""
-
-            mockMvc.perform(
-                post("/api/v1/push-tokens")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(newOwner))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(payload)
-            ).andExpect(status().isCreated)
+            register(newOwner, """{"token":"shared-device-token","deviceName":"New Device Name"}""")
+                .andExpect(status().isCreated)
 
             val updated = pushTokenRepository.findByToken("shared-device-token").orElseThrow()
             assertThat(updated.user.id).isEqualTo(newOwner.id)
             assertThat(updated.deviceName).isEqualTo("New Device Name")
-
-            val allTokens = pushTokenRepository.findAll()
-            assertThat(allTokens).hasSize(1)
-        }
-
-        @Test
-        fun `should register without a deviceName since it is optional`() {
-            val user = persistUser()
-            val payload = """{"token":"ExponentPushToken[noname]"}"""
-
-            mockMvc.perform(
-                post("/api/v1/push-tokens")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(payload)
-            ).andExpect(status().isCreated)
-
-            val saved = pushTokenRepository.findByToken("ExponentPushToken[noname]").orElseThrow()
-            assertThat(saved.deviceName).isNull()
+            assertThat(pushTokenRepository.findAll()).hasSize(1)
+            assertThat(tokensOf(originalOwner)).isEmpty()
         }
 
         @Test
         fun `should return 400 when token is blank`() {
-            val user = persistUser()
-            val payload = """{"token":""}"""
+            register(persistUser(), """{"token":"   "}""").andExpect(status().isBadRequest)
 
-            mockMvc.perform(
-                post("/api/v1/push-tokens")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(payload)
-            ).andExpect(status().isBadRequest)
+            assertThat(pushTokenRepository.findAll()).isEmpty()
         }
 
         @Test
         fun `should return 400 when token is missing entirely`() {
-            val user = persistUser()
-            val payload = """{"deviceName":"Some Device"}"""
+            register(persistUser(), """{"deviceName":"Some Device"}""").andExpect(status().isBadRequest)
+        }
 
+        @Test
+        fun `should return 400 when body is missing`() {
+            perform(post(BASE_URL).contentType(MediaType.APPLICATION_JSON), persistUser()).andExpect(status().isBadRequest)
+        }
+
+        @Test
+        fun `should return 400 when body is not valid JSON`() {
+            register(persistUser(), """{"token":""").andExpect(status().isBadRequest)
+        }
+
+        @Test
+        fun `should return 404 when the current user does not exist`() {
             mockMvc.perform(
-                post("/api/v1/push-tokens")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
+                post(BASE_URL)
+                    .header(HttpHeaders.AUTHORIZATION, authHeader(UUID.randomUUID()))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(payload)
-            ).andExpect(status().isBadRequest)
+                    .content("""{"token":"ExponentPushToken[ghost]"}""")
+            ).andExpect(status().isNotFound)
+
+            assertThat(pushTokenRepository.findAll()).isEmpty()
         }
 
         @Test
         fun `should return 403 when no auth header is provided`() {
-            val payload = """{"token":"some-token"}"""
-
-            mockMvc.perform(
-                post("/api/v1/push-tokens")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(payload)
-            ).andExpect(status().isForbidden)
+            register(null, """{"token":"some-token"}""").andExpect(status().isForbidden)
         }
     }
-
-    // ---------------------------------------------------------------------
-    // DELETE /api/v1/push-tokens
-    // ---------------------------------------------------------------------
 
     @Nested
     @DisplayName("DELETE /api/v1/push-tokens")
@@ -175,58 +189,52 @@ class PushTokenControllerTest : AbstractIntegrationTest() {
             val user = persistUser()
             persistPushToken(user, token = "token-to-remove")
 
-            mockMvc.perform(
-                delete("/api/v1/push-tokens")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .param("token", "token-to-remove")
-            ).andExpect(status().isNoContent)
+            unregister(user, "token-to-remove").andExpect(status().isNoContent)
 
             assertThat(pushTokenRepository.findByToken("token-to-remove")).isEmpty()
         }
 
         @Test
-        fun `should return 204 even when the token does not exist`() {
+        fun `should remove only the given token and keep the user's other devices`() {
             val user = persistUser()
+            persistPushToken(user, token = "phone-token")
+            persistPushToken(user, token = "tablet-token")
 
-            mockMvc.perform(
-                delete("/api/v1/push-tokens")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .param("token", "nonexistent-token")
-            ).andExpect(status().isNoContent)
+            unregister(user, "phone-token").andExpect(status().isNoContent)
+
+            assertThat(tokensOf(user)).containsExactly("tablet-token")
         }
 
         @Test
-        fun `should not remove other users' tokens`() {
+        fun `should return 204 even when the token does not exist`() {
+            unregister(persistUser(), "nonexistent-token").andExpect(status().isNoContent)
+        }
+
+        @Test
+        fun `should not remove a token owned by another user`() {
             val user = persistUser(username = "user")
             val otherUser = persistUser(username = "other")
             persistPushToken(otherUser, token = "other-users-token")
 
-            mockMvc.perform(
-                delete("/api/v1/push-tokens")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .param("token", "some-different-token")
-            ).andExpect(status().isNoContent)
+            unregister(user, "other-users-token").andExpect(status().isNoContent)
 
-            assertThat(pushTokenRepository.findByToken("other-users-token")).isPresent
+            val stillThere = pushTokenRepository.findByToken("other-users-token").orElseThrow()
+            assertThat(stillThere.user.id).isEqualTo(otherUser.id)
         }
 
         @Test
         fun `should return 400 when token param is blank`() {
-            val user = persistUser()
+            unregister(persistUser(), "").andExpect(status().isBadRequest)
+        }
 
-            mockMvc.perform(
-                delete("/api/v1/push-tokens")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-                    .param("token", "")
-            ).andExpect(status().isBadRequest)
+        @Test
+        fun `should return 400 when token param is missing`() {
+            unregister(persistUser(), null).andExpect(status().isBadRequest)
         }
 
         @Test
         fun `should return 403 when no auth header is provided`() {
-            mockMvc.perform(
-                delete("/api/v1/push-tokens")
-                    .param("token", "some-token")
-            ).andExpect(status().isForbidden)
+            unregister(null, "some-token").andExpect(status().isForbidden)
         }
     }
 }

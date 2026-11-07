@@ -4,134 +4,129 @@ import com.backend.exceptions.UserNotFoundException
 import com.backend.models.dtos.RegisterPushTokenRequest
 import com.backend.models.entities.PushToken
 import com.backend.models.entities.User
-import com.backend.models.enums.UserRole
 import com.backend.repositories.PushTokenRepository
 import com.backend.repositories.UserRepository
 import com.backend.services.PushTokenService
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.ArgumentCaptor
-import org.mockito.InjectMocks
-import org.mockito.Mock
-import org.mockito.Mockito.doThrow
-import org.mockito.Mockito.never
-import org.mockito.Mockito.verify
-import org.mockito.Mockito.`when`
-import org.mockito.junit.jupiter.MockitoExtension
 import java.util.Optional
 import java.util.UUID
 
-@ExtendWith(MockitoExtension::class)
 class PushTokenServiceTest {
 
-    @Mock
     private lateinit var pushTokenRepository: PushTokenRepository
-
-    @Mock
     private lateinit var userRepository: UserRepository
+    private lateinit var service: PushTokenService
 
-    @InjectMocks
-    private lateinit var pushTokenService: PushTokenService
+    private val userId = UUID.randomUUID()
+    private val otherUserId = UUID.randomUUID()
+    private val user = User(id = userId, username = "stefano", email = "stefano@example.com", passwordHash = "hash")
+    private val otherUser = User(id = otherUserId, username = "marco", email = "marco@example.com", passwordHash = "hash")
+    private val savedSlot = slot<PushToken>()
 
-    private val userId: UUID = UUID.randomUUID()
-    private val sampleUser = User(
-        id = userId,
-        username = "stefano",
-        email = "stefano@example.com",
-        passwordHash = "hash",
-        role = UserRole.USER
-    )
+    companion object {
+        private const val TOKEN = "fcm-token-abc"
+        private const val DEVICE_NAME = "Pixel di Stefano"
+    }
 
-    private val tokenString = "ExponentPushToken[xxxxxxxxxxxxxx]"
-    private val deviceName = "iPhone di Stefano"
+    @BeforeEach
+    fun setUp() {
+        pushTokenRepository = mockk(relaxUnitFun = true)
+        userRepository = mockk()
+
+        every { userRepository.findById(userId) } returns Optional.of(user)
+        every { pushTokenRepository.findByToken(TOKEN) } returns Optional.empty()
+        every { pushTokenRepository.save(capture(savedSlot)) } answers { firstArg() }
+
+        service = PushTokenService(pushTokenRepository, userRepository)
+    }
+
+    private fun request(deviceName: String? = DEVICE_NAME) = RegisterPushTokenRequest(token = TOKEN, deviceName = deviceName)
 
     @Nested
     @DisplayName("register")
     inner class RegisterTests {
 
         @Test
-        fun `should update existing token when token already exists in repository`() {
-            val request = RegisterPushTokenRequest(token = tokenString, deviceName = deviceName)
-            val existingToken = PushToken(
-                id = UUID.randomUUID(),
-                user = sampleUser,
-                token = tokenString,
-                deviceName = "Old Device"
-            )
+        fun `should save a new token for the user`() {
+            service.register(userId, request())
 
-            val tokenCaptor = ArgumentCaptor.forClass(PushToken::class.java)
-
-            `when`(pushTokenRepository.findByToken(tokenString)).thenReturn(Optional.of(existingToken))
-            `when`(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
-            `when`(pushTokenRepository.save(tokenCaptor.capture())).thenReturn(existingToken)
-
-            pushTokenService.register(userId, request)
-
-            verify(pushTokenRepository).findByToken(tokenString)
-            verify(userRepository).findById(userId)
-            verify(pushTokenRepository).save(existingToken)
-
-            val savedToken = tokenCaptor.value
-            assertThat(savedToken.deviceName).isEqualTo(deviceName)
-            assertThat(savedToken.user.id).isEqualTo(userId)
+            val saved = savedSlot.captured
+            assertThat(saved.id).isNull()
+            assertThat(saved.token).isEqualTo(TOKEN)
+            assertThat(saved.deviceName).isEqualTo(DEVICE_NAME)
+            assertThat(saved.user).isSameAs(user)
         }
 
         @Test
-        fun `should save new push token when token does not exist`() {
-            val request = RegisterPushTokenRequest(token = tokenString, deviceName = deviceName)
-            val tokenCaptor = ArgumentCaptor.forClass(PushToken::class.java)
+        fun `should save a new token without a device name`() {
+            service.register(userId, request(deviceName = null))
 
-            `when`(pushTokenRepository.findByToken(tokenString)).thenReturn(Optional.empty())
-            `when`(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser))
-
-            pushTokenService.register(userId, request)
-
-            verify(pushTokenRepository).findByToken(tokenString)
-            verify(userRepository).findById(userId)
-            verify(pushTokenRepository).save(tokenCaptor.capture())
-
-            val savedToken = tokenCaptor.value
-            assertThat(savedToken.token).isEqualTo(tokenString)
-            assertThat(savedToken.deviceName).isEqualTo(deviceName)
-            assertThat(savedToken.user).isEqualTo(sampleUser)
+            assertThat(savedSlot.captured.deviceName).isNull()
         }
 
         @Test
-        fun `should throw UserNotFoundException when user does not exist on new registration`() {
-            val request = RegisterPushTokenRequest(token = tokenString, deviceName = deviceName)
+        fun `should update the device name of a token already registered by the user`() {
+            val existing = PushToken(id = UUID.randomUUID(), user = user, token = TOKEN, deviceName = "Vecchio telefono")
+            every { pushTokenRepository.findByToken(TOKEN) } returns Optional.of(existing)
 
-            `when`(pushTokenRepository.findByToken(tokenString)).thenReturn(Optional.empty())
-            `when`(userRepository.findById(userId)).thenReturn(Optional.empty())
+            service.register(userId, request())
 
-            assertThatThrownBy {
-                pushTokenService.register(userId, request)
-            }.isInstanceOf(UserNotFoundException::class.java)
-
-            verify(pushTokenRepository, never()).save(org.mockito.ArgumentMatchers.any())
+            assertThat(savedSlot.captured).isSameAs(existing)
+            assertThat(existing.deviceName).isEqualTo(DEVICE_NAME)
+            assertThat(existing.user).isSameAs(user)
         }
 
         @Test
-        fun `should throw UserNotFoundException when user does not exist on updating existing token`() {
-            val request = RegisterPushTokenRequest(token = tokenString, deviceName = deviceName)
-            val existingToken = PushToken(
-                id = UUID.randomUUID(),
-                user = sampleUser,
-                token = tokenString,
-                deviceName = "Old Device"
-            )
+        fun `should move a token registered by another user to the current one`() {
+            val existing = PushToken(id = UUID.randomUUID(), user = otherUser, token = TOKEN, deviceName = DEVICE_NAME)
+            every { pushTokenRepository.findByToken(TOKEN) } returns Optional.of(existing)
 
-            `when`(pushTokenRepository.findByToken(tokenString)).thenReturn(Optional.of(existingToken))
-            `when`(userRepository.findById(userId)).thenReturn(Optional.empty())
+            service.register(userId, request())
 
-            assertThatThrownBy {
-                pushTokenService.register(userId, request)
-            }.isInstanceOf(UserNotFoundException::class.java)
+            assertThat(savedSlot.captured).isSameAs(existing)
+            assertThat(existing.user).isSameAs(user)
+            verify(exactly = 1) { pushTokenRepository.save(any()) }
+        }
 
-            verify(pushTokenRepository, never()).save(org.mockito.ArgumentMatchers.any())
+        @Test
+        fun `should throw UserNotFoundException without touching the tokens when the user does not exist`() {
+            every { userRepository.findById(userId) } returns Optional.empty()
+
+            assertThatThrownBy { service.register(userId, request()) }
+                .isInstanceOf(UserNotFoundException::class.java)
+
+            verify(exactly = 0) { pushTokenRepository.findByToken(any()) }
+            verify(exactly = 0) { pushTokenRepository.save(any()) }
+        }
+
+        @Test
+        fun `should not steal a token for a user that does not exist`() {
+            val existing = PushToken(id = UUID.randomUUID(), user = otherUser, token = TOKEN, deviceName = DEVICE_NAME)
+            every { pushTokenRepository.findByToken(TOKEN) } returns Optional.of(existing)
+            every { userRepository.findById(userId) } returns Optional.empty()
+
+            assertThatThrownBy { service.register(userId, request()) }
+                .isInstanceOf(UserNotFoundException::class.java)
+
+            assertThat(existing.user).isSameAs(otherUser)
+        }
+
+        @Test
+        fun `should propagate a repository failure`() {
+            every { pushTokenRepository.save(any()) } throws RuntimeException("Database error")
+
+            assertThatThrownBy { service.register(userId, request()) }
+                .isInstanceOf(RuntimeException::class.java)
+                .hasMessage("Database error")
         }
     }
 
@@ -140,22 +135,19 @@ class PushTokenServiceTest {
     inner class UnregisterTests {
 
         @Test
-        fun `should delete token by token string successfully`() {
-            pushTokenService.unregister(tokenString)
+        fun `should delete the token only for the current user`() {
+            service.unregister(userId, TOKEN)
 
-            verify(pushTokenRepository).deleteByToken(tokenString)
+            verify(exactly = 1) { pushTokenRepository.deleteByTokenAndUserId(TOKEN, userId) }
         }
 
         @Test
-        fun `should rethrow exception when repository fails during unregister`() {
-            doThrow(RuntimeException("Database connection failed"))
-                .`when`(pushTokenRepository).deleteByToken(tokenString)
+        fun `should propagate a repository failure`() {
+            every { pushTokenRepository.deleteByTokenAndUserId(TOKEN, userId) } throws RuntimeException("Database error")
 
-            assertThatThrownBy {
-                pushTokenService.unregister(tokenString)
-            }.isInstanceOf(RuntimeException::class.java)
-
-            verify(pushTokenRepository).deleteByToken(tokenString)
+            assertThatThrownBy { service.unregister(userId, TOKEN) }
+                .isInstanceOf(RuntimeException::class.java)
+                .hasMessage("Database error")
         }
     }
 }

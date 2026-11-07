@@ -15,6 +15,7 @@ import com.backend.repositories.UserRepository
 import com.backend.repositories.WishlistItemRepository
 import com.backend.repositories.WishlistRepository
 import com.backend.services.JwtService
+import org.hamcrest.Matchers.contains
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -23,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.HttpHeaders
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.ResultActions
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
@@ -30,7 +32,7 @@ import java.time.Instant
 import java.util.UUID
 
 @AutoConfigureMockMvc
-class AdminStatsControllerTest: AbstractIntegrationTest() {
+class AdminStatsControllerTest : AbstractIntegrationTest() {
 
     @Autowired
     private lateinit var mockMvc: MockMvc
@@ -56,6 +58,22 @@ class AdminStatsControllerTest: AbstractIntegrationTest() {
     @Autowired
     private lateinit var jwtService: JwtService
 
+    private var nextBggId = 1L
+
+    companion object {
+        private const val URL = "/api/v1/admin/stats"
+    }
+
+    @AfterEach
+    fun cleanUp() {
+        wishlistItemRepository.deleteAll()
+        wishlistRepository.deleteAll()
+        collectionItemRepository.deleteAll()
+        matchRepository.deleteAll()
+        gameRepository.deleteAll()
+        userRepository.deleteAll()
+    }
+
     private fun persistUser(
         username: String = "user-${UUID.randomUUID()}",
         role: UserRole = UserRole.USER,
@@ -74,175 +92,195 @@ class AdminStatsControllerTest: AbstractIntegrationTest() {
     private fun authHeader(user: User): String =
         "Bearer ${jwtService.generateAccessToken(user.id!!, user.role.name)}"
 
-    private fun persistGame(bggId: Long = (1..1_000_000).random().toLong(), name: String = "Test Game"): Game =
-        gameRepository.saveAndFlush(Game(bggId = bggId, name = name, lastSyncedAt = Instant.now()))
+    private fun persistGame(name: String = "Test Game"): Game =
+        gameRepository.saveAndFlush(Game(bggId = nextBggId++, name = name, lastSyncedAt = Instant.now()))
 
-    private fun persistMatch(game: Game, createdBy: User): Match =
-        matchRepository.saveAndFlush(Match(game = game, createdBy = createdBy, playedAt = Instant.now(), durationMinutes = 30))
+    private fun persistMatch(game: Game, createdBy: User, durationMinutes: Int? = 30): Match =
+        matchRepository.saveAndFlush(Match(game = game, createdBy = createdBy, playedAt = Instant.now(), durationMinutes = durationMinutes))
 
     private fun persistCollectionItem(user: User, game: Game): CollectionItem =
         collectionItemRepository.saveAndFlush(CollectionItem(user = user, game = game))
 
-    private fun persistWishlistWithItem(owner: User, game: Game): WishlistItem {
-        val wishlist = wishlistRepository.saveAndFlush(Wishlist(owner = owner, name = "My Wishlist", isShared = false, isDefault = true))
-        return wishlistItemRepository.saveAndFlush(WishlistItem(
-            wishlist = wishlist,
-            game = game,
-            addedBy = owner,
-            createdAt = Instant.now(),
-            updatedAt = Instant.now()
-        ))
-    }
+    private fun persistWishlist(owner: User, isDefault: Boolean = true, name: String = "La mia wishlist"): Wishlist =
+        wishlistRepository.saveAndFlush(Wishlist(owner = owner, name = name, isShared = false, isDefault = isDefault))
 
-    @AfterEach
-    fun cleanUp() {
-        wishlistItemRepository.deleteAll()
-        wishlistRepository.deleteAll()
-        collectionItemRepository.deleteAll()
-        matchRepository.deleteAll()
-        gameRepository.deleteAll()
-        userRepository.deleteAll()
-    }
+    private fun persistWishlistItem(wishlist: Wishlist, game: Game): WishlistItem =
+        wishlistItemRepository.saveAndFlush(
+            WishlistItem(
+                wishlist = wishlist,
+                game = game,
+                addedBy = wishlist.owner,
+                createdAt = Instant.now(),
+                updatedAt = Instant.now(),
+            )
+        )
+
+    private fun getStats(user: User? = persistUser(role = UserRole.ADMIN)): ResultActions =
+        mockMvc.perform(get(URL).apply { user?.let { header(HttpHeaders.AUTHORIZATION, authHeader(it)) } })
 
     @Nested
-    @DisplayName("GET /api/v1/admin/stats")
-    inner class GetStatsTests {
+    @DisplayName("users")
+    inner class UserStatsTests {
 
         @Test
         fun `should return total and active user counts`() {
-            val admin = persistUser(role = UserRole.ADMIN)
             persistUser(accountStatus = AccountStatus.ACTIVE)
             persistUser(accountStatus = AccountStatus.INACTIVE)
 
-            mockMvc.perform(
-                get("/api/v1/admin/stats")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
-            )
+            getStats()
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.totalUsers").value(3))
                 .andExpect(jsonPath("$.activeUsers").value(2))
         }
 
         @Test
-        fun `should compute activation rate from active and inactive users only`() {
-            val admin = persistUser(role = UserRole.ADMIN, accountStatus = AccountStatus.ACTIVE)
-            persistUser(accountStatus = AccountStatus.ACTIVE)
-            persistUser(accountStatus = AccountStatus.INACTIVE)
+        fun `should not count deleted accounts`() {
+            persistUser(accountStatus = AccountStatus.DELETED)
+            persistUser(accountStatus = AccountStatus.DELETED)
 
-            mockMvc.perform(
-                get("/api/v1/admin/stats")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
-            )
+            getStats()
                 .andExpect(status().isOk)
-                .andExpect(jsonPath("$.activationRate").value(2.0 / 3.0))
+                .andExpect(jsonPath("$.totalUsers").value(1))
+                .andExpect(jsonPath("$.activeUsers").value(1))
+                .andExpect(jsonPath("$.activationRate").value(1.0))
         }
 
         @Test
-        fun `should return total match count`() {
-            val admin = persistUser(role = UserRole.ADMIN)
+        fun `should count suspended accounts in the total but not in the activation rate`() {
+            persistUser(accountStatus = AccountStatus.SUSPENDED)
+            persistUser(accountStatus = AccountStatus.INACTIVE)
+
+            getStats()
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.totalUsers").value(3))
+                .andExpect(jsonPath("$.activeUsers").value(1))
+                .andExpect(jsonPath("$.activationRate").value(0.5))
+        }
+
+        @Test
+        fun `should compute the activation rate from active and inactive users only`() {
+            persistUser(accountStatus = AccountStatus.ACTIVE)
+            persistUser(accountStatus = AccountStatus.INACTIVE)
+
+            getStats()
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.activationRate").value(2.0 / 3.0))
+        }
+    }
+
+    @Nested
+    @DisplayName("matches")
+    inner class MatchStatsTests {
+
+        @Test
+        fun `should return the total match count`() {
             val user = persistUser()
             val game = persistGame()
             persistMatch(game, user)
             persistMatch(game, user)
 
-            mockMvc.perform(
-                get("/api/v1/admin/stats")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
-            )
+            getStats()
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.totalMatches").value(2))
         }
 
         @Test
-        fun `should rank the most owned games by collection count`() {
-            val admin = persistUser(role = UserRole.ADMIN)
+        fun `should rank the most played games by match count across all users`() {
             val userA = persistUser()
             val userB = persistUser()
-            val popularGame = persistGame(name = "Popular Game")
-            val nichGame = persistGame(name = "Niche Game")
+            val frequent = persistGame(name = "Frequent Game")
+            val rare = persistGame(name = "Rare Game")
 
-            persistCollectionItem(userA, popularGame)
-            persistCollectionItem(userB, popularGame)
-            persistCollectionItem(userA, nichGame)
+            persistMatch(frequent, userA)
+            persistMatch(frequent, userB)
+            persistMatch(frequent, userB)
+            persistMatch(rare, userA)
 
-            mockMvc.perform(
-                get("/api/v1/admin/stats")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
-            )
+            getStats()
                 .andExpect(status().isOk)
-                .andExpect(jsonPath("$.mostOwnedGames[0].gameName").value("Popular Game"))
-                .andExpect(jsonPath("$.mostOwnedGames[0].count").value(2))
-                .andExpect(jsonPath("$.mostOwnedGames[1].gameName").value("Niche Game"))
-                .andExpect(jsonPath("$.mostOwnedGames[1].count").value(1))
+                .andExpect(jsonPath("$.mostPlayedGames[*].gameName").value(contains("Frequent Game", "Rare Game")))
+                .andExpect(jsonPath("$.mostPlayedGames[*].count").value(contains(3, 1)))
         }
+    }
+
+    @Nested
+    @DisplayName("rankings")
+    inner class RankingTests {
 
         @Test
-        fun `should rank the most played games by match count`() {
-            val admin = persistUser(role = UserRole.ADMIN)
-            val user = persistUser()
-            val frequentGame = persistGame(name = "Frequent Game")
-            val rareGame = persistGame(name = "Rare Game")
+        fun `should rank the most owned games by collection count`() {
+            val userA = persistUser()
+            val userB = persistUser()
+            val popular = persistGame(name = "Popular Game")
+            val niche = persistGame(name = "Niche Game")
 
-            persistMatch(frequentGame, user)
-            persistMatch(frequentGame, user)
-            persistMatch(frequentGame, user)
-            persistMatch(rareGame, user)
+            persistCollectionItem(userA, niche)
+            persistCollectionItem(userA, popular)
+            persistCollectionItem(userB, popular)
 
-            mockMvc.perform(
-                get("/api/v1/admin/stats")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
-            )
+            getStats()
                 .andExpect(status().isOk)
-                .andExpect(jsonPath("$.mostPlayedGames[0].gameName").value("Frequent Game"))
-                .andExpect(jsonPath("$.mostPlayedGames[0].count").value(3))
+                .andExpect(jsonPath("$.mostOwnedGames[*].gameName").value(contains("Popular Game", "Niche Game")))
+                .andExpect(jsonPath("$.mostOwnedGames[*].count").value(contains(2, 1)))
         }
 
         @Test
         fun `should rank the most wished games by wishlist item count`() {
-            val admin = persistUser(role = UserRole.ADMIN)
-            val userA = persistUser()
-            val userB = persistUser()
-            val desiredGame = persistGame(name = "Desired Game")
+            val desired = persistGame(name = "Desired Game")
+            val other = persistGame(name = "Other Game")
+            val wishlistA = persistWishlist(persistUser())
+            val wishlistB = persistWishlist(persistUser())
 
-            persistWishlistWithItem(userA, desiredGame)
-            persistWishlistWithItem(userB, desiredGame)
+            persistWishlistItem(wishlistA, desired)
+            persistWishlistItem(wishlistB, desired)
+            persistWishlistItem(wishlistB, other)
 
-            mockMvc.perform(
-                get("/api/v1/admin/stats")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
-            )
+            getStats()
                 .andExpect(status().isOk)
-                .andExpect(jsonPath("$.mostWishedGames[0].gameName").value("Desired Game"))
-                .andExpect(jsonPath("$.mostWishedGames[0].count").value(2))
+                .andExpect(jsonPath("$.mostWishedGames[*].gameName").value(contains("Desired Game", "Other Game")))
+                .andExpect(jsonPath("$.mostWishedGames[*].count").value(contains(2, 1)))
+        }
+
+        @Test
+        fun `should keep only the top ten games`() {
+            val users = (1..2).map { persistUser() }
+            val games = (1..12).map { persistGame(name = "Game $it") }
+
+            games.forEach { persistCollectionItem(users[0], it) }
+            persistCollectionItem(users[1], games[11])
+
+            getStats()
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.mostOwnedGames.length()").value(10))
+                .andExpect(jsonPath("$.mostOwnedGames[0].gameName").value("Game 12"))
+                .andExpect(jsonPath("$.mostOwnedGames[0].count").value(2))
         }
 
         @Test
         fun `should return empty rankings when there is no data`() {
-            val admin = persistUser(role = UserRole.ADMIN)
-
-            mockMvc.perform(
-                get("/api/v1/admin/stats")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(admin))
-            )
+            getStats()
                 .andExpect(status().isOk)
+                .andExpect(jsonPath("$.totalMatches").value(0))
                 .andExpect(jsonPath("$.mostOwnedGames.length()").value(0))
                 .andExpect(jsonPath("$.mostPlayedGames.length()").value(0))
                 .andExpect(jsonPath("$.mostWishedGames.length()").value(0))
         }
+    }
+
+    @Nested
+    @DisplayName("security")
+    inner class SecurityTests {
 
         @Test
         fun `should return 403 when requested by a non-admin user`() {
-            val user = persistUser()
-
-            mockMvc.perform(
-                get("/api/v1/admin/stats")
-                    .header(HttpHeaders.AUTHORIZATION, authHeader(user))
-            ).andExpect(status().isForbidden)
+            getStats(user = persistUser())
+                .andExpect(status().isForbidden)
         }
 
         @Test
         fun `should return 403 when no auth header is provided`() {
-            mockMvc.perform(get("/api/v1/admin/stats")).andExpect(status().isForbidden)
+            getStats(user = null)
+                .andExpect(status().isForbidden)
         }
     }
 }

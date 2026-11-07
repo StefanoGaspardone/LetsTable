@@ -90,7 +90,7 @@ class UserService(
             logger.info("\n\t[INFO] [user_service][search_by_username] Found {} users matching {}", results.size, normalizedQuery)
             return results
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [user_service][search_by_username] Error searching for username {}: {}", query, e.message)
+            logger.error("\n\t[ERROR] [user_service][search_by_username] Error searching for username {}: {}", query, e.message, e)
             throw e
         }
     }
@@ -108,7 +108,7 @@ class UserService(
             logger.warn("\n\t[WARN] [user_service][get_user_by_id] User {} not found", userId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [user_service][get_user_by_id] Error retrieving user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [user_service][get_user_by_id] Error retrieving user {}: {}", userId, e.message, e)
             throw e
         }
     }
@@ -131,7 +131,7 @@ class UserService(
             logger.warn("\n\t[WARN] [user_service][get_user_profile] User {} not found", targetUserId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [user_service][get_user_profile] Error retrieving profile for user {}: {}", targetUserId, e.message)
+            logger.error("\n\t[ERROR] [user_service][get_user_profile] Error retrieving profile for user {}: {}", targetUserId, e.message, e)
             throw e
         }
     }
@@ -179,7 +179,7 @@ class UserService(
             logger.warn("\n\t[WARN] [user_service][update_profile] Avatar file {} not found for user {}", request.avatarId, userId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [user_service][update_profile] Error updating profile for user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [user_service][update_profile] Error updating profile for user {}: {}", userId, e.message, e)
             throw e
         }
     }
@@ -202,7 +202,7 @@ class UserService(
             logger.warn("\n\t[WARN] [user_service][delete_avatar] Avatar file {} not found for user {}", fileId, userId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [user_service][delete_avatar] Error deleting avatar file {} for user {}: {}", fileId, userId, e.message)
+            logger.error("\n\t[ERROR] [user_service][delete_avatar] Error deleting avatar file {} for user {}: {}", fileId, userId, e.message, e)
             throw e
         }
     }
@@ -291,7 +291,7 @@ class UserService(
             logger.info("\n\t[INFO] [user_service][get_my_stats] Retrieved stats for user {}", userId)
             return response
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [user_service][get_my_stats] Error retrieving stats for user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [user_service][get_my_stats] Error retrieving stats for user {}: {}", userId, e.message, e)
             throw e
         }
     }

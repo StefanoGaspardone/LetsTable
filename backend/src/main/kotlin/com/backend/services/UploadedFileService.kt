@@ -48,7 +48,7 @@ class UploadedFileService(
             }
 
             val contentType = file.contentType ?: DEFAULT_CONTENT_TYPE
-            val fileName = file.originalFilename?.trim()?.takeIf { it.isNotEmpty() }?.take(MAX_FILE_NAME_LENGTH) ?: DEFAULT_FILE_NAME
+            val fileName = file.originalFilename?.substringAfterLast('/')?.substringAfterLast('\\')?.trim()?.takeIf { it.isNotEmpty() }?.take(MAX_FILE_NAME_LENGTH) ?: DEFAULT_FILE_NAME
             val objectKey = buildObjectKey(ownerType, ownerId, fileName)
             val uploadedBy = userRepository.findById(CurrentUser.id()).orElse(null)
 
@@ -77,7 +77,7 @@ class UploadedFileService(
             logger.warn("\n\t[WARN] [uploaded_file_service][upload_file] Rejected file\n\townerType={}\n\townerId={}\n\treason={}", ownerType, ownerId, e.message)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [uploaded_file_service][upload_file] Error uploading file\n\townerType={}\n\townerId={}\n\treason={}", ownerType, ownerId, e.message)
+            logger.error("\n\t[ERROR] [uploaded_file_service][upload_file] Error uploading file\n\townerType={}\n\townerId={}\n\treason={}", ownerType, ownerId, e.message, e)
             throw e
         }
     }
@@ -92,7 +92,7 @@ class UploadedFileService(
             logger.info("\n\t[INFO] [uploaded_file_service][list_files] Retrieved files\n\townerType={}\n\townerId={}\n\tcount={}", ownerType, ownerId, files.size)
             return files
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [uploaded_file_service][list_files] Error listing files\n\townerType={}\n\townerId={}\n\treason={}", ownerType, ownerId, e.message)
+            logger.error("\n\t[ERROR] [uploaded_file_service][list_files] Error listing files\n\townerType={}\n\townerId={}\n\treason={}", ownerType, ownerId, e.message, e)
             throw e
         }
     }
@@ -112,7 +112,7 @@ class UploadedFileService(
             logger.warn("\n\t[WARN] [uploaded_file_service][load_file_resource] File {} missing from storage", fileId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [uploaded_file_service][load_file_resource] Error loading file\n\townerType={}\n\tfileId={}\n\treason={}", ownerType, fileId, e.message)
+            logger.error("\n\t[ERROR] [uploaded_file_service][load_file_resource] Error loading file\n\townerType={}\n\tfileId={}\n\treason={}", ownerType, fileId, e.message, e)
             throw e
         }
     }
@@ -137,7 +137,7 @@ class UploadedFileService(
             logger.warn("\n\t[WARN] [uploaded_file_service][delete_file] File {} not found", fileId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [uploaded_file_service][delete_file] Error deleting file\n\townerType={}\n\townerId={}\n\tfileId={}\n\treason={}", ownerType, ownerId, fileId, e.message)
+            logger.error("\n\t[ERROR] [uploaded_file_service][delete_file] Error deleting file\n\townerType={}\n\townerId={}\n\tfileId={}\n\treason={}", ownerType, ownerId, fileId, e.message, e)
             throw e
         }
     }

@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -49,6 +50,7 @@ class WishlistService(
         private const val DEFAULT_WISHLIST_SORT_FIELD = "updatedAt"
         private val ITEM_SORT_FIELDS = setOf("game.name", "createdAt")
         private const val DEFAULT_ITEM_SORT_FIELD = "createdAt"
+        private val ID_TIE_BREAKER: Sort = Sort.by("id")
         private const val DEFAULT_WISHLIST_NAME = "La mia wishlist"
     }
 
@@ -65,7 +67,7 @@ class WishlistService(
             logger.info("\n\t[INFO] [wishlist_service][create_wishlist] Wishlist {} created by user {}", saved.id, userId)
             return WishlistDTO.from(saved)
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][create_wishlist] Error creating wishlist for user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][create_wishlist] Error creating wishlist for user {}: {}", userId, e.message, e)
             throw e
         }
     }
@@ -92,7 +94,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][update_wishlist] Wishlist {} is the default one and cannot be modified", wishlistId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][update_wishlist] Error updating wishlist {}: {}", wishlistId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][update_wishlist] Error updating wishlist {}: {}", wishlistId, e.message, e)
             throw e
         }
     }
@@ -115,7 +117,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][delete_wishlist] Wishlist {} is the default one and cannot be deleted", wishlistId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][delete_wishlist] Error deleting wishlist {}: {}", wishlistId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][delete_wishlist] Error deleting wishlist {}: {}", wishlistId, e.message, e)
             throw e
         }
     }
@@ -125,7 +127,7 @@ class WishlistService(
         logger.debug("\n\t[DEBUG] [wishlist_service][list_accessible_wishlists] Listing wishlists\n\tuserId={}\n\tpage={}\n\tsize={}\n\ttype={}\n\tsort={}", userId, page, size, type, sort)
 
         try {
-            val pageable = safePageRequest(page, size, resolveSort(sort, WISHLIST_SORT_FIELDS, DEFAULT_WISHLIST_SORT_FIELD))
+            val pageable = safePageRequest(page, size, resolveSort(sort = sort, allowedFields = WISHLIST_SORT_FIELDS, defaultField = DEFAULT_WISHLIST_SORT_FIELD, tieBreaker = ID_TIE_BREAKER))
             val result = wishlistRepository.findAll(WishlistSpecification.withFilters(userId, type), pageable)
 
             logger.info("\n\t[INFO] [wishlist_service][list_accessible_wishlists] Retrieved {} wishlists for user {}", result.numberOfElements, userId)
@@ -134,7 +136,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][list_accessible_wishlists] Invalid sort field: {}", sort)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][list_accessible_wishlists] Error listing wishlists for user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][list_accessible_wishlists] Error listing wishlists for user {}: {}", userId, e.message, e)
             throw e
         }
     }
@@ -155,7 +157,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][get_wishlist] User {} has no access to wishlist {}", userId, wishlistId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][get_wishlist] Error retrieving wishlist {}: {}", wishlistId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][get_wishlist] Error retrieving wishlist {}: {}", wishlistId, e.message, e)
             throw e
         }
     }
@@ -219,7 +221,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][add_member] User {} not found or not active", memberUserId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][add_member] Error adding member {} to wishlist {}: {}", memberUserId, wishlistId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][add_member] Error adding member {} to wishlist {}: {}", memberUserId, wishlistId, e.message, e)
             throw e
         }
     }
@@ -247,7 +249,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][remove_member] User {} is not a member of wishlist {}", memberUserId, wishlistId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][remove_member] Error removing member {} from wishlist {}: {}", memberUserId, wishlistId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][remove_member] Error removing member {} from wishlist {}: {}", memberUserId, wishlistId, e.message, e)
             throw e
         }
     }
@@ -267,7 +269,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][leave_wishlist] User {} is not a member of wishlist {}", userId, wishlistId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][leave_wishlist] Error leaving wishlist {}: {}", wishlistId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][leave_wishlist] Error leaving wishlist {}: {}", wishlistId, e.message, e)
             throw e
         }
     }
@@ -290,7 +292,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][list_members] User {} has no access to wishlist {}", userId, wishlistId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][list_members] Error listing members of wishlist {}: {}", wishlistId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][list_members] Error listing members of wishlist {}: {}", wishlistId, e.message, e)
             throw e
         }
     }
@@ -333,7 +335,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][add_item] Game {} not found", gameId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][add_item] Error adding game {} to wishlist {}: {}", gameId, wishlistId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][add_item] Error adding game {} to wishlist {}: {}", gameId, wishlistId, e.message, e)
             throw e
         }
     }
@@ -362,7 +364,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][remove_item] Item {} not found in wishlist {}", itemId, wishlistId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][remove_item] Error removing item {} from wishlist {}: {}", itemId, wishlistId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][remove_item] Error removing item {} from wishlist {}: {}", itemId, wishlistId, e.message, e)
             throw e
         }
     }
@@ -374,7 +376,7 @@ class WishlistService(
         try {
             findViewableWishlist(userId, wishlistId)
 
-            val result = findItems(wishlistId, gameName, safePageRequest(page, size, resolveSort(sort, ITEM_SORT_FIELDS, DEFAULT_ITEM_SORT_FIELD)))
+            val result = findItems(wishlistId, gameName, safePageRequest(page, size, resolveSort(sort = sort, allowedFields = ITEM_SORT_FIELDS, defaultField = DEFAULT_ITEM_SORT_FIELD, tieBreaker = ID_TIE_BREAKER)))
 
             logger.info("\n\t[INFO] [wishlist_service][list_items] Retrieved {} items for wishlist {}", result.numberOfElements, wishlistId)
             return result.toPageDTO { WishlistItemDTO.from(it) }
@@ -388,7 +390,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][list_items] Invalid sort field: {}", sort)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][list_items] Error listing items of wishlist {}: {}", wishlistId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][list_items] Error listing items of wishlist {}: {}", wishlistId, e.message, e)
             throw e
         }
     }
@@ -412,7 +414,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][get_item_status] User {} has no access to wishlist {}", userId, wishlistId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][get_item_status] Error checking status for wishlist {} game {}: {}", wishlistId, gameId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][get_item_status] Error checking status for wishlist {} game {}: {}", wishlistId, gameId, e.message, e)
             throw e
         }
     }
@@ -426,7 +428,7 @@ class WishlistService(
 
             logger.info("\n\t[INFO] [wishlist_service][create_default_wishlist_for_user] Default wishlist created for user {}", user.id)
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][create_default_wishlist_for_user] Error creating default wishlist for user {}: {}", user.id, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][create_default_wishlist_for_user] Error creating default wishlist for user {}: {}", user.id, e.message, e)
             throw e
         }
     }
@@ -439,7 +441,7 @@ class WishlistService(
             val wishlist = wishlistRepository.findDefaultByOwnerId(userId)
                 .orElseThrow { DefaultWishlistNotFoundException(userId) }
 
-            val result = findItems(wishlist.id!!, null, safePageRequest(page, size, resolveSort(null, ITEM_SORT_FIELDS, DEFAULT_ITEM_SORT_FIELD)))
+            val result = findItems(wishlist.id!!, null, safePageRequest(page, size, resolveSort(sort = null, allowedFields = ITEM_SORT_FIELDS, defaultField = DEFAULT_ITEM_SORT_FIELD, tieBreaker = ID_TIE_BREAKER)))
 
             logger.info("\n\t[INFO] [wishlist_service][get_default_wishlist_for_user] Retrieved {} items for user {}", result.numberOfElements, userId)
             return result.toPageDTO { WishlistItemDTO.from(it) }
@@ -447,7 +449,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][get_default_wishlist_for_user] Default wishlist not found for user {}", userId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][get_default_wishlist_for_user] Error retrieving default wishlist items for user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][get_default_wishlist_for_user] Error retrieving default wishlist items for user {}: {}", userId, e.message, e)
             throw e
         }
     }
@@ -466,7 +468,7 @@ class WishlistService(
             logger.warn("\n\t[WARN] [wishlist_service][get_my_default_wishlist] Default wishlist not found for user {}", userId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [wishlist_service][get_my_default_wishlist] Error retrieving default wishlist for user {}: {}", userId, e.message)
+            logger.error("\n\t[ERROR] [wishlist_service][get_my_default_wishlist] Error retrieving default wishlist for user {}: {}", userId, e.message, e)
             throw e
         }
     }

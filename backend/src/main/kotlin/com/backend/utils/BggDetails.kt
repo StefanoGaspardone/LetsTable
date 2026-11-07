@@ -7,6 +7,9 @@ import java.time.Instant
 
 object BggDetails {
 
+    private val PLAYER_COUNT_REGEX = Regex("""(\d+(?:[–-]\d+)?)""")
+    private val UNKNOWN_CREDITS = setOf("(Uncredited)", "(Unknown)")
+
     fun applyBggDetails(game: Game, details: BggThingItemXml): Game {
         val cleanDescription = details.description
             ?.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
@@ -16,7 +19,7 @@ object BggDetails {
             ?.trim()
 
         game.name = details.primaryName() ?: game.name
-        game.yearPublished = details.yearPublished?.value?.toIntOrNull()
+        game.yearPublished = details.yearPublished?.value?.toIntOrNull()?.takeIf { it > 0 }
         game.thumbnailUrl = details.thumbnail
         game.imageUrl = details.image
         game.minPlayers = details.minPlayers?.value?.toIntOrNull()?.takeIf { it > 0 }
@@ -27,7 +30,7 @@ object BggDetails {
         game.recommendedWith = parsePlayerCountRecommendation(details.pollSummaryValue("recommmendedwith"))
         game.expansionRefs = details.expansionRefs()
         game.lastSyncedAt = Instant.now()
-        game.isExpansion = details.type != "boardgame"
+        game.isExpansion = details.type == "boardgameexpansion"
 
         val baseGameRef = details.baseGameRef()
         game.baseGameBggId = baseGameRef?.bggId
@@ -40,16 +43,19 @@ object BggDetails {
             ?.takeIf { it > 0 }
 
         game.bggRank = details.bggRank()
-        game.avgRating = details.averageRating()
+        game.avgRating = details.averageRating()?.takeIf { it > 0 }
 
-        game.designers = details.links.filter { it.type == "boardgamedesigner" }.map { it.value }
-        game.artists = details.links.filter { it.type == "boardgameartist" }.map { it.value }
-        game.publishers = details.links.filter { it.type == "boardgamepublisher" }.map { it.value }
+        game.designers = credits(details, "boardgamedesigner")
+        game.artists = credits(details, "boardgameartist")
+        game.publishers = credits(details, "boardgamepublisher")
 
         return game
     }
 
-    private val PLAYER_COUNT_REGEX = Regex("""(\d+(?:[–-]\d+)?)""")
+    private fun credits(details: BggThingItemXml, type: String): List<String> =
+        details.links
+            .filter { it.type == type && it.value !in UNKNOWN_CREDITS }
+            .map { it.value }
 
     private fun parsePlayerCountRecommendation(raw: String?): String? {
         if(raw.isNullOrBlank()) return null

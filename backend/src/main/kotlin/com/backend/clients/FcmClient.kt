@@ -1,13 +1,12 @@
 package com.backend.clients
 
-import com.google.auth.oauth2.GoogleCredentials
+import com.backend.utils.FcmAccessTokenProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.WebClientResponseException
-import java.io.FileInputStream
 import java.time.Duration
 
 enum class FcmSendResult {
@@ -19,39 +18,26 @@ enum class FcmSendResult {
 @Component
 class FcmClient(
     private val fcmWebClient: WebClient,
+    private val accessTokenProvider: FcmAccessTokenProvider,
     @Value($$"${fcm.project-id}") private val projectId: String,
-    @Value($$"${fcm.credentials-path:}") private val credentialsPath: String,
+    @Value($$"${fcm.send-timeout:10s}") private val sendTimeout: Duration,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     companion object {
-        private const val MESSAGING_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
-        private val SEND_TIMEOUT: Duration = Duration.ofSeconds(10)
-        private const val UNREGISTERED_STATUS = 404
-    }
-
-    private val credentials: GoogleCredentials by lazy {
-        val base = if(credentialsPath.isBlank()) {
-            GoogleCredentials.getApplicationDefault()
-        } else {
-            FileInputStream(credentialsPath).use { GoogleCredentials.fromStream(it) }
-        }
-
-        base.createScoped(listOf(MESSAGING_SCOPE))
-    }
-
-    @Synchronized
-    private fun accessToken(): String {
-        credentials.refreshIfExpired()
-        return credentials.accessToken.tokenValue
+        private const val BAD_REQUEST_STATUS = 400
+        private const val FORBIDDEN_STATUS = 403
+        private const val NOT_FOUND_STATUS = 404
+        private const val SENDER_ID_MISMATCH = "SENDER_ID_MISMATCH"
+        private const val INVALID_REGISTRATION_TOKEN = "registration token"
     }
 
     fun send(token: String, data: Map<String, String>): FcmSendResult {
         try {
             fcmWebClient.post()
                 .uri("/projects/{projectId}/messages:send", projectId)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer ${accessToken()}")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer ${accessTokenProvider.accessToken()}")
                 .bodyValue(
                     mapOf(
                         "message" to mapOf(
@@ -63,21 +49,32 @@ class FcmClient(
                 )
                 .retrieve()
                 .toBodilessEntity()
-                .timeout(SEND_TIMEOUT)
+                .timeout(sendTimeout)
                 .block()
 
             return FcmSendResult.SENT
         } catch(e: WebClientResponseException) {
-            if(e.statusCode.value() == UNREGISTERED_STATUS) {
-                logger.warn("\n\t[WARN] [fcm_client][send] Token no longer registered")
+            if(isInvalidToken(e)) {
+                logger.warn("\n\t[WARN] [fcm_client][send] Token rejected by FCM with {}", e.statusCode)
                 return FcmSendResult.INVALID_TOKEN
             }
 
             logger.error("\n\t[ERROR] [fcm_client][send] FCM responded with {}: {}", e.statusCode, e.responseBodyAsString)
             return FcmSendResult.FAILED
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [fcm_client][send] Error sending FCM message: {}", e.message)
+            logger.error("\n\t[ERROR] [fcm_client][send] Error sending FCM message: {}", e.message, e)
             return FcmSendResult.FAILED
+        }
+    }
+
+    private fun isInvalidToken(e: WebClientResponseException): Boolean {
+        val body = e.responseBodyAsString
+
+        return when(e.statusCode.value()) {
+            NOT_FOUND_STATUS -> true
+            FORBIDDEN_STATUS -> body.contains(SENDER_ID_MISMATCH)
+            BAD_REQUEST_STATUS -> body.contains(INVALID_REGISTRATION_TOKEN, ignoreCase = true)
+            else -> false
         }
     }
 }

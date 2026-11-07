@@ -7,6 +7,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 class ExpansionRefListConverterTest {
 
@@ -23,21 +25,17 @@ class ExpansionRefListConverterTest {
 
         @Test
         fun `should return null when input list is null`() {
-            val result = converter.convertToDatabaseColumn(null)
-            assertNull(result)
+            assertNull(converter.convertToDatabaseColumn(null))
         }
 
         @Test
         fun `should return empty string when input list is empty`() {
-            val result = converter.convertToDatabaseColumn(emptyList())
-            assertEquals("", result)
+            assertEquals("", converter.convertToDatabaseColumn(emptyList()))
         }
 
         @Test
         fun `should convert single expansion ref to formatted string`() {
-            val list = listOf(ExpansionRef(12345L, "Wingspan: European Expansion"))
-
-            val result = converter.convertToDatabaseColumn(list)
+            val result = converter.convertToDatabaseColumn(listOf(ExpansionRef(12345L, "Wingspan: European Expansion")))
 
             assertEquals("12345::Wingspan: European Expansion", result)
         }
@@ -47,21 +45,15 @@ class ExpansionRefListConverterTest {
             val list = listOf(
                 ExpansionRef(101L, "Expansion A"),
                 ExpansionRef(202L, "Expansion B"),
-                ExpansionRef(303L, "Expansion C")
+                ExpansionRef(303L, "Expansion C"),
             )
 
-            val result = converter.convertToDatabaseColumn(list)
-
-            assertEquals("101::Expansion A|202::Expansion B|303::Expansion C", result)
+            assertEquals("101::Expansion A|202::Expansion B|303::Expansion C", converter.convertToDatabaseColumn(list))
         }
 
         @Test
-        fun `should correctly format name containing double colons`() {
-            val list = listOf(ExpansionRef(999L, "Game::Special Edition"))
-
-            val result = converter.convertToDatabaseColumn(list)
-
-            assertEquals("999::Game::Special Edition", result)
+        fun `should keep double colons inside the name`() {
+            assertEquals("999::Game::Special Edition", converter.convertToDatabaseColumn(listOf(ExpansionRef(999L, "Game::Special Edition"))))
         }
     }
 
@@ -71,84 +63,97 @@ class ExpansionRefListConverterTest {
 
         @Test
         fun `should return empty list when dbData is null`() {
-            val result = converter.convertToEntityAttribute(null)
-            assertTrue(result.isEmpty())
+            assertTrue(converter.convertToEntityAttribute(null).isEmpty())
         }
 
-        @Test
-        fun `should return empty list when dbData is empty string`() {
-            val result = converter.convertToEntityAttribute("")
-            assertTrue(result.isEmpty())
-        }
-
-        @Test
-        fun `should return empty list when dbData is blank string`() {
-            val result = converter.convertToEntityAttribute("   ")
-            assertTrue(result.isEmpty())
+        @ParameterizedTest
+        @ValueSource(strings = ["", "   ", "\n"])
+        fun `should return empty list when dbData is blank`(dbData: String) {
+            assertTrue(converter.convertToEntityAttribute(dbData).isEmpty())
         }
 
         @Test
         fun `should parse valid single expansion ref string`() {
-            val dbData = "12345::Wingspan: Oceania Expansion"
+            val result = converter.convertToEntityAttribute("12345::Wingspan: Oceania Expansion")
 
-            val result = converter.convertToEntityAttribute(dbData)
-
-            assertEquals(1, result.size)
-            assertEquals(12345L, result[0].bggId)
-            assertEquals("Wingspan: Oceania Expansion", result[0].name)
+            assertEquals(listOf(ExpansionRef(12345L, "Wingspan: Oceania Expansion")), result)
         }
 
         @Test
-        fun `should parse multiple expansion refs correctly`() {
-            val dbData = "101::Expansion A|202::Expansion B|303::Expansion C"
+        fun `should parse multiple expansion refs in order`() {
+            val result = converter.convertToEntityAttribute("101::Expansion A|202::Expansion B|303::Expansion C")
 
-            val result = converter.convertToEntityAttribute(dbData)
-
-            assertEquals(3, result.size)
-            assertEquals(ExpansionRef(101L, "Expansion A"), result[0])
-            assertEquals(ExpansionRef(202L, "Expansion B"), result[1])
-            assertEquals(ExpansionRef(303L, "Expansion C"), result[2])
+            assertEquals(
+                listOf(ExpansionRef(101L, "Expansion A"), ExpansionRef(202L, "Expansion B"), ExpansionRef(303L, "Expansion C")),
+                result,
+            )
         }
 
         @Test
-        fun `should handle limit=2 when expansion name contains double colons`() {
-            val dbData = "555::Game::SubTitle::Edition"
+        fun `should split only on the first double colon`() {
+            val result = converter.convertToEntityAttribute("555::Game::SubTitle::Edition")
 
-            val result = converter.convertToEntityAttribute(dbData)
-
-            assertEquals(1, result.size)
-            assertEquals(555L, result[0].bggId)
-            assertEquals("Game::SubTitle::Edition", result[0].name)
+            assertEquals(listOf(ExpansionRef(555L, "Game::SubTitle::Edition")), result)
         }
 
         @Test
         fun `should ignore entries without separator`() {
-            val dbData = "invalidEntryFormat"
-
-            val result = converter.convertToEntityAttribute(dbData)
-
-            assertTrue(result.isEmpty())
+            assertTrue(converter.convertToEntityAttribute("invalidEntryFormat").isEmpty())
         }
 
         @Test
         fun `should ignore entries with non-numeric bggId`() {
-            val dbData = "abc::Expansion Name"
+            assertTrue(converter.convertToEntityAttribute("abc::Expansion Name").isEmpty())
+        }
 
-            val result = converter.convertToEntityAttribute(dbData)
+        @Test
+        fun `should ignore empty segments between pipes`() {
+            val result = converter.convertToEntityAttribute("|101::Valid A||202::Valid B|")
 
-            assertTrue(result.isEmpty())
+            assertEquals(listOf(101L, 202L), result.map { it.bggId })
         }
 
         @Test
         fun `should filter out invalid entries and parse valid ones in mixed string`() {
-            val dbData = "101::Valid A|invalidEntry|abc::BadId|202::Valid B|303::"
+            val result = converter.convertToEntityAttribute("101::Valid A|invalidEntry|abc::BadId|202::Valid B|303::")
 
-            val result = converter.convertToEntityAttribute(dbData)
+            assertEquals(
+                listOf(ExpansionRef(101L, "Valid A"), ExpansionRef(202L, "Valid B"), ExpansionRef(303L, "")),
+                result,
+            )
+        }
 
-            assertEquals(3, result.size)
-            assertEquals(ExpansionRef(101L, "Valid A"), result[0])
-            assertEquals(ExpansionRef(202L, "Valid B"), result[1])
-            assertEquals(ExpansionRef(303L, ""), result[2]) // Nome vuoto ma valido
+        @Test
+        fun `should keep the id when a stored name contained a pipe`() {
+            val stored = converter.convertToDatabaseColumn(listOf(ExpansionRef(101L, "Pandemic | Legacy"), ExpansionRef(202L, "Expansion B")))
+
+            val result = converter.convertToEntityAttribute(stored)
+
+            assertEquals(listOf(101L, 202L), result.map { it.bggId })
+            assertEquals("Pandemic ", result[0].name)
+        }
+    }
+
+    @Nested
+    @DisplayName("round trip")
+    inner class RoundTripTests {
+
+        @Test
+        fun `should read back exactly what it writes`() {
+            val list = listOf(
+                ExpansionRef(400000L, "Ark Nova: Marine Worlds"),
+                ExpansionRef(400001L, "Ark Nova – Zoo Map Pack 1"),
+                ExpansionRef(400002L, "Arche Nova: Meereswelten"),
+                ExpansionRef(400003L, "Game::Special Edition"),
+                ExpansionRef(400004L, "方舟动物园"),
+            )
+
+            assertEquals(list, converter.convertToEntityAttribute(converter.convertToDatabaseColumn(list)))
+        }
+
+        @Test
+        fun `should read back an empty list as empty`() {
+            assertTrue(converter.convertToEntityAttribute(converter.convertToDatabaseColumn(emptyList())).isEmpty())
         }
     }
 }

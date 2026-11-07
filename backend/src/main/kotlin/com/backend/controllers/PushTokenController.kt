@@ -81,7 +81,7 @@ class PushTokenController(
     )
     @DeleteMapping
     fun unregister(@RequestParam @NotBlank token: String): ResponseEntity<Unit> {
-        pushTokenService.unregister(token)
+        pushTokenService.unregister(CurrentUser.id(), token)
         return ResponseEntity.noContent().build()
     }
 }

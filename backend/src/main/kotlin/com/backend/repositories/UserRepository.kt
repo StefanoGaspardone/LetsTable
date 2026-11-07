@@ -50,4 +50,6 @@ interface UserRepository: JpaRepository<User, UUID>, JpaSpecificationExecutor<Us
 
     @Query("SELECT u.id FROM User u WHERE u.accountStatus = :status")
     fun findIdsByAccountStatus(@Param("status") status: AccountStatus): List<UUID>
+
+    fun countByAccountStatusNot(accountStatus: AccountStatus): Long
 }

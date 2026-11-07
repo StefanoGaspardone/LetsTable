@@ -16,6 +16,7 @@ import com.backend.repositories.UploadedFileRepository
 import com.backend.utils.resolveSort
 import com.backend.utils.safePageRequest
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -33,6 +34,8 @@ class AdminGameService(
 
     companion object {
         private val SORT_FIELDS = setOf("name", "isExpansion", "rank", "bggRank", "lastSyncedAt")
+        private val NULLS_LAST_FIELDS = setOf("rank", "bggRank")
+        private const val DEFAULT_SORT = "name-asc"
         private const val DEFAULT_SORT_FIELD = "name"
     }
 
@@ -51,7 +54,7 @@ class AdminGameService(
             logger.warn("\n\t[WARN] [admin_game_service][force_refresh_game] Game not found on BGG with id {}", bggId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [admin_game_service][force_refresh_game] Error refreshing game with bggId {}: {}", bggId, e.message)
+            logger.error("\n\t[ERROR] [admin_game_service][force_refresh_game] Error refreshing game with bggId {}: {}", bggId, e.message, e)
             throw e
         }
     }
@@ -64,7 +67,7 @@ class AdminGameService(
 
             logger.info("\n\t[INFO] [admin_game_service][force_refresh_hot_games] Hot games cache refreshed")
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [admin_game_service][force_refresh_hot_games] Error refreshing hot games cache: {}", e.message)
+            logger.error("\n\t[ERROR] [admin_game_service][force_refresh_hot_games] Error refreshing hot games cache: {}", e.message, e)
             throw e
         }
     }
@@ -74,7 +77,8 @@ class AdminGameService(
         logger.debug("\n\t[DEBUG] [admin_game_service][list_games] Listing games\n\tpage={}\n\tsize={}\n\tsearch={}\n\tisExpansion={}\n\tsort={}", page, size, search, isExpansion, sort)
 
         try {
-            val pageable = safePageRequest(page, size, resolveSort(sort, SORT_FIELDS, DEFAULT_SORT_FIELD))
+            val pageable = safePageRequest(page, size, resolveSort(sort ?: DEFAULT_SORT, SORT_FIELDS, DEFAULT_SORT_FIELD, NULLS_LAST_FIELDS,
+                Sort.by("id")))
             val result = gameRepository.findAll(GameSpecification.withFilters(search, isExpansion), pageable)
 
             val gameIds = result.content.mapNotNull { it.id }
@@ -86,7 +90,7 @@ class AdminGameService(
             logger.warn("\n\t[WARN] [admin_game_service][list_games] Invalid sort field: {}", sort)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [admin_game_service][list_games] Error listing games: {}", e.message)
+            logger.error("\n\t[ERROR] [admin_game_service][list_games] Error listing games: {}", e.message, e)
             throw e
         }
     }
@@ -105,7 +109,7 @@ class AdminGameService(
             logger.warn("\n\t[WARN] [admin_game_service][get_game] Game {} not found", gameId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [admin_game_service][get_game] Error retrieving game {}: {}", gameId, e.message)
+            logger.error("\n\t[ERROR] [admin_game_service][get_game] Error retrieving game {}: {}", gameId, e.message, e)
             throw e
         }
     }
@@ -126,7 +130,7 @@ class AdminGameService(
             logger.warn("\n\t[WARN] [admin_game_service][list_rule_files] Game {} not found", gameId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [admin_game_service][list_rule_files] Error listing rule files for game {}: {}", gameId, e.message)
+            logger.error("\n\t[ERROR] [admin_game_service][list_rule_files] Error listing rule files for game {}: {}", gameId, e.message, e)
             throw e
         }
     }
@@ -147,7 +151,7 @@ class AdminGameService(
             logger.warn("\n\t[WARN] [admin_game_service][delete_rule_file] Rule file {} not found for game {}", fileId, gameId)
             throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [admin_game_service][delete_rule_file] Error deleting rule file {} for game {}: {}", fileId, gameId, e.message)
+            logger.error("\n\t[ERROR] [admin_game_service][delete_rule_file] Error deleting rule file {} for game {}: {}", fileId, gameId, e.message, e)
             throw e
         }
     }

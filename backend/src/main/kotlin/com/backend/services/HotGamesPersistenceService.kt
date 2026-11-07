@@ -17,6 +17,11 @@ class HotGamesPersistenceService(
     fun saveHotGames(games: List<Game>) {
         logger.debug("\n\t[DEBUG] [hot_games_persistence_service][save_hot_games] Saving {} hot games", games.size)
 
+        if(games.isEmpty()) {
+            logger.warn("\n\t[WARN] [hot_games_persistence_service][save_hot_games] Empty hot games list, keeping current ranks")
+            return
+        }
+
         gameRepository.clearAllRanks()
         gameRepository.saveAll(games)
 

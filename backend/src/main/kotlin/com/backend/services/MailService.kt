@@ -4,6 +4,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.web.reactive.function.client.WebClient
+import org.springframework.web.reactive.function.client.WebClientResponseException
 import org.thymeleaf.TemplateEngine
 import org.thymeleaf.context.Context
 import java.time.Duration
@@ -16,13 +17,10 @@ class MailService(
     @Value($$"${mail.from-name}") private val fromName: String,
     @Value($$"${brevo.api-key}") private val brevoApiKey: String,
     @Value($$"${mail.enabled:true}") private val mailEnabled: Boolean,
+    @Value($$"${mail.send-timeout:10s}") private val sendTimeout: Duration,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
-
-    companion object {
-        private val SEND_TIMEOUT: Duration = Duration.ofSeconds(10)
-    }
 
     fun sendActivationOtp(to: String, otpCode: String, expiresInMinutes: Long) =
         send(to = to, subject = "Codice di attivazione - Let's Table", template = "emails/otp", context = otpContext(otpCode, expiresInMinutes))
@@ -60,12 +58,15 @@ class MailService(
                 .bodyValue(payload)
                 .retrieve()
                 .toBodilessEntity()
-                .timeout(SEND_TIMEOUT)
+                .timeout(sendTimeout)
                 .block()
 
             logger.info("\n\t[INFO] [mail_service][send] Email sent\n\tto={}\n\ttemplate={}", to, template)
+        } catch(e: WebClientResponseException) {
+            logger.error("\n\t[ERROR] [mail_service][send] Brevo rejected the email\n\tto={}\n\ttemplate={}\n\tstatus={}\n\tbody={}", to, template, e.statusCode.value(), e.responseBodyAsString, e)
+            throw e
         } catch(e: Exception) {
-            logger.error("\n\t[ERROR] [mail_service][send] Failed to send email\n\tto={}\n\ttemplate={}\n\terror={}", to, template, e.message)
+            logger.error("\n\t[ERROR] [mail_service][send] Failed to send email\n\tto={}\n\ttemplate={}\n\terror={}", to, template, e.message, e)
             throw e
         }
     }
