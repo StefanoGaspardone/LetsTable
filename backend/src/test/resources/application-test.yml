@@ -51,3 +51,7 @@ scheduling:
 
 seeding:
   enabled: false
+
+fcm:
+  project-id: letstable-test
+  credentials-path: ""
