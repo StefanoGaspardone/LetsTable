@@ -1,6 +1,6 @@
 import { apiClient } from '@/api/client';
 
-import { Game, GameTerm } from '@/types/game';
+import { Game, GameImage, GameTerm } from '@/types/game';
 import { PageDTO } from '@/types/page';
 
 export interface BrowseGamesParams {
@@ -58,5 +58,10 @@ export const getGameMechanics = async (): Promise<GameTerm[]> => {
 
 export const getGameCategories = async (): Promise<GameTerm[]> => {
 	const { data } = await apiClient.get<GameTerm[]>('/games/categories');
+	return data;
+}
+
+export const getGameImages = async (bggId: number): Promise<GameImage[]> => {
+	const { data } = await apiClient.get<GameImage[]>(`/games/${bggId}/images`);
 	return data;
 }

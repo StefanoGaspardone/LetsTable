@@ -454,28 +454,28 @@ class BggClientTest {
         }
 
         @Test
-        fun `should return fallback empty response on HTTP error instead of throwing exception`() {
-            enqueueStatus(500)
-
-            assertTrue(createCardSetsClient().getCardSetsByGame(106437L).cardSets.isEmpty())
-        }
-
-        @Test
-        fun `should return fallback empty response on an empty body`() {
+        fun `should return an empty response on an empty body`() {
             enqueueStatus(200)
 
             assertTrue(createCardSetsClient().getCardSetsByGame(106437L).cardSets.isEmpty())
         }
 
         @Test
-        fun `should return fallback empty response on malformed JSON`() {
-            enqueueJson("{\"cardSets\": [")
+        fun `should throw BggRequestFailedException on HTTP error so the stored sleeves are kept`() {
+            enqueueStatus(500)
 
-            assertTrue(createCardSetsClient().getCardSetsByGame(106437L).cardSets.isEmpty())
+            assertThrows<BggRequestFailedException> { createCardSetsClient().getCardSetsByGame(106437L) }
         }
 
         @Test
-        fun `should return fallback empty response on timeout`() {
+        fun `should throw BggRequestFailedException on malformed JSON`() {
+            enqueueJson("{\"cardSets\": [")
+
+            assertThrows<BggRequestFailedException> { createCardSetsClient().getCardSetsByGame(106437L) }
+        }
+
+        @Test
+        fun `should throw BggRequestFailedException on timeout`() {
             mockWebServer.enqueue(
                 MockResponse.Builder()
                     .addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
@@ -484,9 +484,108 @@ class BggClientTest {
                     .build()
             )
 
-            val result = createCardSetsClient(SHORT_TIMEOUT).getCardSetsByGame(106437L)
+            assertThrows<BggRequestFailedException> { createCardSetsClient(SHORT_TIMEOUT).getCardSetsByGame(106437L) }
+        }
+    }
 
-            assertTrue(result.cardSets.isEmpty())
+    @Nested
+    @DisplayName("getGameImages")
+    inner class GetGameImagesTests {
+
+        @Test
+        fun `should fetch the gallery and parse every image field`() {
+            enqueueJson(
+                """
+                {
+                    "images": [
+                        {
+                            "imageid": "8157140",
+                            "imageurl": "https://cf.geekdo-images.com/abc__square/img/a.jpg",
+                            "imageurl_lg": "https://cf.geekdo-images.com/abc__imagepage/img/a.jpg",
+                            "caption": "Components",
+                            "href": "/image/8157140/ark-nova",
+                            "user": { "username": "zoofan" },
+                            "numrecommend": "42"
+                        },
+                        {
+                            "imageid": "8157141",
+                            "imageurl": "https://cf.geekdo-images.com/def__square/img/b.jpg"
+                        }
+                    ],
+                    "config": { "numitems": 2 }
+                }
+                """.trimIndent()
+            )
+
+            val images = createCardSetsClient().getGameImages(342942L, 24).images
+
+            assertEquals(2, images.size)
+            assertEquals("8157140", images[0].imageid)
+            assertEquals("https://cf.geekdo-images.com/abc__square/img/a.jpg", images[0].imageurl)
+            assertEquals("https://cf.geekdo-images.com/abc__imagepage/img/a.jpg", images[0].imageUrlLarge)
+            assertEquals("Components", images[0].caption)
+            assertEquals("/image/8157140/ark-nova", images[0].href)
+            assertEquals("zoofan", images[0].user?.username)
+            assertNull(images[1].imageUrlLarge)
+            assertNull(images[1].user)
+        }
+
+        @Test
+        fun `should ask geekdo for the most popular game images without the BGG token`() {
+            enqueueJson("{\"images\":[]}")
+
+            createCardSetsClient().getGameImages(342942L, 24)
+
+            val request = mockWebServer.takeRequest()
+            assertTrue(request.target.startsWith("/api/images?"))
+            assertTrue(request.target.contains("objectid=342942"))
+            assertTrue(request.target.contains("objecttype=thing"))
+            assertTrue(request.target.contains("gallery=game"))
+            assertTrue(request.target.contains("sort=hot"))
+            assertTrue(request.target.contains("showcount=24"))
+            assertTrue(request.target.contains("nosession=1"))
+            assertNull(request.headers[HttpHeaders.AUTHORIZATION])
+        }
+
+        @Test
+        fun `should return an empty response when the game has no images`() {
+            enqueueJson("{}")
+
+            assertTrue(createCardSetsClient().getGameImages(342942L, 24).images.isEmpty())
+        }
+
+        @Test
+        fun `should return an empty response on an empty body`() {
+            enqueueStatus(200)
+
+            assertTrue(createCardSetsClient().getGameImages(342942L, 24).images.isEmpty())
+        }
+
+        @Test
+        fun `should throw BggRequestFailedException on HTTP error`() {
+            enqueueStatus(503)
+
+            assertThrows<BggRequestFailedException> { createCardSetsClient().getGameImages(342942L, 24) }
+        }
+
+        @Test
+        fun `should throw BggRequestFailedException on malformed JSON`() {
+            enqueueJson("{\"images\": [")
+
+            assertThrows<BggRequestFailedException> { createCardSetsClient().getGameImages(342942L, 24) }
+        }
+
+        @Test
+        fun `should throw BggRequestFailedException on timeout`() {
+            mockWebServer.enqueue(
+                MockResponse.Builder()
+                    .addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                    .body("{\"images\":[]}")
+                    .bodyDelay(2, TimeUnit.SECONDS)
+                    .build()
+            )
+
+            assertThrows<BggRequestFailedException> { createCardSetsClient(SHORT_TIMEOUT).getGameImages(342942L, 24) }
         }
     }
 }

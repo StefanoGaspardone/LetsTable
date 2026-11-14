@@ -352,8 +352,7 @@ npm test
 
 ## Backlog
 
+- scraping for game images
 - edit match
-- fix push notifications
 - edit wishlist name
-- improve footer section in Layout for activate and forgot/reset password
-- finish matches filters (improve)
+- better handling for score in match (winner boolean or score sorting?)

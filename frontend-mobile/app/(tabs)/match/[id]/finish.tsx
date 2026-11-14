@@ -22,6 +22,7 @@ import { useThemeColors } from '@/hooks/use-theme-colors';
 import { Match, UpdateMatchPayload } from '@/types/match';
 
 type ResultMode = 'score' | 'outcome';
+type CooperativeResult = 'win' | 'loss';
 
 interface ScoreEntry {
 	id: string;
@@ -38,6 +39,11 @@ interface ScoreEntry {
 const RESULT_MODE_OPTIONS = [
 	{ value: 'score', label: 'Punteggio' },
 	{ value: 'outcome', label: 'Vittoria/Sconfitta' },
+]
+
+const COOPERATIVE_RESULT_OPTIONS = [
+	{ value: 'win', label: 'Vittoria' },
+	{ value: 'loss', label: 'Sconfitta' },
 ]
 
 const buildEntries = (match: Match, fallbackColor: string): ScoreEntry[] => {
@@ -92,6 +98,7 @@ const FinishMatchScreen = () => {
 	const [notes, setNotes] = useState('');
 	const [durationMinutes, setDurationMinutes] = useState('');
 	const [resultMode, setResultMode] = useState<ResultMode>('score');
+	const [cooperativeResult, setCooperativeResult] = useState<CooperativeResult | null>(null);
 
 	const isSubmitting = updateMatchMutation.isPending;
 
@@ -100,6 +107,7 @@ const FinishMatchScreen = () => {
 			setNotes('');
 			setDurationMinutes('');
 			setResultMode('score');
+			setCooperativeResult(null);
 			setFocusSession(prev => prev + 1);
 
 			scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -122,6 +130,11 @@ const FinishMatchScreen = () => {
 
 	const handleToggleWinner = (entryId: string) => {
 		setEntries(prev => prev.map(entry => (entry.id === entryId ? { ...entry, isWinner: !entry.isWinner } : entry)));
+	}
+
+	const handleCooperativeResult = (value: CooperativeResult) => {
+		setCooperativeResult(value);
+		setEntries(prev => prev.map(entry => ({ ...entry, isWinner: value === 'win' })));
 	}
 
 	const buildPayload = (currentMatch: Match): UpdateMatchPayload => {
@@ -182,11 +195,12 @@ const FinishMatchScreen = () => {
 	}
 
 	const requiresScore = !match?.isTeamBased || resultMode === 'score';
+	const isCooperative = entries.length === 1;
 
-	const isValid = entries.length > 0
-		&& (requiresScore
-			? entries.every(entry => entry.score.trim() !== '')
-			: entries.some(entry => entry.isWinner));
+	const hasScores = !requiresScore || entries.every(entry => entry.score.trim() !== '');
+	const hasOutcome = isCooperative ? cooperativeResult !== null : requiresScore || entries.some(entry => entry.isWinner);
+
+	const isValid = entries.length > 0 && hasScores && hasOutcome;
 
 	if(isLoading || !match) {
 		return (
@@ -224,13 +238,20 @@ const FinishMatchScreen = () => {
 										)}
 									</Text>
 								</View>
-								<Pressable onPress = { () => handleToggleWinner(entry.id) } className = { `flex-row items-center gap-1.5 rounded-full border px-3 py-1.5 ${entry.isWinner ? 'border-primary bg-primary' : 'border-border bg-background'}` }>
-									<Award size = { 14 } color = { entry.isWinner ? '#FFFFFF' : colors.mutedForeground }/>
-									<Text className = { `text-xs font-semibold ${entry.isWinner ? 'text-primary-foreground' : 'text-muted-foreground'}` }>
-										{entry.isWinner ? 'Vincitore' : 'Segna vincitore'}
-									</Text>
-								</Pressable>
+								{!isCooperative && (
+									<Pressable onPress = { () => handleToggleWinner(entry.id) } className = { `flex-row items-center gap-1.5 rounded-full border px-3 py-1.5 ${entry.isWinner ? 'border-primary bg-primary' : 'border-border bg-background'}` }>
+										<Award size = { 14 } color = { entry.isWinner ? '#FFFFFF' : colors.mutedForeground }/>
+										<Text className = { `text-xs font-semibold ${entry.isWinner ? 'text-primary-foreground' : 'text-muted-foreground'}` }>
+											{entry.isWinner ? 'Vincitore' : 'Segna vincitore'}
+										</Text>
+									</Pressable>
+								)}
 							</View>
+							{isCooperative && (
+								<View className = { requiresScore ? 'mb-3' : '' }>
+									<SegmentedControl options = { COOPERATIVE_RESULT_OPTIONS } selected = { cooperativeResult ?? '' } onSelect = { value => handleCooperativeResult(value as CooperativeResult) }/>
+								</View>
+							)}
 							{requiresScore && (
 								<View className = 'flex-row items-center gap-3'>
 									<Text className = 'text-sm font-medium text-muted-foreground'>Punteggio:</Text>

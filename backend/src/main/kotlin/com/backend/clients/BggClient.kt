@@ -5,6 +5,7 @@ import com.backend.models.dtos.BggHotResponseXml
 import com.backend.models.dtos.BggSearchResponseXml
 import com.backend.models.dtos.BggThingResponseXml
 import com.backend.models.dtos.CardSetsByGameResponse
+import com.backend.models.dtos.GeekdoImagesResponse
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
@@ -32,6 +33,7 @@ class BggClient(
     companion object {
         private const val BATCH_SIZE = 20
         private const val CARD_SETS_URL = "https://api.geekdo.com/api/cardsetsbygame"
+        private const val IMAGES_URL = "https://api.geekdo.com/api/images"
     }
 
     fun searchGames(query: String): BggSearchResponseXml {
@@ -113,8 +115,30 @@ class BggClient(
             logger.info("\n\t[INFO] [bgg_client][get_card_sets_by_game] Fetched {} card sets for id {}", parsed.cardSets.size, bggId)
             return parsed
         } catch(e: Exception) {
-            logger.warn("\n\t[WARN] [bgg_client][get_card_sets_by_game] Error fetching card sets for id {}: {}", bggId, e.message)
-            return CardSetsByGameResponse()
+            logger.error("\n\t[ERROR] [bgg_client][get_card_sets_by_game] Error fetching card sets for id {}: {}", bggId, e.message)
+            throw BggRequestFailedException(e)
+        }
+    }
+
+    fun getGameImages(bggId: Long, count: Int): GeekdoImagesResponse {
+        logger.debug("\n\t[DEBUG] [bgg_client][get_game_images] Fetching images for id {}", bggId)
+
+        try {
+            val rawJson = bggWebClient.get()
+                .uri(URI.create("$IMAGES_URL?ajax=1&nosession=1&objecttype=thing&objectid=$bggId&gallery=game&sort=hot&showcount=$count&pageid=1&size=thumb"))
+                .retrieve()
+                .bodyToMono<String>()
+                .timeout(requestTimeout)
+                .block()
+                ?: return GeekdoImagesResponse()
+
+            val parsed = jsonMapper.readValue(rawJson, GeekdoImagesResponse::class.java)
+
+            logger.info("\n\t[INFO] [bgg_client][get_game_images] Fetched {} images for id {}", parsed.images.size, bggId)
+            return parsed
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [bgg_client][get_game_images] Error fetching images for id {}: {}", bggId, e.message)
+            throw BggRequestFailedException(e)
         }
     }
 

@@ -2,6 +2,7 @@ package com.backend.controllers
 
 import com.backend.exceptions.ErrorResponse
 import com.backend.models.dtos.GameDTO
+import com.backend.models.dtos.GameImageDTO
 import com.backend.models.dtos.GameTermDTO
 import com.backend.models.dtos.PageDTO
 import com.backend.services.GameService
@@ -209,4 +210,29 @@ class GameController(
     @GetMapping("/categories")
     fun getCategories(): ResponseEntity<List<GameTermDTO>> =
         ResponseEntity.ok(gameTermService.getCategories())
+
+    @Operation(summary = "Get game images", description = "Images of the game taken from the BoardGameGeek gallery, ordered by popularity. They are refreshed from BoardGameGeek at most once a month; if BoardGameGeek is unreachable the stored ones are returned.")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200", description = "Ok - Game images, empty if there is none",
+                content = [Content(array = ArraySchema(schema = Schema(implementation = GameImageDTO::class)))]
+            ),
+            ApiResponse(
+                responseCode = "404", description = "Not Found - Game not found",
+                content = [Content(
+                    mediaType = "application/json",
+                    schema = Schema(implementation = ErrorResponse::class),
+                    examples = [ExampleObject(
+                        name = "GameNotFoundExample",
+                        summary = "Game not found example",
+                        value = "{\"timestamp\":\"2026-11-10T12:00:00Z\",\"status\":404,\"error\":\"Not Found\",\"message\":\"Game not found on BGG: 13\"}"
+                    )]
+                )]
+            ),
+        ]
+    )
+    @GetMapping("/{bggId}/images")
+    fun getGameImages(@Parameter(description = "BoardGameGeek id of the game", example = "13") @PathVariable bggId: Long): ResponseEntity<List<GameImageDTO>> =
+        ResponseEntity.ok(gameService.getGameImages(bggId))
 }

@@ -8,7 +8,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, Plus, UserCheck, ArrowLeftRight, Puzzle, Gauge, PenTool, Palette, Building2, Trash2, Library, Check, Heart, Layers, Download, Award, WalletCards, ArrowUpDown } from 'lucide-react-native';
+import { Users, Clock, Calendar, Trophy, Dices, ExternalLink, Plus, UserCheck, ArrowLeftRight, Puzzle, Gauge, PenTool, Palette, Building2, Trash2, Library, Check, Heart, Layers, Download, Award, WalletCards, ArrowUpDown, ImageOff } from 'lucide-react-native';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, interpolate, interpolateColor, Extrapolation, useDerivedValue, useAnimatedReaction } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,18 +21,20 @@ import BackButton from '@/components/common/back-button';
 import FabMenu from '@/components/common/fab-menu';
 import SortSheet, { SortSheetRef } from '@/components/common/sort-sheet';
 import SegmentedControl from '@/components/common/segmented-control';
+import PoweredByBgg from '@/components/common/powered-by-bgg';
 import GameTermsCard, { GameTermType } from '@/components/games/game-terms-card';
 import RegisterMatchSheet, { RegisterMatchSheetRef } from '@/components/matches/register-match-sheet';
 import AddToWishlistSheet, { AddToWishlistSheetRef } from '@/components/wishlists/add-to-wishlist-sheet';
 import GameListItem from '@/components/games/game-list-item';
 import MatchListItem from '@/components/matches/match-list-item';
+import GameImagesViewer from '@/components/games/game-images-viewer';
 
 import { downloadRuleFile, uploadGameRule } from '@/api/game-rules';
 
 import { useToast } from '@/contexts/toast-context';
 import { useNavigationStack } from '@/contexts/navigation-stack-context';
 
-import { useCollectionStatus, useGameDetail, useGameExpansions, useGameRules, useToggleCollection } from '@/hooks/use-game';
+import { useCollectionStatus, useGameDetail, useGameExpansions, useGameImages, useGameRules, useToggleCollection } from '@/hooks/use-game';
 import { useMatches } from '@/hooks/use-match';
 import { useRefetchOnFocus } from '@/hooks/use-refetch-on-focus';
 import { useThemeColors } from '@/hooks/use-theme-colors';
@@ -48,6 +50,9 @@ const BADGE_SIZE = 48;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const INFINITE_SCROLL_THRESHOLD = 400;
 const STICKY_FADE_RANGE = 24;
+const IMAGE_GRID_COLUMNS = 3;
+const IMAGE_GRID_GAP = 8;
+const IMAGE_GRID_SIZE = (SCREEN_WIDTH - 32 - IMAGE_GRID_GAP * (IMAGE_GRID_COLUMNS - 1)) / IMAGE_GRID_COLUMNS;
 
 const RULE_FILE_TYPES = [
 	'application/pdf',
@@ -61,13 +66,14 @@ const RULE_FILE_TYPES = [
 	'video/*',
 ];
 
-type TabKey = 'info' | 'file' | 'expansions' | 'matches';
+type TabKey = 'info' | 'images' | 'matches' | 'expansions' | 'file';
 
 const INITIAL_TAB_HEIGHTS: Record<TabKey, number> = {
 	info: 300,
-	file: 300,
-	expansions: 300,
+	images: 300,
 	matches: 300,
+	expansions: 300,
+	file: 300,
 }
 
 const GameDetailScreen = () => {
@@ -98,11 +104,13 @@ const GameDetailScreen = () => {
 
 	const [activeTab, setActiveTab] = useState<TabKey>('info');
 	const [tabHeights, setTabHeights] = useState(INITIAL_TAB_HEIGHTS);
+	const [shouldFetchImages, setShouldFetchImages] = useState(false);
 	const [shouldFetchExpansions, setShouldFetchExpansions] = useState(false);
 	const [shouldFetchRules, setShouldFetchRules] = useState(false);
 	const [shouldFetchMatches, setShouldFetchMatches] = useState(false);
 	const [isStickyTabBarVisible, setIsStickyTabBarVisible] = useState(false);
 	const [openingFileId, setOpeningFileId] = useState<string | null>(null);
+	const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 	const [matchSort, setMatchSort] = useState(DEFAULT_MATCH_SORT);
 
 	const HEADER_HEIGHT = measuredHeaderHeight;
@@ -113,6 +121,8 @@ const GameDetailScreen = () => {
 	);
 
 	const { data: game, isLoading } = useGameDetail(numericBggId);
+
+	const { data: images, isLoading: isLoadingImages } = useGameImages(numericBggId, shouldFetchImages);
 
 	const expansionsQuery = useGameExpansions(numericBggId, shouldFetchExpansions);
 	const expansions = useMemo(() => expansionsQuery.data?.pages.flatMap(page => page.content) ?? [], [expansionsQuery.data]);
@@ -133,9 +143,10 @@ const GameDetailScreen = () => {
 
 	const tabs = useMemo(() => [
 		{ key: 'info' as TabKey, label: 'Info' },
-		{ key: 'file' as TabKey, label: 'File' },
-		...(!game?.isExpansion ? [{ key: 'expansions' as TabKey, label: 'Espansioni' }] : []),
+		{ key: 'images' as TabKey, label: 'Foto' },
 		{ key: 'matches' as TabKey, label: 'Partite' },
+		...(!game?.isExpansion ? [{ key: 'expansions' as TabKey, label: 'Espansioni' }] : []),
+		{ key: 'file' as TabKey, label: 'File' },
 	], [game?.isExpansion]);
 
 	const segmentOptions = useMemo(() => tabs.map(tab => ({ value: tab.key, label: tab.label })), [tabs]);
@@ -194,6 +205,7 @@ const GameDetailScreen = () => {
 	const activateTab = (key: TabKey) => {
 		setActiveTab(key);
 
+		if(key === 'images') setShouldFetchImages(true);
 		if(key === 'file') setShouldFetchRules(true);
 		if(key === 'expansions') setShouldFetchExpansions(true);
 		if(key === 'matches') setShouldFetchMatches(true);
@@ -297,7 +309,9 @@ const GameDetailScreen = () => {
 
 			setActiveTab('info');
 			setMatchSort(DEFAULT_MATCH_SORT);
+			setViewerIndex(null);
 
+			setShouldFetchImages(false);
 			setShouldFetchExpansions(false);
 			setShouldFetchRules(false);
 			setShouldFetchMatches(false);
@@ -546,8 +560,93 @@ const GameDetailScreen = () => {
 											)}
 										</View>
 									)}
+									<View className = 'mt-2 items-center'>
+										<PoweredByBgg url = { `https://boardgamegeek.com/boardgame/${bggId}` }/>
+									</View>
 								</View>
 							</View>
+							<View style = {{ width: SCREEN_WIDTH }} onLayout = { handleTabLayout('images') }>
+								<View className = 'px-4'>
+									{isLoadingImages ? (
+										<View className = 'items-center py-4'>
+											<ActivityIndicator color = { colors.primary }/>
+										</View>
+									) : images && images.length > 0 ? (
+										<>
+											<View className = 'flex-row flex-wrap' style = {{ gap: IMAGE_GRID_GAP }}>
+												{images.map((image, index) => (
+													<Pressable key = { image.id } onPress = { () => setViewerIndex(index) } style = {{ width: IMAGE_GRID_SIZE, height: IMAGE_GRID_SIZE }} className = 'overflow-hidden rounded-xl bg-secondary active:opacity-75 active:scale-[0.98]'>
+														<Image source = {{ uri: image.thumbnailUrl }} style = {{ width: IMAGE_GRID_SIZE, height: IMAGE_GRID_SIZE }} contentFit = 'cover' transition = { 200 } recyclingKey = { image.id }/>
+													</Pressable>
+												))}
+											</View>
+											<Text className = 'mb-2 mt-3 text-center text-xs text-muted-foreground'>Immagini dalla galleria di BoardGameGeek</Text>
+											<PoweredByBgg width = { 120 } height = { 30 }/>
+										</>
+									) : (
+										<View className = 'items-center gap-2 py-6'>
+											<ImageOff size = { 28 } color = { colors.mutedForeground }/>
+											<Text className = 'text-sm text-muted-foreground'>Nessuna immagine disponibile.</Text>
+										</View>
+									)}
+								</View>
+							</View>
+							<View style = {{ width: SCREEN_WIDTH }} onLayout = { handleTabLayout('matches') }>
+								<View className = 'px-4'>
+									{(matches.length > 0 || isMatchSortActive) && (
+										<View className = 'mb-3 flex-row'>
+											<Pressable onPress = { () => sortSheetRef.current?.present() } className = { `flex-row items-center gap-1.5 rounded-full px-3 py-1.5 border active:opacity-80 ${isMatchSortActive ? 'bg-primary/15 border-primary/40' : 'bg-secondary/80 border-border/40'}` }>
+												<ArrowUpDown size = { 13 } color = { isMatchSortActive ? colors.primary : colors.mutedForeground }/>
+												<Text className = { `text-xs font-medium ${isMatchSortActive ? 'text-primary' : 'text-muted-foreground'}` }>
+													{matchSortLabel}
+												</Text>
+											</Pressable>
+										</View>
+									)}
+									{matchesQuery.isLoading ? (
+										<View className = 'items-center py-4'>
+											<ActivityIndicator color = { colors.primary }/>
+										</View>
+									) : matches.length > 0 ? (
+										<View className = 'gap-2'>
+											{matches.map(match => (
+												<MatchListItem key = { match.id } match = { match }/>
+											))}
+											{matchesQuery.isFetchingNextPage && (
+												<View className = 'items-center py-3'>
+													<ActivityIndicator size = 'small' color = { colors.primary }/>
+												</View>
+											)}
+										</View>
+									) : (
+										<Text className = 'py-2 text-sm text-muted-foreground'>Nessuna partita registrata per questo gioco.</Text>
+									)}
+								</View>
+							</View>
+							{!game.isExpansion && (
+								<View style = {{ width: SCREEN_WIDTH }} onLayout = { handleTabLayout('expansions') }>
+									<View className = 'px-4'>
+										{expansionsQuery.isLoading ? (
+											<View className = 'items-center py-4'>
+												<ActivityIndicator color = { colors.primary }/>
+											</View>
+										) : expansions.length > 0 ? (
+											<View className = 'gap-2'>
+												{expansions.map(expansion => (
+													<GameListItem key = { expansion.bggId } game = { expansion } onPress = { () => router.push(`/game/${expansion.bggId}`) }/>
+												))}
+												{expansionsQuery.isFetchingNextPage && (
+													<View className = 'items-center py-3'>
+														<ActivityIndicator size = 'small' color = { colors.primary }/>
+													</View>
+												)}
+											</View>
+										) : (
+											<Text className = 'py-2 text-sm text-muted-foreground'>Nessuna espansione trovata.</Text>
+										)}
+									</View>
+								</View>
+							)}
 							<View style = {{ width: SCREEN_WIDTH }} onLayout = { handleTabLayout('file') }>
 								<View className = 'px-4 gap-2'>
 									{isLoadingRules ? (
@@ -590,62 +689,6 @@ const GameDetailScreen = () => {
 									)}
 								</View>
 							</View>
-							{!game.isExpansion && (
-								<View style = {{ width: SCREEN_WIDTH }} onLayout = { handleTabLayout('expansions') }>
-									<View className = 'px-4'>
-										{expansionsQuery.isLoading ? (
-											<View className = 'items-center py-4'>
-												<ActivityIndicator color = { colors.primary }/>
-											</View>
-										) : expansions.length > 0 ? (
-											<View className = 'gap-2'>
-												{expansions.map(expansion => (
-													<GameListItem key = { expansion.bggId } game = { expansion } onPress = { () => router.push(`/game/${expansion.bggId}`) }/>
-												))}
-												{expansionsQuery.isFetchingNextPage && (
-													<View className = 'items-center py-3'>
-														<ActivityIndicator size = 'small' color = { colors.primary }/>
-													</View>
-												)}
-											</View>
-										) : (
-											<Text className = 'py-2 text-sm text-muted-foreground'>Nessuna espansione trovata.</Text>
-										)}
-									</View>
-								</View>
-							)}
-								<View style = {{ width: SCREEN_WIDTH }} onLayout = { handleTabLayout('matches') }>
-									<View className = 'px-4'>
-										{(matches.length > 0 || isMatchSortActive) && (
-											<View className = 'mb-3 flex-row'>
-												<Pressable onPress = { () => sortSheetRef.current?.present() } className = { `flex-row items-center gap-1.5 rounded-full px-3 py-1.5 border active:opacity-80 ${isMatchSortActive ? 'bg-primary/15 border-primary/40' : 'bg-secondary/80 border-border/40'}` }>
-													<ArrowUpDown size = { 13 } color = { isMatchSortActive ? colors.primary : colors.mutedForeground }/>
-													<Text className = { `text-xs font-medium ${isMatchSortActive ? 'text-primary' : 'text-muted-foreground'}` }>
-														{matchSortLabel}
-													</Text>
-												</Pressable>
-											</View>
-										)}
-										{matchesQuery.isLoading ? (
-											<View className = 'items-center py-4'>
-												<ActivityIndicator color = { colors.primary }/>
-											</View>
-										) : matches.length > 0 ? (
-											<View className = 'gap-2'>
-												{matches.map(match => (
-													<MatchListItem key = { match.id } match = { match }/>
-												))}
-												{matchesQuery.isFetchingNextPage && (
-													<View className = 'items-center py-3'>
-														<ActivityIndicator size = 'small' color = { colors.primary }/>
-													</View>
-												)}
-											</View>
-										) : (
-											<Text className = 'py-2 text-sm text-muted-foreground'>Nessuna partita registrata per questo gioco.</Text>
-										)}
-									</View>
-								</View>
 						</ScrollView>
 					</View>
 				</View>
@@ -682,6 +725,7 @@ const GameDetailScreen = () => {
 			<RegisterMatchSheet ref = { registerMatchSheetRef }/>
 			<AddToWishlistSheet ref = { addToWishlistSheetRef }/>
 			<SortSheet ref = { sortSheetRef } options = { MATCH_SORT_OPTIONS } selected = { matchSort } onSelect = { setMatchSort }/>
+			<GameImagesViewer images = { images ?? [] } initialIndex = { viewerIndex } onClose = { () => setViewerIndex(null) }/>
 		</View>
 	)
 }

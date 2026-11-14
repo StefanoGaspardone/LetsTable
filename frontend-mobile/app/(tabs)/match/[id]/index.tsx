@@ -594,10 +594,10 @@ const MatchDetailScreen = () => {
 					{selectedTeam && (
 						<>
 							<View className = 'mb-4 flex-row items-center gap-3'>
-								<View style = {{ width: 40, height: 40, borderRadius: 20, backgroundColor: selectedTeam.color }} className = 'items-center justify-center'>
-									<Text className = 'text-base font-bold text-white'>{selectedTeam.name.charAt(0).toUpperCase()}</Text>
+								<Image source = {{ uri: getAvatarUrl(null, selectedTeam.name ?? '') }} style = {{ width: 40, height: 40, borderRadius: 20, backgroundColor: selectedTeam.color }} contentFit = 'cover'/>
+								<View className = 'flex-1 flex-row items-center gap-1.5'>
+									<Text className = 'flex-1 font-display text-lg text-foreground' numberOfLines = { 1 }>{selectedTeam.name}</Text>
 								</View>
-								<Text className = 'font-display text-lg text-foreground'>{selectedTeam.name}</Text>
 							</View>
 							<View className = 'flex-row flex-wrap'>
 								{selectedTeam.members.map(member => (

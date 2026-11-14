@@ -268,3 +268,26 @@ data class CardTypeJson(
     @field:JsonProperty("quantity_note")
     val quantityNote: String? = null,
 )
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class GeekdoImagesResponse(
+    val images: List<GeekdoImageJson> = emptyList(),
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class GeekdoImageJson(
+    val imageid: String? = null,
+    val imageurl: String? = null,
+
+    @field:JsonProperty("imageurl_lg")
+    val imageUrlLarge: String? = null,
+
+    val caption: String? = null,
+    val href: String? = null,
+    val user: GeekdoImageUserJson? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class GeekdoImageUserJson(
+    val username: String? = null,
+)

@@ -1,17 +1,22 @@
 package com.backend.services
 
 import com.backend.clients.BggClient
+import com.backend.exceptions.BggRequestFailedException
 import com.backend.exceptions.GameNotFoundOnBggException
 import com.backend.exceptions.InvalidSortException
 import com.backend.models.dtos.BggThingItemXml
 import com.backend.models.dtos.GameDTO
+import com.backend.models.dtos.GameImageDTO
 import com.backend.models.dtos.GameSleeveDTO
+import com.backend.models.dtos.GeekdoImageJson
 import com.backend.models.dtos.PageDTO
 import com.backend.models.entities.Game
+import com.backend.models.entities.GameImage
 import com.backend.models.entities.GameSleeve
 import com.backend.models.mappers.toPageDTO
 import com.backend.repositories.BggRankIndexRepository
 import com.backend.repositories.CollectionItemRepository
+import com.backend.repositories.GameImageRepository
 import com.backend.repositories.GameRepository
 import com.backend.repositories.GameSleeveRepository
 import com.backend.security.CurrentUser
@@ -36,14 +41,20 @@ class GameService(
     private val gameSleeveRepository: GameSleeveRepository,
     private val hotGamesPersistenceService: HotGamesPersistenceService,
     private val gameSleevePersistenceService: GameSleevePersistenceService,
+    private val gameImagePersistenceService: GameImagePersistenceService,
     private val gameTermService: GameTermService,
     private val bggRankIndexRepository: BggRankIndexRepository,
+    private val gameImageRepository: GameImageRepository,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     companion object {
         private const val STALE_AFTER_DAYS = 7L
+        private const val SLEEVES_STALE_AFTER_DAYS = 30L
+        private const val IMAGES_STALE_AFTER_DAYS = 30L
+        private const val MAX_IMAGES = 24
+        private const val BGG_BASE_URL = "https://boardgamegeek.com"
         private const val MAX_EXPANSIONS_PAGE_SIZE = 50
         private const val MAX_OVERALL_PAGE_SIZE = 50
         private const val UNKNOWN_GAME_NAME = "Sconosciuto"
@@ -61,7 +72,7 @@ class GameService(
             val game = if(existing == null || isStale(existing)) syncFromBgg(bggId, existing) else existing
             val gameId = game.id!!
 
-            if(game.sleevesSyncedAt == null) {
+            if(areSleevesStale(game)) {
                 syncSleeves(game)
             }
 
@@ -233,6 +244,26 @@ class GameService(
         }
     }
 
+    fun getGameImages(bggId: Long): List<GameImageDTO> {
+        logger.debug("\n\t[DEBUG] [game_service][get_game_images] Fetching images for game with bggId {}", bggId)
+
+        try {
+            val game = gameRepository.findByBggId(bggId)
+                .orElseThrow { GameNotFoundOnBggException(bggId) }
+
+            val images = if(areImagesStale(game)) syncImages(game) else gameImageRepository.findAllByGameIdOrderByPositionAsc(game.id!!)
+
+            logger.info("\n\t[INFO] [game_service][get_game_images] Returning {} images for game with bggId {}", images.size, bggId)
+            return images.map { GameImageDTO.from(it) }
+        } catch(e: GameNotFoundOnBggException) {
+            logger.warn("\n\t[WARN] [game_service][get_game_images] Game not found with bggId {}", bggId)
+            throw e
+        } catch(e: Exception) {
+            logger.error("\n\t[ERROR] [game_service][get_game_images] Error fetching images for game with bggId {}: {}", bggId, e.message, e)
+            throw e
+        }
+    }
+
     private fun findBaseGame(baseGameBggId: Long): GameDTO? =
         try {
             getOrSyncGame(baseGameBggId, resolveBaseGame = false)
@@ -301,8 +332,15 @@ class GameService(
     }
 
     private fun syncSleeves(game: Game) {
+        val cardSets = try {
+            bggClient.getCardSetsByGame(game.bggId).cardSets
+        } catch(e: BggRequestFailedException) {
+            logger.warn("\n\t[WARN] [game_service][sync_sleeves] Could not fetch sleeves for game {}, keeping the stored ones: {}", game.bggId, e.message)
+            return
+        }
+
         try {
-            val sleeves = bggClient.getCardSetsByGame(game.bggId).cardSets
+            val sleeves = cardSets
                 .flatMap { it.cardTypes }
                 .map { cardType ->
                     GameSleeve(
@@ -319,9 +357,12 @@ class GameService(
 
             logger.info("\n\t[INFO] [game_service][sync_sleeves] Synced {} card types for game {}", sleeves.size, game.bggId)
         } catch(e: Exception) {
-            logger.warn("\n\t[WARN] [game_service][sync_sleeves] Error syncing sleeves for game {}: {}", game.bggId, e.message)
+            logger.warn("\n\t[WARN] [game_service][sync_sleeves] Error saving sleeves for game {}: {}", game.bggId, e.message)
         }
     }
+
+    private fun areSleevesStale(game: Game): Boolean =
+        game.sleevesSyncedAt?.isBefore(Instant.now().minus(SLEEVES_STALE_AFTER_DAYS, ChronoUnit.DAYS)) ?: true
 
     private fun applyDetails(bggId: Long, existing: Game?, details: BggThingItemXml, terms: GameTerms): Game {
         val game = BggDetails.applyBggDetails(existing ?: Game(bggId = bggId, name = "", lastSyncedAt = Instant.now()), details)
@@ -412,4 +453,49 @@ class GameService(
         }
     }
 
+    private fun syncImages(game: Game): List<GameImage> {
+        val gameId = game.id!!
+
+        val fetched = try {
+            bggClient.getGameImages(game.bggId, MAX_IMAGES).images
+        } catch(e: BggRequestFailedException) {
+            logger.warn("\n\t[WARN] [game_service][sync_images] Could not fetch images for game {}, keeping the stored ones: {}", game.bggId, e.message)
+            return gameImageRepository.findAllByGameIdOrderByPositionAsc(gameId)
+        }
+
+        val images = fetched
+            .mapNotNull { toGameImage(game, it) }
+            .distinctBy { it.bggImageId }
+            .mapIndexed { index, image -> image.apply { position = index } }
+
+        return try {
+            val saved = gameImagePersistenceService.replaceImages(game, images)
+
+            logger.info("\n\t[INFO] [game_service][sync_images] Synced {} images for game {}", saved.size, game.bggId)
+            saved
+        } catch(e: DataIntegrityViolationException) {
+            logger.warn("\n\t[WARN] [game_service][sync_images] Concurrent image sync for game {}, reloading: {}", game.bggId, e.message)
+            gameImageRepository.findAllByGameIdOrderByPositionAsc(gameId)
+        }
+    }
+
+    private fun toGameImage(game: Game, image: GeekdoImageJson): GameImage? {
+        val bggImageId = image.imageid?.toLongOrNull() ?: return null
+        val thumbnailUrl = image.imageurl?.takeIf { it.isNotBlank() } ?: return null
+        val imageUrl = image.imageUrlLarge?.takeIf { it.isNotBlank() } ?: thumbnailUrl
+
+        return GameImage(
+            game = game,
+            bggImageId = bggImageId,
+            thumbnailUrl = thumbnailUrl,
+            imageUrl = imageUrl,
+            caption = image.caption?.trim()?.takeIf { it.isNotEmpty() },
+            author = image.user?.username?.takeIf { it.isNotBlank() },
+            pageUrl = image.href?.let { if(it.startsWith("http")) it else "$BGG_BASE_URL$it" },
+            position = 0,
+        )
+    }
+
+    private fun areImagesStale(game: Game): Boolean =
+        game.imagesSyncedAt?.isBefore(Instant.now().minus(IMAGES_STALE_AFTER_DAYS, ChronoUnit.DAYS)) ?: true
 }

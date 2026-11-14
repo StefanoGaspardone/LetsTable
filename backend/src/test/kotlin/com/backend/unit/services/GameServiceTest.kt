@@ -1,6 +1,7 @@
 package com.backend.unit.services
 
 import com.backend.clients.BggClient
+import com.backend.exceptions.BggRequestFailedException
 import com.backend.exceptions.GameNotFoundOnBggException
 import com.backend.exceptions.InvalidSortException
 import com.backend.models.dtos.*
@@ -8,13 +9,16 @@ import com.backend.models.entities.BggRankIndex
 import com.backend.models.entities.Category
 import com.backend.models.entities.ExpansionRef
 import com.backend.models.entities.Game
+import com.backend.models.entities.GameImage
 import com.backend.models.entities.GameSleeve
 import com.backend.models.entities.Mechanic
 import com.backend.repositories.BggRankIndexRepository
 import com.backend.repositories.CollectionItemRepository
+import com.backend.repositories.GameImageRepository
 import com.backend.repositories.GameRepository
 import com.backend.repositories.GameSleeveRepository
 import com.backend.security.CurrentUser
+import com.backend.services.GameImagePersistenceService
 import com.backend.services.GameService
 import com.backend.services.GameSleevePersistenceService
 import com.backend.services.GameTermService
@@ -62,10 +66,16 @@ class GameServiceTest {
     private lateinit var gameSleevePersistenceService: GameSleevePersistenceService
 
     @MockK
+    private lateinit var gameImagePersistenceService: GameImagePersistenceService
+
+    @MockK
     private lateinit var gameTermService: GameTermService
 
     @MockK
     private lateinit var bggRankIndexRepository: BggRankIndexRepository
+
+    @MockK
+    private lateinit var gameImageRepository: GameImageRepository
 
     private lateinit var gameService: GameService
 
@@ -82,8 +92,10 @@ class GameServiceTest {
             gameSleeveRepository,
             hotGamesPersistenceService,
             gameSleevePersistenceService,
+            gameImagePersistenceService,
             gameTermService,
             bggRankIndexRepository,
+            gameImageRepository,
         )
 
         mockkObject(CurrentUser)
@@ -104,6 +116,7 @@ class GameServiceTest {
         name: String = "Catan",
         syncedAt: Instant = Instant.now(),
         sleevesSyncedAt: Instant? = Instant.now(),
+        imagesSyncedAt: Instant? = Instant.now(),
         isExpansion: Boolean? = false,
         baseGameBggId: Long? = null,
         yearPublished: Int? = null,
@@ -115,6 +128,7 @@ class GameServiceTest {
         name = name,
         lastSyncedAt = syncedAt,
         sleevesSyncedAt = sleevesSyncedAt,
+        imagesSyncedAt = imagesSyncedAt,
         isExpansion = isExpansion,
         baseGameBggId = baseGameBggId,
         yearPublished = yearPublished,
@@ -123,6 +137,8 @@ class GameServiceTest {
     )
 
     private fun staleTime(): Instant = Instant.now().minus(10, ChronoUnit.DAYS)
+
+    private fun monthOldTime(): Instant = Instant.now().minus(31, ChronoUnit.DAYS)
 
     private fun thing(
         id: Long = bggId,
@@ -176,7 +192,7 @@ class GameServiceTest {
         }
 
         @Test
-        fun `should sync the sleeves once when they were never synced`() {
+        fun `should sync the sleeves when they were never synced`() {
             val existing = game(sleevesSyncedAt = null)
             val sleeves = slot<List<GameSleeve>>()
             every { gameRepository.findByBggId(bggId) } returns Optional.of(existing)
@@ -207,13 +223,59 @@ class GameServiceTest {
         }
 
         @Test
-        fun `should still return the game when the sleeve sync fails`() {
+        fun `should still return the game when BGG cannot give the sleeves`() {
             every { gameRepository.findByBggId(bggId) } returns Optional.of(game(sleevesSyncedAt = null))
-            every { bggClient.getCardSetsByGame(bggId) } throws RuntimeException("BGG Sleeve API Error")
+            every { bggClient.getCardSetsByGame(bggId) } throws BggRequestFailedException(RuntimeException("BGG Sleeve API Error"))
             stubDetailLookups()
 
             assertThat(gameService.getOrSyncGame(bggId).name).isEqualTo("Catan")
             verify(exactly = 0) { gameSleevePersistenceService.replaceSleeves(any(), any(), any()) }
+        }
+
+        @Test
+        fun `should keep the stored sleeves when BGG fails during a refresh`() {
+            val existing = game(sleevesSyncedAt = monthOldTime())
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(existing)
+            every { bggClient.getCardSetsByGame(bggId) } throws BggRequestFailedException(RuntimeException("BGG down"))
+            every { gameSleeveRepository.findAllByGameId(gameId) } returns listOf(GameSleeve(id = UUID.randomUUID(), game = existing, name = "Standard", height = 88.0, width = 63.5, quantity = 110))
+            every { collectionItemRepository.existsByUserIdAndGameId(userId, gameId) } returns false
+
+            val result = gameService.getOrSyncGame(bggId)
+
+            assertThat(result.sleeves.map { it.name }).containsExactly("Standard")
+            verify(exactly = 0) { gameSleevePersistenceService.replaceSleeves(any(), any(), any()) }
+        }
+
+        @Test
+        fun `should still return the game when saving the sleeves fails`() {
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(game(sleevesSyncedAt = null))
+            every { bggClient.getCardSetsByGame(bggId) } returns CardSetsByGameResponse(listOf(CardSetJson(listOf(CardTypeJson(name = "Standard")))))
+            every { gameSleevePersistenceService.replaceSleeves(any(), any(), any()) } throws RuntimeException("DB error")
+            stubDetailLookups()
+
+            assertThat(gameService.getOrSyncGame(bggId).name).isEqualTo("Catan")
+        }
+
+        @Test
+        fun `should re-sync sleeves synced more than thirty days ago`() {
+            val existing = game(sleevesSyncedAt = monthOldTime())
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(existing)
+            every { bggClient.getCardSetsByGame(bggId) } returns CardSetsByGameResponse()
+            stubDetailLookups()
+
+            gameService.getOrSyncGame(bggId)
+
+            verify(exactly = 1) { gameSleevePersistenceService.replaceSleeves(gameId, existing, emptyList()) }
+        }
+
+        @Test
+        fun `should not re-sync sleeves synced less than thirty days ago`() {
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(game(sleevesSyncedAt = Instant.now().minus(29, ChronoUnit.DAYS)))
+            stubDetailLookups()
+
+            gameService.getOrSyncGame(bggId)
+
+            verify(exactly = 0) { bggClient.getCardSetsByGame(any()) }
         }
 
         @Test
@@ -973,10 +1035,222 @@ class GameServiceTest {
         }
 
         @Test
+        fun `should keep the stored sleeves when BGG fails`() {
+            val fresh = game()
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(fresh)
+            every { bggClient.getGameDetails(bggId) } returns BggThingResponseXml(listOf(thing()))
+            stubSaveReturnsArgument()
+            every { bggClient.getCardSetsByGame(bggId) } throws BggRequestFailedException(RuntimeException("BGG down"))
+            every { gameSleeveRepository.findAllByGameId(gameId) } returns listOf(GameSleeve(id = UUID.randomUUID(), game = fresh, name = "Standard"))
+
+            val result = gameService.forceRefreshGame(bggId)
+
+            assertThat(result.sleeves.map { it.name }).containsExactly("Standard")
+            verify(exactly = 0) { gameSleevePersistenceService.replaceSleeves(any(), any(), any()) }
+        }
+
+        @Test
         fun `should rethrow unexpected errors`() {
             every { gameRepository.findByBggId(bggId) } throws RuntimeException("DB outage")
 
             assertThatThrownBy { gameService.forceRefreshGame(bggId) }
+                .isInstanceOf(RuntimeException::class.java)
+                .hasMessage("DB outage")
+        }
+    }
+
+    @Nested
+    @DisplayName("getGameImages")
+    inner class GetGameImages {
+
+        private val replaced = slot<List<GameImage>>()
+
+        private fun storedImage(game: Game, bggImageId: Long, position: Int) = GameImage(
+            id = UUID.randomUUID(),
+            game = game,
+            bggImageId = bggImageId,
+            thumbnailUrl = "https://cf.geekdo-images.com/$bggImageId-thumb.jpg",
+            imageUrl = "https://cf.geekdo-images.com/$bggImageId-large.jpg",
+            position = position,
+        )
+
+        private fun geekdoImage(
+            id: String? = "100",
+            thumb: String? = "https://cf.geekdo-images.com/thumb.jpg",
+            large: String? = "https://cf.geekdo-images.com/large.jpg",
+            caption: String? = null,
+            href: String? = null,
+            username: String? = null,
+        ) = GeekdoImageJson(
+            imageid = id,
+            imageurl = thumb,
+            imageUrlLarge = large,
+            caption = caption,
+            href = href,
+            user = username?.let { GeekdoImageUserJson(it) },
+        )
+
+        private fun stubReplaceAssignsIds() {
+            every { gameImagePersistenceService.replaceImages(any(), capture(replaced)) } answers {
+                secondArg<List<GameImage>>().onEach { it.id = UUID.randomUUID() }
+            }
+        }
+
+        @Test
+        fun `should throw GameNotFoundOnBggException when the game is not in the database`() {
+            every { gameRepository.findByBggId(bggId) } returns Optional.empty()
+
+            assertThatThrownBy { gameService.getGameImages(bggId) }
+                .isInstanceOf(GameNotFoundOnBggException::class.java)
+
+            verify(exactly = 0) { bggClient.getGameImages(any(), any()) }
+        }
+
+        @Test
+        fun `should return the stored images without calling BGG when they are recent`() {
+            val existing = game(imagesSyncedAt = Instant.now().minus(29, ChronoUnit.DAYS))
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(existing)
+            every { gameImageRepository.findAllByGameIdOrderByPositionAsc(gameId) } returns listOf(storedImage(existing, 1L, 0), storedImage(existing, 2L, 1))
+
+            val result = gameService.getGameImages(bggId)
+
+            assertThat(result.map { it.thumbnailUrl }).containsExactly("https://cf.geekdo-images.com/1-thumb.jpg", "https://cf.geekdo-images.com/2-thumb.jpg")
+            verify(exactly = 0) { bggClient.getGameImages(any(), any()) }
+        }
+
+        @Test
+        fun `should download the images when they were never synced`() {
+            val existing = game(imagesSyncedAt = null)
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(existing)
+            every { bggClient.getGameImages(bggId, 24) } returns GeekdoImagesResponse(
+                listOf(geekdoImage(id = "100", caption = "  Setup  ", href = "/image/100/catan", username = "boardgamer"))
+            )
+            stubReplaceAssignsIds()
+
+            val result = gameService.getGameImages(bggId)
+
+            val image = replaced.captured.single()
+            assertThat(image.bggImageId).isEqualTo(100L)
+            assertThat(image.thumbnailUrl).isEqualTo("https://cf.geekdo-images.com/thumb.jpg")
+            assertThat(image.imageUrl).isEqualTo("https://cf.geekdo-images.com/large.jpg")
+            assertThat(image.caption).isEqualTo("Setup")
+            assertThat(image.author).isEqualTo("boardgamer")
+            assertThat(image.pageUrl).isEqualTo("https://boardgamegeek.com/image/100/catan")
+            assertThat(result.single().author).isEqualTo("boardgamer")
+        }
+
+        @Test
+        fun `should download the images again after thirty days`() {
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(game(imagesSyncedAt = monthOldTime()))
+            every { bggClient.getGameImages(bggId, 24) } returns GeekdoImagesResponse()
+            stubReplaceAssignsIds()
+
+            gameService.getGameImages(bggId)
+
+            verify(exactly = 1) { bggClient.getGameImages(bggId, 24) }
+        }
+
+        @Test
+        fun `should skip invalid images, remove duplicates and number the positions`() {
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(game(imagesSyncedAt = null))
+            every { bggClient.getGameImages(bggId, 24) } returns GeekdoImagesResponse(
+                listOf(
+                    geekdoImage(id = "1"),
+                    geekdoImage(id = "not-a-number"),
+                    geekdoImage(id = null),
+                    geekdoImage(id = "2", thumb = "   "),
+                    geekdoImage(id = "1"),
+                    geekdoImage(id = "3"),
+                )
+            )
+            stubReplaceAssignsIds()
+
+            gameService.getGameImages(bggId)
+
+            assertThat(replaced.captured.map { it.bggImageId }).containsExactly(1L, 3L)
+            assertThat(replaced.captured.map { it.position }).containsExactly(0, 1)
+        }
+
+        @Test
+        fun `should use the thumbnail as large image when the large one is missing`() {
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(game(imagesSyncedAt = null))
+            every { bggClient.getGameImages(bggId, 24) } returns GeekdoImagesResponse(listOf(geekdoImage(large = null)))
+            stubReplaceAssignsIds()
+
+            gameService.getGameImages(bggId)
+
+            assertThat(replaced.captured.single().imageUrl).isEqualTo("https://cf.geekdo-images.com/thumb.jpg")
+        }
+
+        @Test
+        fun `should keep absolute links and drop blank captions and authors`() {
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(game(imagesSyncedAt = null))
+            every { bggClient.getGameImages(bggId, 24) } returns GeekdoImagesResponse(
+                listOf(geekdoImage(caption = "   ", href = "https://boardgamegeek.com/image/100", username = " "))
+            )
+            stubReplaceAssignsIds()
+
+            gameService.getGameImages(bggId)
+
+            val image = replaced.captured.single()
+            assertThat(image.pageUrl).isEqualTo("https://boardgamegeek.com/image/100")
+            assertThat(image.caption).isNull()
+            assertThat(image.author).isNull()
+        }
+
+        @Test
+        fun `should save an empty gallery so it is not asked again for a month`() {
+            val existing = game(imagesSyncedAt = null)
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(existing)
+            every { bggClient.getGameImages(bggId, 24) } returns GeekdoImagesResponse()
+            stubReplaceAssignsIds()
+
+            assertThat(gameService.getGameImages(bggId)).isEmpty()
+            verify(exactly = 1) { gameImagePersistenceService.replaceImages(existing, emptyList()) }
+        }
+
+        @Test
+        fun `should return the stored images and not mark them as synced when BGG fails`() {
+            val existing = game(imagesSyncedAt = monthOldTime())
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(existing)
+            every { bggClient.getGameImages(bggId, 24) } throws BggRequestFailedException(RuntimeException("geekdo down"))
+            every { gameImageRepository.findAllByGameIdOrderByPositionAsc(gameId) } returns listOf(storedImage(existing, 1L, 0))
+
+            val result = gameService.getGameImages(bggId)
+
+            assertThat(result).hasSize(1)
+            verify(exactly = 0) { gameImagePersistenceService.replaceImages(any(), any()) }
+        }
+
+        @Test
+        fun `should reload the images saved by a concurrent sync`() {
+            val existing = game(imagesSyncedAt = null)
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(existing)
+            every { bggClient.getGameImages(bggId, 24) } returns GeekdoImagesResponse(listOf(geekdoImage()))
+            every { gameImagePersistenceService.replaceImages(any(), any()) } throws DataIntegrityViolationException("duplicate key")
+            every { gameImageRepository.findAllByGameIdOrderByPositionAsc(gameId) } returns listOf(storedImage(existing, 100L, 0))
+
+            val result = gameService.getGameImages(bggId)
+
+            assertThat(result.single().thumbnailUrl).isEqualTo("https://cf.geekdo-images.com/100-thumb.jpg")
+        }
+
+        @Test
+        fun `should rethrow other persistence errors`() {
+            every { gameRepository.findByBggId(bggId) } returns Optional.of(game(imagesSyncedAt = null))
+            every { bggClient.getGameImages(bggId, 24) } returns GeekdoImagesResponse(listOf(geekdoImage()))
+            every { gameImagePersistenceService.replaceImages(any(), any()) } throws RuntimeException("DB failure")
+
+            assertThatThrownBy { gameService.getGameImages(bggId) }
+                .isInstanceOf(RuntimeException::class.java)
+                .hasMessage("DB failure")
+        }
+
+        @Test
+        fun `should rethrow unexpected errors`() {
+            every { gameRepository.findByBggId(bggId) } throws RuntimeException("DB outage")
+
+            assertThatThrownBy { gameService.getGameImages(bggId) }
                 .isInstanceOf(RuntimeException::class.java)
                 .hasMessage("DB outage")
         }

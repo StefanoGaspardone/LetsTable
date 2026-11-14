@@ -2,7 +2,7 @@ import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClie
 
 import { addToCollection, getGameStatusInCollection, removeFromCollection } from '@/api/collection';
 import { addItemToWishlist, getItemStatusInWishlist, removeItemFromWishlist } from '@/api/wishlist';
-import { browseGames, BrowseGamesParams, getGameByBggId, getGameCategories, getGameExpansions, getGameMechanics, getHotGames, getOverallGames, searchGame } from '@/api/game';
+import { browseGames, BrowseGamesParams, getGameByBggId, getGameCategories, getGameExpansions, getGameImages, getGameMechanics, getHotGames, getOverallGames, searchGame } from '@/api/game';
 import { listGameRules } from '@/api/game-rules';
 
 import { defaultWishlistQuery, useDefaultWishlistId } from '@/hooks/use-wishlist';
@@ -156,5 +156,14 @@ export const useGameCategories = (enabled = true) => {
 		queryFn: getGameCategories,
 		enabled,
 		staleTime: TERMS_STALE_TIME_MS,
+	});
+}
+
+export const useGameImages = (bggId: number, enabled: boolean) => {
+	return useQuery({
+		queryKey: ['games', 'images', bggId],
+		queryFn: () => getGameImages(bggId),
+		enabled: enabled && Number.isFinite(bggId),
+		staleTime: 1000 * 60 * 60,
 	});
 }

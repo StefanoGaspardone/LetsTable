@@ -41,3 +41,12 @@ export interface GameTerm {
 	bggId: number;
 	name: string;
 }
+
+export interface GameImage {
+	id: string;
+	thumbnailUrl: string;
+	imageUrl: string;
+	caption: string | null;
+	author: string | null;
+	pageUrl: string | null;
+}

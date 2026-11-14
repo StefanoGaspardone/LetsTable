@@ -2,6 +2,7 @@ package com.backend.models.dtos
 
 import com.backend.models.entities.Category
 import com.backend.models.entities.Game
+import com.backend.models.entities.GameImage
 import com.backend.models.entities.GameSleeve
 import com.backend.models.entities.Mechanic
 import com.backend.models.projections.GameMatchStatsProjection
@@ -245,5 +246,37 @@ data class GameTermDTO(
 
         fun from(category: Category) =
             GameTermDTO(category.id!!, category.bggId, category.nameIt ?: category.name)
+    }
+}
+
+@Schema(description = "Image of a game taken from the BoardGameGeek gallery")
+data class GameImageDTO(
+    @field:Schema(description = "Image id", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
+    val id: UUID,
+
+    @field:Schema(description = "Small image to show in lists", example = "https://cf.geekdo-images.com/abc__thumb/img/xyz.jpg")
+    val thumbnailUrl: String,
+
+    @field:Schema(description = "Large image to show full screen", example = "https://cf.geekdo-images.com/abc__imagepage/img/xyz.jpg")
+    val imageUrl: String,
+
+    @field:Schema(description = "Caption written by the author", example = "Components after setup", nullable = true)
+    val caption: String?,
+
+    @field:Schema(description = "BoardGameGeek username of the author", example = "boardgamer42", nullable = true)
+    val author: String?,
+
+    @field:Schema(description = "Page of the image on BoardGameGeek", example = "https://boardgamegeek.com/image/123456/catan", nullable = true)
+    val pageUrl: String?,
+) {
+    companion object {
+        fun from(image: GameImage) = GameImageDTO(
+            id = image.id!!,
+            thumbnailUrl = image.thumbnailUrl,
+            imageUrl = image.imageUrl,
+            caption = image.caption,
+            author = image.author,
+            pageUrl = image.pageUrl,
+        )
     }
 }
